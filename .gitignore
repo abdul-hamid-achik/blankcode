@@ -67,3 +67,6 @@ bun.lockb
 
 # Knip
 knip-report.json
+
+# Vecgrep
+.vecgrep/
