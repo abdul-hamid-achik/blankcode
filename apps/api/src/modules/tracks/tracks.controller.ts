@@ -1,6 +1,7 @@
+import type { TrackSlug } from '@blankcode/shared'
 import { Controller, Get, Param } from '@nestjs/common'
-import { TracksService } from './tracks.service.js'
 import { Public } from '../../common/decorators/index.js'
+import type { TracksService } from './tracks.service.js'
 
 @Controller('tracks')
 export class TracksController {
@@ -14,7 +15,7 @@ export class TracksController {
 
   @Public()
   @Get(':slug')
-  async findBySlug(@Param('slug') slug: string) {
+  async findBySlug(@Param('slug') slug: TrackSlug) {
     return { data: await this.tracksService.findBySlug(slug) }
   }
 }

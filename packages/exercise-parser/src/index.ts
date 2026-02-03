@@ -1,6 +1,6 @@
-import matter from 'gray-matter'
 import type { BlankRegion, ExerciseFrontmatter, ParsedExercise } from '@blankcode/shared'
 import { exerciseFrontmatterSchema } from '@blankcode/shared'
+import matter from 'gray-matter'
 
 const BLANK_START_MARKER = '___blank_start___'
 const BLANK_END_MARKER = '___blank_end___'
@@ -22,10 +22,7 @@ export interface ParseError {
 
 export type ParseExerciseResult = ParseResult | ParseError
 
-export function parseExercise(
-  markdown: string,
-  options: ParseOptions = {}
-): ParseExerciseResult {
+export function parseExercise(markdown: string, options: ParseOptions = {}): ParseExerciseResult {
   const { validateFrontmatter = true, generateIds = true } = options
 
   try {
@@ -40,7 +37,7 @@ export function parseExercise(
           errors: result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`),
         }
       }
-      frontmatter = result.data
+      frontmatter = result.data as ExerciseFrontmatter
     } else {
       frontmatter = data as ExerciseFrontmatter
     }
@@ -204,8 +201,7 @@ export function generateStarterCode(code: string, blanks: BlankRegion[]): string
         endLineContent.slice(blank.endColumn)
       lines[blank.startLine] = newLine
     } else {
-      const newStartLine =
-        startLineContent.slice(0, blank.startColumn) + blank.placeholder
+      const newStartLine = startLineContent.slice(0, blank.startColumn) + blank.placeholder
       lines[blank.startLine] = newStartLine
 
       for (let i = blank.startLine + 1; i <= blank.endLine; i++) {
@@ -217,12 +213,14 @@ export function generateStarterCode(code: string, blanks: BlankRegion[]): string
       }
     }
 
-    result = lines.filter((line, index) => {
-      if (index > blank.startLine && index <= blank.endLine) {
-        return line !== ''
-      }
-      return true
-    }).join('\n')
+    result = lines
+      .filter((line, index) => {
+        if (index > blank.startLine && index <= blank.endLine) {
+          return line !== ''
+        }
+        return true
+      })
+      .join('\n')
   }
 
   return result

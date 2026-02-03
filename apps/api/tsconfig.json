@@ -3,13 +3,15 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
+    "baseUrl": ".",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "target": "ES2024",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "strictPropertyInitialization": false,
-    "noImplicitAny": true
+    "noImplicitAny": true,
+    "paths": {}
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

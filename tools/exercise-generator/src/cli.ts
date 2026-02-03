@@ -44,7 +44,7 @@ async function main() {
       track: track!,
       concept: concept!,
       difficulty: difficulty as 'beginner' | 'intermediate' | 'advanced' | 'expert',
-      topic,
+      ...(topic !== undefined && { topic }),
     })
 
     console.log('\n--- Generated Exercise ---\n')

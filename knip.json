@@ -2,8 +2,7 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "workspaces": {
     ".": {
-      "entry": ["turbo.json"],
-      "project": ["*.{js,ts}"]
+      "entry": ["turbo.json"]
     },
     "apps/api": {
       "entry": ["src/main.ts"],
@@ -18,14 +17,31 @@
       "project": ["src/**/*.ts"]
     },
     "tools/*": {
-      "entry": ["src/index.ts", "src/cli.ts"],
+      "entry": ["src/cli.ts"],
       "project": ["src/**/*.ts"]
     }
   },
   "ignoreDependencies": [
     "@types/*",
     "turbo",
-    "lefthook"
+    "lefthook",
+    "ioredis",
+    "@vueuse/core",
+    "radix-vue",
+    "drizzle-orm",
+    "zod",
+    "@blankcode/shared",
+    "autoprefixer",
+    "tailwindcss",
+    "msw",
+    "@vitest/coverage-v8"
   ],
-  "ignoreWorkspaces": ["content"]
+  "ignoreWorkspaces": ["content"],
+  "ignore": [
+    "apps/api/src/common/guards/**",
+    "apps/web/src/components/editor/blank-region.vue",
+    "apps/web/src/components/layout/app-sidebar.vue",
+    "apps/web/src/components/ui/modal.vue"
+  ],
+  "ignoreExportsUsedInFile": true
 }

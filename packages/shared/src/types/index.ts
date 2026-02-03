@@ -78,8 +78,8 @@ export interface ExerciseFrontmatter {
   title: string
   description: string
   difficulty: Difficulty
-  hints?: string[]
-  tags?: string[]
+  hints?: string[] | undefined
+  tags?: string[] | undefined
 }
 
 export interface Submission {

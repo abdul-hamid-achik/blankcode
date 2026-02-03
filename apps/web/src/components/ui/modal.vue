@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { watch } from 'vue'
 import {
-  DialogRoot,
-  DialogTrigger,
-  DialogPortal,
-  DialogOverlay,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
   DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogOverlay,
+  DialogPortal,
+  DialogRoot,
+  DialogTitle,
+  DialogTrigger,
 } from 'radix-vue'
+import { watch } from 'vue'
 
 interface Props {
   open?: boolean
@@ -33,7 +33,7 @@ function handleOpenChange(value: boolean) {
 </script>
 
 <template>
-  <DialogRoot :open="open" @update:open="handleOpenChange">
+  <DialogRoot :open="open ?? false" @update:open="handleOpenChange">
     <DialogTrigger as-child>
       <slot name="trigger" />
     </DialogTrigger>

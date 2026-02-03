@@ -1,10 +1,5 @@
-import {
-  ExceptionFilter,
-  Catch,
-  ArgumentsHost,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common'
+import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common'
+import { Catch, HttpException, HttpStatus } from '@nestjs/common'
 import type { FastifyReply } from 'fastify'
 import { ZodError } from 'zod'
 
@@ -24,8 +19,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       message =
         typeof exceptionResponse === 'string'
           ? exceptionResponse
-          : (exceptionResponse as Record<string, unknown>)['message']?.toString() ??
-            exception.message
+          : ((exceptionResponse as Record<string, unknown>)['message']?.toString() ??
+            exception.message)
     } else if (exception instanceof ZodError) {
       status = HttpStatus.BAD_REQUEST
       message = 'Validation error'

@@ -1,14 +1,13 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.0.0/schema.json",
-  "organizeImports": {
-    "enabled": true
-  },
+  "$schema": "https://biomejs.dev/schemas/2.3.13/schema.json",
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
       "complexity": {
-        "noExcessiveCognitiveComplexity": "warn"
+        "noExcessiveCognitiveComplexity": "warn",
+        "useLiteralKeys": "off"
       },
       "correctness": {
         "noUnusedImports": "error",
@@ -59,17 +58,18 @@
     "useIgnoreFile": true
   },
   "files": {
-    "ignore": [
-      "node_modules",
-      "dist",
-      ".turbo",
-      "coverage",
-      "playwright-report",
-      "test-results",
-      ".next",
-      ".nuxt",
-      "*.min.js",
-      "*.min.css"
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/.turbo",
+      "!**/coverage",
+      "!**/playwright-report",
+      "!**/test-results",
+      "!**/.next",
+      "!**/.nuxt",
+      "!**/*.min.js",
+      "!**/*.min.css"
     ]
   }
 }

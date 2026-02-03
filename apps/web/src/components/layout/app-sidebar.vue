@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { Concept } from '@blankcode/shared'
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import type { Concept } from '@blankcode/shared'
 
 interface Props {
   concepts: Concept[]
@@ -11,7 +11,7 @@ interface Props {
 const props = defineProps<Props>()
 const route = useRoute()
 
-const currentConceptSlug = computed(() => route.params.conceptSlug as string | undefined)
+const currentConceptSlug = computed(() => route.params['conceptSlug'] as string | undefined)
 </script>
 
 <template>

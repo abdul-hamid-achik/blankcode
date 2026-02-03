@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue'
-import { useRoute, RouterLink } from 'vue-router'
-import { useAsync } from '@/composables/use-async'
+import { computed, onMounted } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import { api } from '@/api'
 import Card from '@/components/ui/card.vue'
+import { useAsync } from '@/composables/use-async'
 
 const route = useRoute()
-const trackSlug = computed(() => route.params.trackSlug as string)
-const conceptSlug = computed(() => route.params.conceptSlug as string)
+const trackSlug = computed(() => route.params['trackSlug'] as string)
+const conceptSlug = computed(() => route.params['conceptSlug'] as string)
 
-const { data: exercises, isLoading, execute } = useAsync(() =>
-  api.exercises.getByConcept(trackSlug.value, conceptSlug.value)
-)
+const {
+  data: exercises,
+  isLoading,
+  execute,
+} = useAsync(() => api.exercises.getByConcept(trackSlug.value, conceptSlug.value))
 
 onMounted(() => {
   execute()

@@ -1,7 +1,8 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common'
-import { eq, asc } from 'drizzle-orm'
-import { DRIZZLE, type Database } from '../../database/drizzle.provider.js'
-import { tracks, concepts } from '@blankcode/db/schema'
+import { concepts, tracks } from '@blankcode/db/schema'
+import type { TrackSlug } from '@blankcode/shared'
+import { Inject, Injectable, NotFoundException } from '@nestjs/common'
+import { asc, eq } from 'drizzle-orm'
+import { type Database, DRIZZLE } from '../../database/drizzle.provider.js'
 
 @Injectable()
 export class TracksService {
@@ -14,7 +15,7 @@ export class TracksService {
     })
   }
 
-  async findBySlug(slug: string) {
+  async findBySlug(slug: TrackSlug) {
     const track = await this.db.query.tracks.findFirst({
       where: eq(tracks.slug, slug),
       with: {

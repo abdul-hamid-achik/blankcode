@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { useExerciseStore } from '@/stores/exercise'
-import { useKeyboard } from '@/composables/use-keyboard'
 import CodeEditor from '@/components/editor/code-editor.vue'
 import TestResults from '@/components/editor/test-results.vue'
 import Button from '@/components/ui/button.vue'
 import Card from '@/components/ui/card.vue'
+import { useKeyboard } from '@/composables/use-keyboard'
+import { useExerciseStore } from '@/stores/exercise'
 
 const route = useRoute()
 const exerciseStore = useExerciseStore()
 
-const exerciseId = computed(() => route.params.exerciseId as string)
+const exerciseId = computed(() => route.params['exerciseId'] as string)
 
 onMounted(() => {
   exerciseStore.loadExercise(exerciseId.value)

@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Test, type TestingModule } from '@nestjs/testing'
+import type { TrackSlug } from '@blankcode/shared'
 import { NotFoundException } from '@nestjs/common'
-import { TracksService } from '../modules/tracks/tracks.service.js'
+import { Test, type TestingModule } from '@nestjs/testing'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DRIZZLE } from '../database/drizzle.provider.js'
+import { TracksService } from '../modules/tracks/tracks.service.js'
 
 describe('TracksService', () => {
   let service: TracksService
@@ -95,7 +96,7 @@ describe('TracksService', () => {
     it('throws NotFoundException for invalid slug', async () => {
       mockDb.query.tracks.findFirst.mockResolvedValue(null)
 
-      await expect(service.findBySlug('nonexistent')).rejects.toThrow(
+      await expect(service.findBySlug('nonexistent' as TrackSlug)).rejects.toThrow(
         NotFoundException
       )
     })
@@ -113,9 +114,7 @@ describe('TracksService', () => {
     it('throws NotFoundException for invalid id', async () => {
       mockDb.query.tracks.findFirst.mockResolvedValue(null)
 
-      await expect(service.findById('nonexistent')).rejects.toThrow(
-        NotFoundException
-      )
+      await expect(service.findById('nonexistent')).rejects.toThrow(NotFoundException)
     })
   })
 })
