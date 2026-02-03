@@ -14,7 +14,28 @@ BlankCode is a monorepo coding exercise platform built with:
 
 ## Critical Rules
 
-### 1. Always Verify Your Work with Tests
+### 1. Plan Before You Code
+
+**Before writing any code, describe your approach and wait for approval.** Always ask clarifying questions if requirements are ambiguous. Don't assume - ask.
+
+Questions to consider:
+- What exactly should this feature do?
+- What are the edge cases?
+- How should errors be handled?
+- What existing code will this interact with?
+
+### 2. Keep Changes Small and Focused
+
+**If a task requires changes to more than 3 files, stop and break it into smaller tasks first.**
+
+Large changes are:
+- Harder to review
+- More likely to introduce bugs
+- Difficult to roll back
+
+Break work into logical, independently testable chunks.
+
+### 3. Always Verify Your Work with Tests
 
 **This is non-negotiable.** Before considering any task complete:
 
@@ -31,7 +52,7 @@ bun run lint
 
 All three commands must pass before committing changes.
 
-### 2. Write Tests for New Code
+### 4. Write Tests for New Code
 
 When adding new functionality:
 
@@ -39,6 +60,8 @@ When adding new functionality:
 - **Vue components**: Add tests in `apps/web/src/__tests__/components/`
 - **Pinia stores**: Add tests in `apps/web/src/__tests__/stores/`
 - **Utilities**: Add tests alongside the utility file or in `__tests__/`
+
+**After writing code, list what could break and suggest tests to cover it.**
 
 Example test structure:
 
@@ -65,7 +88,19 @@ describe('MyService', () => {
 })
 ```
 
-### 3. Run Tests Before Committing
+### 5. Fix Bugs with Test-Driven Development
+
+**When there's a bug, start by writing a test that reproduces it, then fix it until the test passes.**
+
+1. Write a failing test that demonstrates the bug
+2. Verify the test fails for the right reason
+3. Fix the code
+4. Verify the test passes
+5. Run all tests to ensure no regressions
+
+This ensures the bug is truly fixed and won't reappear.
+
+### 6. Run Tests Before Committing
 
 The repository has pre-commit and pre-push hooks via Lefthook:
 
@@ -73,6 +108,12 @@ The repository has pre-commit and pre-push hooks via Lefthook:
 - **Pre-push**: Runs all tests
 
 If hooks fail, fix the issues before forcing a commit.
+
+### 7. Learn and Document Mistakes
+
+**Every time you are corrected, add a new rule to this AGENTS.md file so the mistake never happens again** (unless a similar rule already exists).
+
+This file is a living document. When you learn something new about this codebase - a gotcha, a pattern, a requirement - add it here.
 
 ## Project Structure
 
@@ -322,12 +363,19 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ## Pre-Flight Checklist
 
-Before marking any task as complete, verify:
+Before starting work:
+
+- [ ] Requirements are clear (asked clarifying questions if needed)
+- [ ] Approach was described and approved
+- [ ] Task touches 3 or fewer files (or was broken into smaller tasks)
+
+Before marking any task as complete:
 
 - [ ] Code compiles without errors: `bun run typecheck`
 - [ ] Linting passes: `bun run lint`
 - [ ] All tests pass: `bun run test`
 - [ ] New code has test coverage
+- [ ] Listed what could break and added tests for it
 - [ ] No `console.log` statements left in code
 - [ ] No `any` types without `biome-ignore` comment
 - [ ] API endpoints have rate limiting if public
@@ -387,5 +435,15 @@ If you're stuck:
 2. Look at similar implementations in the codebase
 3. Review the error message carefully
 4. Check the documentation links above
+
+---
+
+## Summary: The Golden Rules
+
+1. **Ask first, code later** - Clarify requirements before writing code
+2. **Keep it small** - No more than 3 files per change
+3. **Test everything** - Write tests, run tests, trust tests
+4. **Bugs need tests** - Reproduce with a test, then fix
+5. **Learn from mistakes** - Update this file when corrected
 
 Remember: **Always run tests before committing. No exceptions.**
