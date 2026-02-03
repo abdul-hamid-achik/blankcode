@@ -11,7 +11,6 @@ interface Props {
 
 const props = defineProps<Props>()
 
-// biome-ignore lint/correctness/noUnusedVariables: Used in template
 const statusConfig = computed(() => {
   const configs = {
     pending: { label: 'Pending', color: 'text-muted-foreground', icon: 'clock' },
@@ -23,12 +22,9 @@ const statusConfig = computed(() => {
   return configs[props.status]
 })
 
-// biome-ignore lint/correctness/noUnusedVariables: Used in template
 const passedCount = computed(() => props.results?.filter((r) => r.passed).length ?? 0)
-// biome-ignore lint/correctness/noUnusedVariables: Used in template
 const totalCount = computed(() => props.results?.length ?? 0)
 
-// biome-ignore lint/correctness/noUnusedVariables: Used in template
 function truncateMessage(message: string): string {
   // Remove vitest internal paths and keep just the relevant error
   const lines = message.split('\n')
