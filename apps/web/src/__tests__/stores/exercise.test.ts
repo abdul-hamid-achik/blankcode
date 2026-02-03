@@ -99,7 +99,7 @@ describe('useExerciseStore', () => {
 
       expect(result).toEqual(mockSubmission)
       expect(store.latestSubmission).toEqual(mockSubmission)
-      expect(store.submissions).toContain(mockSubmission)
+      expect(store.submissions).toContainEqual(mockSubmission)
     })
 
     it('sets isSubmitting during submission', async () => {

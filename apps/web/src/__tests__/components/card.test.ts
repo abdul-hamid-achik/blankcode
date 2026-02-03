@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { describe, expect, it } from 'vitest'
 import Card from '@/components/ui/card.vue'
 
 describe('Card', () => {
@@ -15,8 +15,8 @@ describe('Card', () => {
 
   it('applies padding by default', () => {
     const wrapper = mount(Card)
-
-    expect(wrapper.find('div > div').classes()).toContain('p-6')
+    const innerDiv = wrapper.find('.w-full.rounded-xl > div')
+    expect(innerDiv.classes()).toContain('p-6')
   })
 
   it('does not apply padding when padding is false', () => {
@@ -24,7 +24,8 @@ describe('Card', () => {
       props: { padding: false },
     })
 
-    expect(wrapper.find('div > div').classes()).not.toContain('p-6')
+    const innerDiv = wrapper.find('.w-full.rounded-xl > div')
+    expect(innerDiv.classes()).not.toContain('p-6')
   })
 
   it('has border and background styling', () => {
