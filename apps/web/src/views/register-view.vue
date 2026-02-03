@@ -44,14 +44,14 @@ async function handleSubmit() {
 
 <template>
   <div class="container py-12">
-    <div class="max-w-md mx-auto">
+    <div class="w-full max-w-md mx-auto">
       <div class="text-center mb-8">
         <h1 class="text-2xl font-bold">Create an account</h1>
         <p class="text-muted-foreground mt-1">Start your coding journey</p>
       </div>
 
       <Card>
-        <form @submit.prevent="handleSubmit" class="space-y-4">
+        <form @submit.prevent="handleSubmit" class="w-full space-y-4">
           <div v-if="error" class="text-sm text-destructive bg-destructive/10 px-4 py-2 rounded">
             {{ error }}
           </div>

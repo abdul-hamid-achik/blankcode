@@ -9,8 +9,8 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div class="rounded-xl border border-border bg-muted/50">
-    <div :class="{ 'p-6': padding }">
+  <div class="w-full rounded-xl border border-border bg-muted/50">
+    <div :class="['w-full', { 'p-6': padding }]">
       <slot />
     </div>
   </div>
