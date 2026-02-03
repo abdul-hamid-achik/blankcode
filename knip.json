@@ -5,7 +5,7 @@
       "entry": ["turbo.json"]
     },
     "apps/api": {
-      "entry": ["src/main.ts"],
+      "entry": ["src/main.ts", "src/workers/index.ts"],
       "project": ["src/**/*.ts"]
     },
     "apps/web": {
@@ -34,14 +34,17 @@
     "autoprefixer",
     "tailwindcss",
     "msw",
-    "@vitest/coverage-v8"
+    "@vitest/coverage-v8",
+    "codemirror"
   ],
   "ignoreWorkspaces": ["content"],
   "ignore": [
     "apps/api/src/common/guards/**",
+    "apps/api/src/common/decorators/throttle.decorator.ts",
     "apps/web/src/components/editor/blank-region.vue",
     "apps/web/src/components/layout/app-sidebar.vue",
-    "apps/web/src/components/ui/modal.vue"
+    "apps/web/src/components/ui/modal.vue",
+    "apps/web/src/components/error/error-boundary.vue"
   ],
   "ignoreExportsUsedInFile": true
 }

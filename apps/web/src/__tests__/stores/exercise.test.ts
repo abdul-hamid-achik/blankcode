@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { setActivePinia, createPinia } from 'pinia'
-import { useExerciseStore } from '@/stores/exercise'
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '@/api'
+import { useExerciseStore } from '@/stores/exercise'
 
 vi.mock('@/api')
 
@@ -35,6 +35,7 @@ describe('useExerciseStore', () => {
     code: 'const x = 42',
     status: 'passed' as const,
     testResults: [{ name: 'test', passed: true, message: null, duration: 10 }],
+    errorMessage: null,
     executionTimeMs: 100,
     createdAt: new Date(),
   }

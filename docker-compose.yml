@@ -82,6 +82,7 @@ services:
       dockerfile: apps/api/Dockerfile
     container_name: blankcode-worker
     restart: unless-stopped
+    user: root
     command: ["bun", "run", "apps/api/dist/workers/index.js"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-blankcode}
@@ -90,8 +91,11 @@ services:
       DOCKER_ENABLED: ${DOCKER_ENABLED:-true}
       EXECUTION_TIMEOUT_MS: ${EXECUTION_TIMEOUT_MS:-30000}
       EXECUTION_MEMORY_MB: ${EXECUTION_MEMORY_MB:-256}
+      # Path must match both inside this container AND on the host for docker-in-docker
+      EXECUTION_WORKSPACE_PATH: /tmp/blankcode-workspaces
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/blankcode-workspaces:/tmp/blankcode-workspaces
     depends_on:
       postgres:
         condition: service_healthy

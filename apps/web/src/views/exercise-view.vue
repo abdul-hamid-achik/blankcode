@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+// biome-ignore lint/correctness/noUnusedImports: Used in template
 import CodeEditor from '@/components/editor/code-editor.vue'
+// biome-ignore lint/correctness/noUnusedImports: Used in template
 import TestResults from '@/components/editor/test-results.vue'
+// biome-ignore lint/correctness/noUnusedImports: Used in template
 import HintsPanel from '@/components/exercise/hints-panel.vue'
+// biome-ignore lint/correctness/noUnusedImports: Used in template
 import Button from '@/components/ui/button.vue'
 import { useKeyboard } from '@/composables/use-keyboard'
 import { useExerciseStore } from '@/stores/exercise'
@@ -13,7 +17,9 @@ const exerciseStore = useExerciseStore()
 
 const exerciseId = computed(() => route.params['exerciseId'] as string)
 
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 const language = computed(() => {
+  // biome-ignore lint/suspicious/noExplicitAny: Exercise type has dynamic nested structure
   const trackSlug = (exerciseStore.exercise as any)?.concept?.track?.slug
   switch (trackSlug) {
     case 'typescript':
@@ -53,6 +59,7 @@ async function handleSubmit() {
   await exerciseStore.submitCode(exerciseStore.currentCode)
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 function handleCodeUpdate(code: string) {
   exerciseStore.updateCode(code)
 }
@@ -103,6 +110,7 @@ function handleCodeUpdate(code: string) {
           v-if="exerciseStore.latestSubmission"
           :status="exerciseStore.latestSubmission.status"
           :results="exerciseStore.latestSubmission.testResults"
+          :error-message="exerciseStore.latestSubmission.errorMessage"
           :execution-time="exerciseStore.latestSubmission.executionTimeMs"
         />
 

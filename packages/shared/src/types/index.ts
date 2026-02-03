@@ -89,6 +89,7 @@ export interface Submission {
   code: string
   status: SubmissionStatus
   testResults: TestResult[] | null
+  errorMessage: string | null
   executionTimeMs: number | null
   createdAt: Date
 }

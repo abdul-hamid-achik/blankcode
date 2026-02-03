@@ -1,10 +1,16 @@
 import { spawn } from 'node:child_process'
-import { mkdir, writeFile, rm } from 'node:fs/promises'
-import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { config } from '../../config/index.js'
-import type { ExecutionContext, ExecutionResult } from './types.js'
+import type { ExecutionContext } from './types.js'
+
+// Use configurable workspace path for docker-in-docker compatibility
+// This path must be accessible from both the worker container and the host
+function getWorkspaceBasePath(): string {
+  return process.env['EXECUTION_WORKSPACE_PATH'] || join(tmpdir(), 'blankcode-exec')
+}
 
 interface SandboxOptions {
   image: string
@@ -15,21 +21,23 @@ interface SandboxOptions {
   cpuLimit: number
 }
 
-export async function runInSandbox(options: SandboxOptions): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+export async function runInSandbox(
+  options: SandboxOptions
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const { image, command, workDir, timeoutMs, memoryLimitMb, cpuLimit } = options
 
   const dockerArgs = [
     'run',
     '--rm',
     '--network=none',
-    '--read-only',
     `--memory=${memoryLimitMb}m`,
     `--cpus=${cpuLimit}`,
     '--pids-limit=50',
     '--security-opt=no-new-privileges',
-    '-v', `${workDir}:/app:ro`,
-    '-v', `${workDir}/tmp:/tmp:rw`,
-    '-w', '/app',
+    '-v',
+    `${workDir}:/app:rw`,
+    '-w',
+    '/app',
     image,
     ...command,
   ]
@@ -68,7 +76,7 @@ export async function runInSandbox(options: SandboxOptions): Promise<{ stdout: s
       clearTimeout(timer)
       resolve({
         stdout,
-        stderr: stderr + '\n' + err.message,
+        stderr: `${stderr}\n${err.message}`,
         exitCode: 1,
       })
     })
@@ -78,7 +86,7 @@ export async function runInSandbox(options: SandboxOptions): Promise<{ stdout: s
       if (killed) {
         resolve({
           stdout,
-          stderr: stderr + '\nExecution timeout or resource limit exceeded',
+          stderr: `${stderr}\nExecution timeout or resource limit exceeded`,
           exitCode: 124,
         })
       } else {
@@ -93,7 +101,7 @@ export async function runInSandbox(options: SandboxOptions): Promise<{ stdout: s
 }
 
 export async function prepareWorkspace(files: Record<string, string>): Promise<string> {
-  const workDir = join(tmpdir(), 'blankcode-exec', randomUUID())
+  const workDir = join(getWorkspaceBasePath(), randomUUID())
   await mkdir(workDir, { recursive: true })
   await mkdir(join(workDir, 'tmp'), { recursive: true })
 
@@ -179,7 +187,7 @@ export async function executeLocally(
       clearTimeout(timer)
       resolve({
         stdout,
-        stderr: stderr + '\n' + err.message,
+        stderr: `${stderr}\n${err.message}`,
         exitCode: 1,
       })
     })
@@ -189,7 +197,7 @@ export async function executeLocally(
       if (killed) {
         resolve({
           stdout,
-          stderr: stderr + '\nExecution timeout',
+          stderr: `${stderr}\nExecution timeout`,
           exitCode: 124,
         })
       } else {

@@ -1,15 +1,27 @@
 import { config } from '../../../config/index.js'
-import { executeInDocker, prepareWorkspace, cleanupWorkspace, executeLocally } from '../sandbox.js'
 import { parseGoTestOutput } from '../parsers/vitest.parser.js'
+import { cleanupWorkspace, executeInDocker, executeLocally, prepareWorkspace } from '../sandbox.js'
 import type { ExecutionContext, ExecutionResult, LanguageExecutor } from '../types.js'
 
 export class GoExecutor implements LanguageExecutor {
   async execute(context: ExecutionContext): Promise<ExecutionResult> {
     const startTime = Date.now()
 
+    // Ensure solution code has package declaration
+    let solutionCode = context.code
+    if (!solutionCode.includes('package ')) {
+      solutionCode = `package solution\n\n${solutionCode}`
+    }
+
+    // Ensure test code has package declaration
+    let testCode = context.testCode
+    if (!testCode.includes('package ')) {
+      testCode = `package solution\n\n${testCode}`
+    }
+
     const files = {
-      'solution.go': context.code,
-      'solution_test.go': context.testCode,
+      'solution.go': solutionCode,
+      'solution_test.go': testCode,
       'go.mod': `module solution
 
 go 1.22
@@ -29,7 +41,12 @@ go 1.22
       } else {
         const workDir = await prepareWorkspace(files)
         try {
-          const testResult = await executeLocally('go', ['test', '-v', './...'], workDir, context.timeoutMs)
+          const testResult = await executeLocally(
+            'go',
+            ['test', '-v', './...'],
+            workDir,
+            context.timeoutMs
+          )
           stdout = testResult.stdout
           stderr = testResult.stderr
           exitCode = testResult.exitCode
@@ -39,7 +56,7 @@ go 1.22
       }
 
       const executionTimeMs = Date.now() - startTime
-      const output = stdout + '\n' + stderr
+      const output = `${stdout}\n${stderr}`
 
       if (exitCode === 124) {
         return {
@@ -95,7 +112,7 @@ function extractGoError(output: string): string {
   for (const pattern of errorPatterns) {
     const match = output.match(pattern)
     if (match) {
-      return match[0]!.trim()
+      return match[0]?.trim() ?? ''
     }
   }
 

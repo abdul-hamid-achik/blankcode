@@ -14,7 +14,12 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core'
 
-export const difficultyEnum = pgEnum('difficulty', ['beginner', 'intermediate', 'advanced', 'expert'])
+export const difficultyEnum = pgEnum('difficulty', [
+  'beginner',
+  'intermediate',
+  'advanced',
+  'expert',
+])
 
 export const submissionStatusEnum = pgEnum('submission_status', [
   'pending',
@@ -156,14 +161,16 @@ export const submissions = pgTable(
       .references(() => exercises.id, { onDelete: 'cascade' }),
     code: text('code').notNull(),
     status: submissionStatusEnum('status').notNull().default('pending'),
-    testResults: jsonb('test_results').$type<
-      Array<{
-        name: string
-        passed: boolean
-        message: string | null
-        duration: number
-      }>
-    >(),
+    testResults:
+      jsonb('test_results').$type<
+        Array<{
+          name: string
+          passed: boolean
+          message: string | null
+          duration: number
+        }>
+      >(),
+    errorMessage: text('error_message'),
     executionTimeMs: integer('execution_time_ms'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

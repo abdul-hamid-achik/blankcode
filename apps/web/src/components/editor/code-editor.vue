@@ -1,17 +1,28 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, shallowRef } from 'vue'
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view'
-import { EditorState } from '@codemirror/state'
-import { defaultKeymap, indentWithTab } from '@codemirror/commands'
+import { closeBrackets } from '@codemirror/autocomplete'
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import { go } from '@codemirror/lang-go'
 import { javascript } from '@codemirror/lang-javascript'
 import { python } from '@codemirror/lang-python'
 import { rust } from '@codemirror/lang-rust'
-import { go } from '@codemirror/lang-go'
 import { vue } from '@codemirror/lang-vue'
+import {
+  bracketMatching,
+  defaultHighlightStyle,
+  indentUnit,
+  syntaxHighlighting,
+} from '@codemirror/language'
+import { Compartment, EditorState } from '@codemirror/state'
 import { oneDark } from '@codemirror/theme-one-dark'
-import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language'
-import { closeBrackets } from '@codemirror/autocomplete'
-import { history, historyKeymap } from '@codemirror/commands'
+import {
+  EditorView,
+  highlightActiveLine,
+  highlightActiveLineGutter,
+  keymap,
+  lineNumbers,
+} from '@codemirror/view'
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { usePreferencesStore } from '@/stores/preferences'
 
 interface Props {
   code: string
@@ -31,6 +42,34 @@ const emit = defineEmits<{
 
 const editorContainer = ref<HTMLElement | null>(null)
 const editorView = shallowRef<EditorView | null>(null)
+
+const preferencesStore = usePreferencesStore()
+
+// Compartments for reconfigurable extensions
+const fontSizeCompartment = new Compartment()
+const tabSizeCompartment = new Compartment()
+const wordWrapCompartment = new Compartment()
+
+// Computed preferences
+const fontSize = computed(() => preferencesStore.preferences.fontSize)
+const tabSize = computed(() => preferencesStore.preferences.tabSize)
+const wordWrap = computed(() => preferencesStore.preferences.wordWrap)
+
+function getFontSizeExtension(size: number) {
+  return EditorView.theme({
+    '&': {
+      fontSize: `${size}px`,
+    },
+  })
+}
+
+function getTabSizeExtension(size: number) {
+  return [indentUnit.of(' '.repeat(size)), EditorState.tabSize.of(size)]
+}
+
+function getWordWrapExtension(enabled: boolean) {
+  return enabled ? EditorView.lineWrapping : []
+}
 
 function getLanguageExtension(lang: string) {
   switch (lang.toLowerCase()) {
@@ -91,10 +130,13 @@ function createEditor() {
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       updateListener,
       EditorState.readOnly.of(props.readonly),
+      // Compartments for reconfigurable settings
+      fontSizeCompartment.of(getFontSizeExtension(fontSize.value)),
+      tabSizeCompartment.of(getTabSizeExtension(tabSize.value)),
+      wordWrapCompartment.of(getWordWrapExtension(wordWrap.value)),
       EditorView.theme({
         '&': {
           height: '100%',
-          fontSize: '14px',
         },
         '.cm-scroller': {
           fontFamily: 'var(--font-mono), monospace',
@@ -155,6 +197,31 @@ watch(
     createEditor()
   }
 )
+
+// Watch for preference changes and reconfigure editor
+watch(fontSize, (newSize) => {
+  if (editorView.value) {
+    editorView.value.dispatch({
+      effects: fontSizeCompartment.reconfigure(getFontSizeExtension(newSize)),
+    })
+  }
+})
+
+watch(tabSize, (newSize) => {
+  if (editorView.value) {
+    editorView.value.dispatch({
+      effects: tabSizeCompartment.reconfigure(getTabSizeExtension(newSize)),
+    })
+  }
+})
+
+watch(wordWrap, (enabled) => {
+  if (editorView.value) {
+    editorView.value.dispatch({
+      effects: wordWrapCompartment.reconfigure(getWordWrapExtension(enabled)),
+    })
+  }
+})
 
 onMounted(() => {
   createEditor()

@@ -1,15 +1,21 @@
 import { config } from '../../../config/index.js'
-import { executeInDocker, prepareWorkspace, cleanupWorkspace, executeLocally } from '../sandbox.js'
 import { parseCargoTestOutput } from '../parsers/vitest.parser.js'
+import { cleanupWorkspace, executeInDocker, executeLocally, prepareWorkspace } from '../sandbox.js'
 import type { ExecutionContext, ExecutionResult, LanguageExecutor } from '../types.js'
 
 export class RustExecutor implements LanguageExecutor {
   async execute(context: ExecutionContext): Promise<ExecutionResult> {
     const startTime = Date.now()
 
+    // Auto-import from crate if test doesn't already use it
+    let testCode = context.testCode
+    if (!testCode.includes('use solution::')) {
+      testCode = `use solution::*;\n\n${testCode}`
+    }
+
     const files = {
       'src/lib.rs': context.code,
-      'tests/solution_test.rs': context.testCode,
+      'tests/solution_test.rs': testCode,
       'Cargo.toml': `[package]
 name = "solution"
 version = "0.1.0"
@@ -34,7 +40,12 @@ path = "tests/solution_test.rs"
       } else {
         const workDir = await prepareWorkspace(files)
         try {
-          const testResult = await executeLocally('cargo', ['test', '--', '--nocapture'], workDir, context.timeoutMs)
+          const testResult = await executeLocally(
+            'cargo',
+            ['test', '--', '--nocapture'],
+            workDir,
+            context.timeoutMs
+          )
           stdout = testResult.stdout
           stderr = testResult.stderr
           exitCode = testResult.exitCode
@@ -44,7 +55,7 @@ path = "tests/solution_test.rs"
       }
 
       const executionTimeMs = Date.now() - startTime
-      const output = stdout + '\n' + stderr
+      const output = `${stdout}\n${stderr}`
 
       if (exitCode === 124) {
         return {
@@ -99,7 +110,7 @@ function extractRustError(output: string): string {
   for (const pattern of errorPatterns) {
     const match = output.match(pattern)
     if (match) {
-      return match[0]!.trim()
+      return match[0]?.trim() ?? ''
     }
   }
 

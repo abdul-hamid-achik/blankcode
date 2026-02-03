@@ -1,15 +1,17 @@
 <script setup lang="ts">
+import type { SubmissionStatus, TestResult } from '@blankcode/shared'
 import { computed } from 'vue'
-import type { TestResult, SubmissionStatus } from '@blankcode/shared'
 
 interface Props {
   status: SubmissionStatus
   results: TestResult[] | null
+  errorMessage?: string | null
   executionTime?: number | null
 }
 
 const props = defineProps<Props>()
 
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 const statusConfig = computed(() => {
   const configs = {
     pending: { label: 'Pending', color: 'text-muted-foreground', icon: 'clock' },
@@ -21,8 +23,22 @@ const statusConfig = computed(() => {
   return configs[props.status]
 })
 
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 const passedCount = computed(() => props.results?.filter((r) => r.passed).length ?? 0)
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
 const totalCount = computed(() => props.results?.length ?? 0)
+
+// biome-ignore lint/correctness/noUnusedVariables: Used in template
+function truncateMessage(message: string): string {
+  // Remove vitest internal paths and keep just the relevant error
+  const lines = message.split('\n')
+  const relevantLines = lines.filter(
+    (line) =>
+      !line.includes('node_modules/vitest') && !line.includes('node_modules/@vitest') && line.trim()
+  )
+  const truncated = relevantLines.slice(0, 5).join('\n')
+  return truncated || message.slice(0, 200)
+}
 </script>
 
 <template>
@@ -41,24 +57,24 @@ const totalCount = computed(() => props.results?.length ?? 0)
       </span>
     </div>
 
-    <div v-if="results" class="space-y-2">
+    <div v-if="results" class="space-y-3">
       <div
         v-for="(result, index) in results"
         :key="index"
-        class="flex items-start gap-2 text-sm"
+        class="text-sm"
       >
-        <span :class="result.passed ? 'text-success' : 'text-destructive'">
-          {{ result.passed ? '✓' : '✗' }}
-        </span>
-        <div class="flex-1">
-          <div :class="result.passed ? 'text-foreground' : 'text-destructive'">
+        <div class="flex items-center gap-2">
+          <span :class="result.passed ? 'text-success' : 'text-destructive'" class="flex-shrink-0">
+            {{ result.passed ? '✓' : '✗' }}
+          </span>
+          <span :class="result.passed ? 'text-foreground' : 'text-destructive'" class="flex-1 truncate">
             {{ result.name }}
-          </div>
-          <div v-if="result.message" class="text-muted-foreground mt-1">
-            {{ result.message }}
-          </div>
+          </span>
+          <span class="text-muted-foreground flex-shrink-0">{{ result.duration?.toFixed(1) }}ms</span>
         </div>
-        <span class="text-muted-foreground">{{ result.duration }}ms</span>
+        <div v-if="result.message && !result.passed" class="mt-1 ml-5">
+          <pre class="text-xs text-muted-foreground bg-muted p-2 rounded overflow-x-auto max-h-24 whitespace-pre-wrap break-all">{{ truncateMessage(result.message) }}</pre>
+        </div>
       </div>
     </div>
 
@@ -68,6 +84,12 @@ const totalCount = computed(() => props.results?.length ?? 0)
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
       </svg>
       <span>Running tests...</span>
+    </div>
+
+    <div v-else-if="status === 'error'" class="space-y-2">
+      <div class="text-sm text-destructive font-medium">Execution Error</div>
+      <pre v-if="errorMessage" class="text-xs bg-destructive/10 text-destructive p-3 rounded-md overflow-x-auto max-h-32 whitespace-pre-wrap break-words">{{ truncateMessage(errorMessage) }}</pre>
+      <p v-else class="text-sm text-muted-foreground">An error occurred while running your code.</p>
     </div>
   </div>
 </template>

@@ -1,15 +1,21 @@
 import { config } from '../../../config/index.js'
-import { executeInDocker, prepareWorkspace, cleanupWorkspace, executeLocally } from '../sandbox.js'
 import { parsePytestOutput } from '../parsers/vitest.parser.js'
+import { cleanupWorkspace, executeInDocker, executeLocally, prepareWorkspace } from '../sandbox.js'
 import type { ExecutionContext, ExecutionResult, LanguageExecutor } from '../types.js'
 
 export class PythonExecutor implements LanguageExecutor {
   async execute(context: ExecutionContext): Promise<ExecutionResult> {
     const startTime = Date.now()
 
+    // Auto-import from solution if test doesn't already import it
+    let testCode = context.testCode
+    if (!testCode.includes('from solution import') && !testCode.includes('import solution')) {
+      testCode = `from solution import *\n\n${testCode}`
+    }
+
     const files = {
       'solution.py': context.code,
-      'test_solution.py': context.testCode,
+      'test_solution.py': testCode,
       'pytest.ini': `[pytest]
 testpaths = .
 python_files = test_*.py
@@ -41,7 +47,7 @@ addopts = -v --tb=short
       }
 
       const executionTimeMs = Date.now() - startTime
-      const output = stdout + '\n' + stderr
+      const output = `${stdout}\n${stderr}`
 
       if (exitCode === 124) {
         return {
@@ -99,7 +105,7 @@ function extractPythonError(output: string): string {
   for (const pattern of errorPatterns) {
     const match = output.match(pattern)
     if (match) {
-      return match[1]!.trim()
+      return match[1]?.trim() ?? ''
     }
   }
 

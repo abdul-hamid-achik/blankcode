@@ -1,15 +1,13 @@
 import type { TestResult } from '../types.js'
 
 interface VitestTestResult {
-  name: string
-  status: 'pass' | 'fail' | 'skip'
+  name?: string
+  title?: string
+  fullName?: string
+  status: 'pass' | 'fail' | 'skip' | 'passed' | 'failed'
   duration?: number
   failureMessages?: string[]
-}
-
-interface VitestSuiteResult {
-  name: string
-  tests: VitestTestResult[]
+  message?: string
 }
 
 interface VitestJsonOutput {
@@ -35,10 +33,11 @@ export function parseVitestOutput(output: string): TestResult[] {
 
     for (const file of json.testResults) {
       for (const test of file.assertionResults) {
+        const testName = test.title || test.fullName || test.name || 'Unknown test'
         results.push({
-          name: test.name,
-          passed: test.status === 'pass',
-          message: test.failureMessages?.join('\n') ?? null,
+          name: testName,
+          passed: test.status === 'pass' || test.status === 'passed',
+          message: test.failureMessages?.join('\n') || test.message || null,
           duration: test.duration ?? 0,
         })
       }
@@ -52,62 +51,68 @@ export function parseVitestOutput(output: string): TestResult[] {
 
 function parseVitestTextOutput(output: string): TestResult[] {
   const results: TestResult[] = []
-  const lines = output.split('\n')
-
   const passPattern = /✓\s+(.+?)\s+\((\d+)ms\)/
   const failPattern = /✗\s+(.+?)\s+\((\d+)ms\)/
   const errorPattern = /Error:\s+(.+)/
 
-  let currentFailureMessage = ''
-
-  for (const line of lines) {
-    const passMatch = line.match(passPattern)
-    if (passMatch) {
-      results.push({
-        name: passMatch[1]!.trim(),
-        passed: true,
-        message: null,
-        duration: parseInt(passMatch[2]!, 10),
-      })
-      continue
-    }
-
-    const failMatch = line.match(failPattern)
-    if (failMatch) {
-      currentFailureMessage = ''
-      results.push({
-        name: failMatch[1]!.trim(),
-        passed: false,
-        message: null,
-        duration: parseInt(failMatch[2]!, 10),
-      })
+  for (const line of output.split('\n')) {
+    const result = parseTestLine(line, passPattern, failPattern)
+    if (result) {
+      results.push(result)
       continue
     }
 
     const errorMatch = line.match(errorPattern)
-    if (errorMatch && results.length > 0) {
-      const lastResult = results[results.length - 1]!
-      if (!lastResult.passed && !lastResult.message) {
-        lastResult.message = errorMatch[1]!.trim()
-      }
+    if (errorMatch) {
+      attachErrorToLastFailedTest(results, errorMatch[1]?.trim() ?? '')
     }
   }
 
   return results
 }
 
+function parseTestLine(line: string, passPattern: RegExp, failPattern: RegExp): TestResult | null {
+  const passMatch = line.match(passPattern)
+  if (passMatch) {
+    return {
+      name: passMatch[1]?.trim() ?? '',
+      passed: true,
+      message: null,
+      duration: parseInt(passMatch[2] ?? '0', 10),
+    }
+  }
+
+  const failMatch = line.match(failPattern)
+  if (failMatch) {
+    return {
+      name: failMatch[1]?.trim() ?? '',
+      passed: false,
+      message: null,
+      duration: parseInt(failMatch[2] ?? '0', 10),
+    }
+  }
+
+  return null
+}
+
+function attachErrorToLastFailedTest(results: TestResult[], errorMessage: string): void {
+  if (results.length === 0) return
+  const lastResult = results[results.length - 1]
+  if (lastResult && !lastResult.passed && !lastResult.message) {
+    lastResult.message = errorMessage
+  }
+}
+
 export function parsePytestOutput(output: string): TestResult[] {
   const results: TestResult[] = []
-  const lines = output.split('\n')
-
   const passPattern = /PASSED\s+(.+?)\s*(?:\((\d+(?:\.\d+)?)s\))?/
   const failPattern = /FAILED\s+(.+?)\s*(?:-\s*(.+))?/
 
-  for (const line of lines) {
+  for (const line of output.split('\n')) {
     const passMatch = line.match(passPattern)
     if (passMatch) {
       results.push({
-        name: passMatch[1]!.trim(),
+        name: passMatch[1]?.trim() ?? '',
         passed: true,
         message: null,
         duration: passMatch[2] ? parseFloat(passMatch[2]) * 1000 : 0,
@@ -118,7 +123,7 @@ export function parsePytestOutput(output: string): TestResult[] {
     const failMatch = line.match(failPattern)
     if (failMatch) {
       results.push({
-        name: failMatch[1]!.trim(),
+        name: failMatch[1]?.trim() ?? '',
         passed: false,
         message: failMatch[2]?.trim() ?? null,
         duration: 0,
@@ -131,19 +136,17 @@ export function parsePytestOutput(output: string): TestResult[] {
 
 export function parseGoTestOutput(output: string): TestResult[] {
   const results: TestResult[] = []
-  const lines = output.split('\n')
-
   const passPattern = /--- PASS: (.+?) \((\d+(?:\.\d+)?)s\)/
   const failPattern = /--- FAIL: (.+?) \((\d+(?:\.\d+)?)s\)/
 
-  for (const line of lines) {
+  for (const line of output.split('\n')) {
     const passMatch = line.match(passPattern)
     if (passMatch) {
       results.push({
-        name: passMatch[1]!.trim(),
+        name: passMatch[1]?.trim() ?? '',
         passed: true,
         message: null,
-        duration: parseFloat(passMatch[2]!) * 1000,
+        duration: parseFloat(passMatch[2] ?? '0') * 1000,
       })
       continue
     }
@@ -151,10 +154,10 @@ export function parseGoTestOutput(output: string): TestResult[] {
     const failMatch = line.match(failPattern)
     if (failMatch) {
       results.push({
-        name: failMatch[1]!.trim(),
+        name: failMatch[1]?.trim() ?? '',
         passed: false,
         message: null,
-        duration: parseFloat(failMatch[2]!) * 1000,
+        duration: parseFloat(failMatch[2] ?? '0') * 1000,
       })
     }
   }
@@ -164,16 +167,14 @@ export function parseGoTestOutput(output: string): TestResult[] {
 
 export function parseCargoTestOutput(output: string): TestResult[] {
   const results: TestResult[] = []
-  const lines = output.split('\n')
-
   const passPattern = /test (.+?) \.\.\. ok/
   const failPattern = /test (.+?) \.\.\. FAILED/
 
-  for (const line of lines) {
+  for (const line of output.split('\n')) {
     const passMatch = line.match(passPattern)
     if (passMatch) {
       results.push({
-        name: passMatch[1]!.trim(),
+        name: passMatch[1]?.trim() ?? '',
         passed: true,
         message: null,
         duration: 0,
@@ -184,7 +185,7 @@ export function parseCargoTestOutput(output: string): TestResult[] {
     const failMatch = line.match(failPattern)
     if (failMatch) {
       results.push({
-        name: failMatch[1]!.trim(),
+        name: failMatch[1]?.trim() ?? '',
         passed: false,
         message: null,
         duration: 0,

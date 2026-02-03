@@ -1,20 +1,18 @@
-import { Worker, type Job } from 'bullmq'
+import * as schema from '@blankcode/db/schema'
+import { type Job, Worker } from 'bullmq'
+import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
-import { eq } from 'drizzle-orm'
 import { config } from '../config/index.js'
 import { connection } from '../queue/queue.module.js'
 import { executionService } from '../services/execution/index.js'
 import type { SubmissionJobData } from '../services/execution/types.js'
-import * as schema from '@blankcode/db/schema'
 
 const sql = postgres(config.database.url)
 const db = drizzle(sql, { schema })
 
 async function processSubmission(job: Job<SubmissionJobData>) {
   const { submissionId, exerciseId, code } = job.data
-
-  console.log(`[Worker] Processing submission ${submissionId}`)
 
   // Update status to running
   await db
@@ -36,12 +34,12 @@ async function processSubmission(job: Job<SubmissionJobData>) {
     })
 
     if (!exercise) {
-      console.error(`[Worker] Exercise not found: ${exerciseId}`)
       await db
         .update(schema.submissions)
         .set({
           status: 'error',
           testResults: [],
+          errorMessage: `Exercise not found: ${exerciseId}`,
         })
         .where(eq(schema.submissions.id, submissionId))
       return
@@ -58,8 +56,6 @@ async function processSubmission(job: Job<SubmissionJobData>) {
       language
     )
 
-    console.log(`[Worker] Submission ${submissionId} result: ${result.status}`)
-
     // Update submission with results
     await db
       .update(schema.submissions)
@@ -67,6 +63,7 @@ async function processSubmission(job: Job<SubmissionJobData>) {
         status: result.status,
         testResults: result.testResults,
         executionTimeMs: result.executionTimeMs,
+        errorMessage: result.errorMessage ?? null,
       })
       .where(eq(schema.submissions.id, submissionId))
 
@@ -90,13 +87,15 @@ async function processSubmission(job: Job<SubmissionJobData>) {
       }
     }
   } catch (error) {
-    console.error(`[Worker] Error processing submission ${submissionId}:`, error)
+    const errorMessage =
+      error instanceof Error ? error.message : 'An unexpected error occurred during execution'
 
     await db
       .update(schema.submissions)
       .set({
         status: 'error',
         testResults: [],
+        errorMessage,
       })
       .where(eq(schema.submissions.id, submissionId))
   }
@@ -104,8 +103,7 @@ async function processSubmission(job: Job<SubmissionJobData>) {
 
 async function markExerciseCompleted(userId: string, exerciseId: string, submissionId: string) {
   const existing = await db.query.userProgress.findFirst({
-    where: (up, { and, eq }) =>
-      and(eq(up.userId, userId), eq(up.exerciseId, exerciseId)),
+    where: (up, { and, eq }) => and(eq(up.userId, userId), eq(up.exerciseId, exerciseId)),
   })
 
   if (existing) {
@@ -135,8 +133,7 @@ async function markExerciseCompleted(userId: string, exerciseId: string, submiss
 
 async function incrementAttempts(userId: string, exerciseId: string) {
   const existing = await db.query.userProgress.findFirst({
-    where: (up, { and, eq }) =>
-      and(eq(up.userId, userId), eq(up.exerciseId, exerciseId)),
+    where: (up, { and, eq }) => and(eq(up.userId, userId), eq(up.exerciseId, exerciseId)),
   })
 
   if (existing) {
@@ -172,20 +169,16 @@ async function updateConceptMastery(userId: string, exerciseId: string) {
   })
 
   const completedProgress = await db.query.userProgress.findMany({
-    where: (up, { and, eq }) =>
-      and(eq(up.userId, userId), eq(up.isCompleted, true)),
+    where: (up, { and, eq }) => and(eq(up.userId, userId), eq(up.isCompleted, true)),
   })
 
   const completedExerciseIds = new Set(completedProgress.map((p) => p.exerciseId))
-  const completedInConcept = conceptExercises.filter((e) =>
-    completedExerciseIds.has(e.id)
-  ).length
+  const completedInConcept = conceptExercises.filter((e) => completedExerciseIds.has(e.id)).length
 
   const masteryLevel = completedInConcept / conceptExercises.length
 
   const existing = await db.query.conceptMastery.findFirst({
-    where: (cm, { and, eq }) =>
-      and(eq(cm.userId, userId), eq(cm.conceptId, exercise.conceptId)),
+    where: (cm, { and, eq }) => and(eq(cm.userId, userId), eq(cm.conceptId, exercise.conceptId)),
   })
 
   if (existing) {
@@ -215,18 +208,6 @@ export function createSubmissionWorker() {
   const worker = new Worker<SubmissionJobData>('submissions', processSubmission, {
     connection,
     concurrency: 5,
-  })
-
-  worker.on('completed', (job) => {
-    console.log(`[Worker] Job ${job.id} completed`)
-  })
-
-  worker.on('failed', (job, err) => {
-    console.error(`[Worker] Job ${job?.id} failed:`, err)
-  })
-
-  worker.on('error', (err) => {
-    console.error('[Worker] Worker error:', err)
   })
 
   return worker
