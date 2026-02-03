@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Test, type TestingModule } from '@nestjs/testing'
-import { JwtService } from '@nestjs/jwt'
+import 'reflect-metadata'
 import { ConflictException, UnauthorizedException } from '@nestjs/common'
+import { JwtModule, JwtService } from '@nestjs/jwt'
+import { Test, type TestingModule } from '@nestjs/testing'
 import * as bcrypt from 'bcrypt'
-import { AuthService } from '../modules/auth/auth.service.js'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DRIZZLE } from '../database/drizzle.provider.js'
+import { AuthService } from '../modules/auth/auth.service.js'
 
 vi.mock('bcrypt', () => ({
   hash: vi.fn(),
@@ -45,14 +46,14 @@ describe('AuthService', () => {
     }
 
     const module: TestingModule = await Test.createTestingModule({
+      imports: [
+        JwtModule.register({
+          secret: 'test-secret',
+          signOptions: { expiresIn: '1d' },
+        }),
+      ],
       providers: [
         AuthService,
-        {
-          provide: JwtService,
-          useValue: {
-            sign: vi.fn().mockReturnValue('mock-token'),
-          },
-        },
         {
           provide: DRIZZLE,
           useValue: mockDb,
@@ -62,6 +63,7 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService)
     jwtService = module.get<JwtService>(JwtService)
+    vi.spyOn(jwtService, 'sign').mockReturnValue('mock-token')
   })
 
   describe('register', () => {

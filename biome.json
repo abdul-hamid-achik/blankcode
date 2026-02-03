@@ -12,6 +12,7 @@
       "correctness": {
         "noUnusedImports": "error",
         "noUnusedVariables": "error",
+        "noUnusedFunctionParameters": "off",
         "useExhaustiveDependencies": "warn"
       },
       "style": {
@@ -54,6 +55,9 @@
     "lineWidth": 100
   },
   "javascript": {
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
+    },
     "formatter": {
       "quoteStyle": "single",
       "semicolons": "asNeeded",

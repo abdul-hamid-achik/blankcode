@@ -1,16 +1,16 @@
-import { Injectable, Inject, UnauthorizedException, ConflictException } from '@nestjs/common'
-import { JwtService } from '@nestjs/jwt'
-import { eq } from 'drizzle-orm'
-import * as bcrypt from 'bcrypt'
-import { DRIZZLE, type Database } from '../../database/drizzle.provider.js'
 import { users } from '@blankcode/db/schema'
 import type { UserCreateInput, UserLoginInput } from '@blankcode/shared'
+import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common'
+import { JwtService } from '@nestjs/jwt'
+import * as bcrypt from 'bcrypt'
+import { eq } from 'drizzle-orm'
+import { type Database, DRIZZLE } from '../../database/drizzle.provider.js'
 
 @Injectable()
 export class AuthService {
   constructor(
     @Inject(DRIZZLE) private db: Database,
-    private jwtService: JwtService
+    @Inject(JwtService) private jwtService: JwtService
   ) {}
 
   async register(input: UserCreateInput) {
@@ -47,7 +47,11 @@ export class AuthService {
         displayName: users.displayName,
       })
 
-    const token = this.jwtService.sign({ sub: user!.id, email: user!.email })
+    if (!user) {
+      throw new Error('Failed to create user')
+    }
+
+    const token = this.jwtService.sign({ sub: user.id, email: user.email })
 
     return { user, token }
   }
