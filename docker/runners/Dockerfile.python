@@ -1,0 +1,12 @@
+FROM python:3.12-alpine
+
+WORKDIR /app
+
+# Install pytest
+RUN pip install --no-cache-dir pytest
+
+# Create non-root user for security
+RUN adduser -D -u 10000 runner
+USER runner
+
+CMD ["pytest", "-v"]

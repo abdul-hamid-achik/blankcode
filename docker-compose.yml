@@ -4,35 +4,149 @@ services:
     container_name: blankcode-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: blankcode
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-blankcode}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d blankcode"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-blankcode}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   redis:
     image: redis:7.4-alpine
     container_name: blankcode-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  api:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: blankcode-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-blankcode}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-development-secret-change-me}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      NODE_ENV: ${NODE_ENV:-production}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1'
+
+  worker:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: blankcode-worker
+    restart: unless-stopped
+    command: ["bun", "run", "apps/api/dist/workers/index.js"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-blankcode}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      DOCKER_ENABLED: ${DOCKER_ENABLED:-true}
+      EXECUTION_TIMEOUT_MS: ${EXECUTION_TIMEOUT_MS:-30000}
+      EXECUTION_MEMORY_MB: ${EXECUTION_MEMORY_MB:-256}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '2'
+
+  web:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: blankcode-web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-80}:80"
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  # Code execution runners - build with: docker compose --profile runners build
+  runner-typescript:
+    profiles: ["runners"]
+    build:
+      context: ./docker/runners
+      dockerfile: Dockerfile.typescript
+    image: blankcode/runner-typescript:latest
+
+  runner-python:
+    profiles: ["runners"]
+    build:
+      context: ./docker/runners
+      dockerfile: Dockerfile.python
+    image: blankcode/runner-python:latest
+
+  runner-go:
+    profiles: ["runners"]
+    build:
+      context: ./docker/runners
+      dockerfile: Dockerfile.go
+    image: blankcode/runner-go:latest
+
+  runner-rust:
+    profiles: ["runners"]
+    build:
+      context: ./docker/runners
+      dockerfile: Dockerfile.rust
+    image: blankcode/runner-rust:latest
 
 volumes:
   postgres_data:
