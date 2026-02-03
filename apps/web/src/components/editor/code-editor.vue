@@ -1,16 +1,25 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import type { BlankRegion } from '@blankcode/shared'
+import { ref, onMounted, onUnmounted, watch, shallowRef } from 'vue'
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view'
+import { EditorState } from '@codemirror/state'
+import { defaultKeymap, indentWithTab } from '@codemirror/commands'
+import { javascript } from '@codemirror/lang-javascript'
+import { python } from '@codemirror/lang-python'
+import { rust } from '@codemirror/lang-rust'
+import { go } from '@codemirror/lang-go'
+import { vue } from '@codemirror/lang-vue'
+import { oneDark } from '@codemirror/theme-one-dark'
+import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language'
+import { closeBrackets } from '@codemirror/autocomplete'
+import { history, historyKeymap } from '@codemirror/commands'
 
 interface Props {
   code: string
-  blanks?: BlankRegion[]
   readonly?: boolean
   language?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  blanks: () => [],
   readonly: false,
   language: 'typescript',
 })
@@ -20,63 +29,163 @@ const emit = defineEmits<{
   submit: []
 }>()
 
-const editorRef = ref<HTMLTextAreaElement | null>(null)
-const lines = computed(() => props.code.split('\n'))
+const editorContainer = ref<HTMLElement | null>(null)
+const editorView = shallowRef<EditorView | null>(null)
 
-function handleInput(event: Event) {
-  const target = event.target as HTMLTextAreaElement
-  emit('update:code', target.value)
+function getLanguageExtension(lang: string) {
+  switch (lang.toLowerCase()) {
+    case 'typescript':
+    case 'ts':
+      return javascript({ typescript: true })
+    case 'javascript':
+    case 'js':
+      return javascript()
+    case 'python':
+    case 'py':
+      return python()
+    case 'rust':
+    case 'rs':
+      return rust()
+    case 'go':
+      return go()
+    case 'vue':
+      return vue()
+    default:
+      return javascript({ typescript: true })
+  }
 }
 
-function handleKeyDown(event: KeyboardEvent) {
-  if (event.key === 'Tab') {
-    event.preventDefault()
-    const target = event.target as HTMLTextAreaElement
-    const start = target.selectionStart
-    const end = target.selectionEnd
-    const newValue = props.code.substring(0, start) + '  ' + props.code.substring(end)
-    emit('update:code', newValue)
-    requestAnimationFrame(() => {
-      target.selectionStart = target.selectionEnd = start + 2
-    })
-  }
+function createEditor() {
+  if (!editorContainer.value) return
 
-  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-    event.preventDefault()
-    emit('submit')
+  const submitKeymap = keymap.of([
+    {
+      key: 'Ctrl-Enter',
+      mac: 'Cmd-Enter',
+      run: () => {
+        emit('submit')
+        return true
+      },
+    },
+  ])
+
+  const updateListener = EditorView.updateListener.of((update) => {
+    if (update.docChanged) {
+      emit('update:code', update.state.doc.toString())
+    }
+  })
+
+  const state = EditorState.create({
+    doc: props.code,
+    extensions: [
+      lineNumbers(),
+      highlightActiveLine(),
+      highlightActiveLineGutter(),
+      bracketMatching(),
+      closeBrackets(),
+      history(),
+      keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+      submitKeymap,
+      getLanguageExtension(props.language),
+      oneDark,
+      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      updateListener,
+      EditorState.readOnly.of(props.readonly),
+      EditorView.theme({
+        '&': {
+          height: '100%',
+          fontSize: '14px',
+        },
+        '.cm-scroller': {
+          fontFamily: 'var(--font-mono), monospace',
+          overflow: 'auto',
+        },
+        '.cm-content': {
+          padding: '16px 0',
+        },
+        '.cm-gutters': {
+          backgroundColor: 'transparent',
+          borderRight: '1px solid var(--color-border)',
+        },
+        '.cm-lineNumbers .cm-gutterElement': {
+          padding: '0 12px',
+          minWidth: '40px',
+        },
+      }),
+    ],
+  })
+
+  editorView.value = new EditorView({
+    state,
+    parent: editorContainer.value,
+  })
+}
+
+function destroyEditor() {
+  if (editorView.value) {
+    editorView.value.destroy()
+    editorView.value = null
   }
 }
+
+// Watch for external code changes
+watch(
+  () => props.code,
+  (newCode) => {
+    if (editorView.value) {
+      const currentCode = editorView.value.state.doc.toString()
+      if (newCode !== currentCode) {
+        editorView.value.dispatch({
+          changes: {
+            from: 0,
+            to: currentCode.length,
+            insert: newCode,
+          },
+        })
+      }
+    }
+  }
+)
+
+// Watch for language changes
+watch(
+  () => props.language,
+  () => {
+    destroyEditor()
+    createEditor()
+  }
+)
+
+onMounted(() => {
+  createEditor()
+})
+
+onUnmounted(() => {
+  destroyEditor()
+})
 </script>
 
 <template>
-  <div class="relative rounded-lg border border-border bg-code-bg overflow-hidden">
-    <div class="flex text-sm">
-      <div class="flex-shrink-0 w-12 py-4 text-right pr-4 select-none bg-code-bg border-r border-border">
-        <div
-          v-for="(_, index) in lines"
-          :key="index"
-          class="leading-6 text-code-line-number"
-        >
-          {{ index + 1 }}
-        </div>
-      </div>
-      <div class="flex-1 relative">
-        <textarea
-          ref="editorRef"
-          :value="code"
-          :readonly="readonly"
-          class="absolute inset-0 w-full h-full p-4 font-mono text-sm leading-6 bg-transparent text-foreground resize-none focus:outline-none"
-          spellcheck="false"
-          autocomplete="off"
-          autocorrect="off"
-          autocapitalize="off"
-          @input="handleInput"
-          @keydown="handleKeyDown"
-        />
-      </div>
-    </div>
-    <div class="absolute bottom-2 right-2 text-xs text-muted-foreground">
+  <div class="relative rounded-lg border border-border overflow-hidden h-full min-h-[300px]">
+    <div ref="editorContainer" class="h-full" />
+    <div class="absolute bottom-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">
       {{ language }} | Ctrl+Enter to submit
     </div>
   </div>
 </template>
+
+<style>
+.cm-editor {
+  height: 100%;
+  background-color: var(--color-code-bg);
+}
+
+.cm-editor .cm-cursor {
+  border-left-color: var(--color-foreground);
+}
+
+.cm-editor .cm-selectionBackground,
+.cm-editor.cm-focused .cm-selectionBackground {
+  background-color: var(--color-code-selection);
+}
+</style>

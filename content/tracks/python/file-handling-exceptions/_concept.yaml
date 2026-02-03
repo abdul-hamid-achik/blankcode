@@ -1,0 +1,5 @@
+slug: file-handling-exceptions
+name: File Handling and Exceptions
+description: Master reading and writing files, working with different file formats, and implementing robust error handling with exceptions and context managers.
+order: 5
+isPublished: true

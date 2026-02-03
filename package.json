@@ -24,6 +24,7 @@
     "db:studio": "bun run --filter @blankcode/db db:studio",
     "content:import": "bun run --filter @blankcode/content-importer start",
     "content:generate": "bun run --filter @blankcode/exercise-generator start",
+    "worker": "bun run --filter @blankcode/api start:worker",
     "prepare": "lefthook install || true",
     "knip": "bunx knip"
   },

@@ -31,6 +31,7 @@ export const trackSlugEnum = pgEnum('track_slug', [
   'node',
   'go',
   'rust',
+  'python',
 ])
 
 export const users = pgTable(

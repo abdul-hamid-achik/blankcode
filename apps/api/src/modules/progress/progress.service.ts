@@ -1,7 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common'
-import { eq, and } from 'drizzle-orm'
+import { eq, and, count, desc, sql } from 'drizzle-orm'
 import { DRIZZLE, type Database } from '../../database/drizzle.provider.js'
-import { userProgress, conceptMastery, exercises, concepts } from '@blankcode/db/schema'
+import { userProgress, conceptMastery, exercises, concepts, tracks, submissions } from '@blankcode/db/schema'
 
 @Injectable()
 export class ProgressService {
@@ -95,6 +95,120 @@ export class ProgressService {
         attempts: 1,
       })
     }
+  }
+
+  async getSummary(userId: string) {
+    const allTracks = await this.db.query.tracks.findMany({
+      with: {
+        concepts: {
+          with: {
+            exercises: true,
+          },
+        },
+      },
+    })
+
+    const completedProgress = await this.db.query.userProgress.findMany({
+      where: and(eq(userProgress.userId, userId), eq(userProgress.isCompleted, true)),
+    })
+
+    const completedExerciseIds = new Set(completedProgress.map((p) => p.exerciseId))
+
+    return allTracks.map((track) => {
+      const trackExercises = track.concepts.flatMap((c) => c.exercises)
+      const completedInTrack = trackExercises.filter((e) => completedExerciseIds.has(e.id)).length
+      const totalInTrack = trackExercises.length
+
+      return {
+        trackSlug: track.slug,
+        trackName: track.name,
+        totalExercises: totalInTrack,
+        completedExercises: completedInTrack,
+        masteryLevel: totalInTrack > 0 ? completedInTrack / totalInTrack : 0,
+      }
+    })
+  }
+
+  async getStats(userId: string) {
+    const completedProgress = await this.db.query.userProgress.findMany({
+      where: and(eq(userProgress.userId, userId), eq(userProgress.isCompleted, true)),
+      orderBy: desc(userProgress.completedAt),
+    })
+
+    const userSubmissions = await this.db.query.submissions.findMany({
+      where: eq(submissions.userId, userId),
+    })
+
+    const totalExercisesCompleted = completedProgress.length
+    const totalSubmissions = userSubmissions.length
+
+    // Calculate streak
+    const { currentStreak, longestStreak } = this.calculateStreak(completedProgress)
+
+    const lastActivityDate = completedProgress[0]?.completedAt ?? null
+
+    return {
+      totalExercisesCompleted,
+      currentStreak,
+      longestStreak,
+      totalSubmissions,
+      lastActivityDate: lastActivityDate?.toISOString() ?? null,
+    }
+  }
+
+  private calculateStreak(completedProgress: { completedAt: Date | null }[]) {
+    if (completedProgress.length === 0) {
+      return { currentStreak: 0, longestStreak: 0 }
+    }
+
+    const dates = completedProgress
+      .map((p) => p.completedAt)
+      .filter((d): d is Date => d !== null)
+      .map((d) => {
+        const date = new Date(d)
+        date.setHours(0, 0, 0, 0)
+        return date.getTime()
+      })
+      .filter((d, i, arr) => arr.indexOf(d) === i)
+      .sort((a, b) => b - a)
+
+    if (dates.length === 0) {
+      return { currentStreak: 0, longestStreak: 0 }
+    }
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayTime = today.getTime()
+    const oneDay = 24 * 60 * 60 * 1000
+
+    let currentStreak = 0
+    let longestStreak = 0
+    let tempStreak = 1
+
+    // Check if today or yesterday has activity for current streak
+    if (dates[0] === todayTime || dates[0] === todayTime - oneDay) {
+      currentStreak = 1
+      for (let i = 1; i < dates.length; i++) {
+        if (dates[i - 1]! - dates[i]! === oneDay) {
+          currentStreak++
+        } else {
+          break
+        }
+      }
+    }
+
+    // Calculate longest streak
+    for (let i = 1; i < dates.length; i++) {
+      if (dates[i - 1]! - dates[i]! === oneDay) {
+        tempStreak++
+      } else {
+        longestStreak = Math.max(longestStreak, tempStreak)
+        tempStreak = 1
+      }
+    }
+    longestStreak = Math.max(longestStreak, tempStreak, currentStreak)
+
+    return { currentStreak, longestStreak }
   }
 
   private async updateConceptMastery(userId: string, exerciseId: string) {

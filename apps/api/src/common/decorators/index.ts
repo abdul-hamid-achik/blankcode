@@ -7,3 +7,5 @@ export const CurrentUser = createParamDecorator((data: unknown, ctx: ExecutionCo
 
 export const IS_PUBLIC_KEY = 'isPublic'
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true)
+
+export { AuthThrottle, SubmissionThrottle, NoThrottle } from './throttle.decorator.js'

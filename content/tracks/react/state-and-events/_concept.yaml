@@ -1,0 +1,5 @@
+slug: state-and-events
+name: State and Events
+description: Discover how to make components interactive using state management and event handling. Learn the useState hook and how to respond to user interactions.
+order: 2
+isPublished: true

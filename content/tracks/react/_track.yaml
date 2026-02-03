@@ -1,0 +1,5 @@
+slug: react
+name: React
+description: Master React, the popular JavaScript library for building user interfaces. Learn from fundamental concepts like components and props to advanced patterns like custom hooks and performance optimization.
+order: 1
+isPublished: true

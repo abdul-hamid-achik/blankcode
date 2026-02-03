@@ -16,6 +16,7 @@
     "@blankcode/db": "workspace:*",
     "@blankcode/exercise-parser": "workspace:*",
     "@blankcode/shared": "workspace:*",
+    "dotenv-mono": "^1.3.0",
     "glob": "^11.0.0",
     "yaml": "^2.7.0"
   },

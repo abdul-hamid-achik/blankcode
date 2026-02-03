@@ -1,0 +1,5 @@
+slug: traits-and-generics
+name: Traits & Generics
+description: Write reusable, polymorphic code using Rust's trait system and generics. Learn about trait bounds, associated types, and how Rust achieves zero-cost abstractions through monomorphization.
+order: 5
+isPublished: true

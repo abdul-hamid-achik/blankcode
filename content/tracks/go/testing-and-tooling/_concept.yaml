@@ -1,0 +1,5 @@
+slug: testing-and-tooling
+name: Testing and Tooling
+description: Master Go's built-in testing framework, benchmarking, and profiling tools. Learn how to write effective tests, use the go toolchain, and leverage Go's excellent developer experience.
+order: 5
+isPublished: true

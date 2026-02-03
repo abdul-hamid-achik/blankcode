@@ -5,7 +5,7 @@ export const difficultySchema = z.enum(['beginner', 'intermediate', 'advanced', 
 
 export const submissionStatusSchema = z.enum(['pending', 'running', 'passed', 'failed', 'error'])
 
-export const trackSlugSchema = z.enum(['typescript', 'vue', 'react', 'node', 'go', 'rust'])
+export const trackSlugSchema = z.enum(['typescript', 'vue', 'react', 'node', 'go', 'rust', 'python'])
 
 export const paginationSchema = z.object({
   page: z.coerce.number().int().positive().default(1),

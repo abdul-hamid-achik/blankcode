@@ -1,21 +1,22 @@
-import { Controller, Get, Post, Body, Param, Query, UsePipes } from '@nestjs/common'
+import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common'
 import { SubmissionsService } from './submissions.service.js'
-import { submissionCreateSchema } from '@blankcode/shared'
+import { submissionCreateSchema, type SubmissionCreateInput } from '@blankcode/shared'
 import { createZodPipe } from '../../common/pipes/index.js'
 import { CurrentUser } from '../../common/decorators/index.js'
+import { SubmissionThrottle } from '../../common/decorators/throttle.decorator.js'
 
 @Controller('submissions')
 export class SubmissionsController {
   constructor(private submissionsService: SubmissionsService) {}
 
+  @SubmissionThrottle()
   @Post()
-  @UsePipes(createZodPipe(submissionCreateSchema))
-  async create(@CurrentUser() user: { id: string }, @Body() body: unknown) {
+  async create(
+    @CurrentUser() user: { id: string },
+    @Body(createZodPipe(submissionCreateSchema)) body: SubmissionCreateInput
+  ) {
     return {
-      data: await this.submissionsService.create(
-        user.id,
-        body as Parameters<typeof this.submissionsService.create>[1]
-      ),
+      data: await this.submissionsService.create(user.id, body),
     }
   }
 

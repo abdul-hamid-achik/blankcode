@@ -1,12 +1,15 @@
-import { Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common'
+import { Injectable, type ExecutionContext } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
+import { AuthGuard } from '@nestjs/passport'
 import { IS_PUBLIC_KEY } from '../decorators/index.js'
 
 @Injectable()
-export class JwtAuthGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+export class JwtAuthGuard extends AuthGuard('jwt') {
+  constructor(private reflector: Reflector) {
+    super()
+  }
 
-  canActivate(context: ExecutionContext): boolean {
+  override canActivate(context: ExecutionContext) {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -15,7 +18,6 @@ export class JwtAuthGuard implements CanActivate {
       return true
     }
 
-    const request = context.switchToHttp().getRequest()
-    return !!request.user
+    return super.canActivate(context)
   }
 }

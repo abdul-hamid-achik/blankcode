@@ -3,8 +3,8 @@ import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import CodeEditor from '@/components/editor/code-editor.vue'
 import TestResults from '@/components/editor/test-results.vue'
+import HintsPanel from '@/components/exercise/hints-panel.vue'
 import Button from '@/components/ui/button.vue'
-import Card from '@/components/ui/card.vue'
 import { useKeyboard } from '@/composables/use-keyboard'
 import { useExerciseStore } from '@/stores/exercise'
 
@@ -12,6 +12,26 @@ const route = useRoute()
 const exerciseStore = useExerciseStore()
 
 const exerciseId = computed(() => route.params['exerciseId'] as string)
+
+const language = computed(() => {
+  const trackSlug = (exerciseStore.exercise as any)?.concept?.track?.slug
+  switch (trackSlug) {
+    case 'typescript':
+      return 'typescript'
+    case 'javascript':
+      return 'javascript'
+    case 'python':
+      return 'python'
+    case 'rust':
+      return 'rust'
+    case 'go':
+      return 'go'
+    case 'vue':
+      return 'vue'
+    default:
+      return 'typescript'
+  }
+})
 
 onMounted(() => {
   exerciseStore.loadExercise(exerciseId.value)
@@ -56,6 +76,7 @@ function handleCodeUpdate(code: string) {
         <div class="flex-1 p-6">
           <CodeEditor
             :code="exerciseStore.currentCode"
+            :language="language"
             @update:code="handleCodeUpdate"
             @submit="handleSubmit"
           />
@@ -90,16 +111,7 @@ function handleCodeUpdate(code: string) {
         </div>
 
         <div v-if="exerciseStore.exercise.hints?.length" class="mt-6">
-          <h3 class="font-semibold mb-2">Hints</h3>
-          <ul class="space-y-2">
-            <li
-              v-for="(hint, index) in exerciseStore.exercise.hints"
-              :key="index"
-              class="text-sm text-muted-foreground"
-            >
-              {{ hint }}
-            </li>
-          </ul>
+          <HintsPanel :hints="exerciseStore.exercise.hints" />
         </div>
       </div>
     </div>

@@ -1,0 +1,5 @@
+slug: routing-and-navigation
+name: Routing and Navigation
+description: Build multi-page applications using React Router. Learn about dynamic routes, nested routing, navigation guards, and URL parameter handling.
+order: 5
+isPublished: true

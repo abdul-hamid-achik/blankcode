@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import 'dotenv-mono/load'
 import { importContent } from './index.js'
 
 const args = process.argv.slice(2)

@@ -2,12 +2,14 @@
 import { onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useProgressStore } from '@/stores/progress'
 import { useAsync } from '@/composables/use-async'
 import { api } from '@/api'
 import Card from '@/components/ui/card.vue'
 import Button from '@/components/ui/button.vue'
 
 const authStore = useAuthStore()
+const progressStore = useProgressStore()
 
 const { data: submissions, execute: loadSubmissions } = useAsync(() =>
   api.submissions.getMine(10)
@@ -15,6 +17,7 @@ const { data: submissions, execute: loadSubmissions } = useAsync(() =>
 
 onMounted(() => {
   loadSubmissions()
+  progressStore.loadStats()
 })
 
 const statusColors: Record<string, string> = {
@@ -39,15 +42,15 @@ const statusColors: Record<string, string> = {
       <div class="grid md:grid-cols-3 gap-6 mb-8">
         <Card>
           <div class="text-sm text-muted-foreground">Exercises Completed</div>
-          <div class="text-3xl font-bold mt-1">0</div>
+          <div class="text-3xl font-bold mt-1">{{ progressStore.totalCompleted }}</div>
         </Card>
         <Card>
           <div class="text-sm text-muted-foreground">Current Streak</div>
-          <div class="text-3xl font-bold mt-1">0 days</div>
+          <div class="text-3xl font-bold mt-1">{{ progressStore.currentStreak }} days</div>
         </Card>
         <Card>
           <div class="text-sm text-muted-foreground">Total Submissions</div>
-          <div class="text-3xl font-bold mt-1">{{ submissions?.length ?? 0 }}</div>
+          <div class="text-3xl font-bold mt-1">{{ progressStore.userStats?.totalSubmissions ?? submissions?.length ?? 0 }}</div>
         </Card>
       </div>
 

@@ -91,5 +91,21 @@ export const api = {
     getExercise: (exerciseId: string) => request(`/progress/exercises/${exerciseId}`),
     getConcept: (conceptId: string) => request(`/progress/concepts/${conceptId}`),
     getTrack: (trackSlug: string) => request(`/progress/tracks/${trackSlug}`),
+    getSummary: () =>
+      request<Array<{
+        trackSlug: string
+        trackName: string
+        totalExercises: number
+        completedExercises: number
+        masteryLevel: number
+      }>>('/progress/summary'),
+    getStats: () =>
+      request<{
+        totalExercisesCompleted: number
+        currentStreak: number
+        longestStreak: number
+        totalSubmissions: number
+        lastActivityDate: string | null
+      }>('/progress/stats'),
   },
 }

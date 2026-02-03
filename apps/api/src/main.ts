@@ -1,7 +1,9 @@
 import { NestFactory } from '@nestjs/core'
 import type { NestFastifyApplication } from '@nestjs/platform-fastify'
 import { FastifyAdapter } from '@nestjs/platform-fastify'
+import helmet from '@fastify/helmet'
 import { AppModule } from './app.module.js'
+import { config } from './config/index.js'
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -9,15 +11,33 @@ async function bootstrap() {
     new FastifyAdapter({ logger: true })
   )
 
-  app.enableCors({
-    origin: process.env['CORS_ORIGIN'] ?? 'http://localhost:5173',
-    credentials: true,
+  // Security headers
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'https:'],
+        connectSrc: ["'self'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
   })
 
-  const port = process.env['API_PORT'] ?? 3000
-  const host = process.env['API_HOST'] ?? '0.0.0.0'
+  // CORS
+  app.enableCors({
+    origin: config.api.corsOrigin,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+
+  const port = config.api.port
+  const host = config.api.host
 
   await app.listen(port, host)
+  console.log(`API running on http://${host}:${port}`)
 }
 
 bootstrap()

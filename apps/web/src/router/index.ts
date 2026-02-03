@@ -48,6 +48,18 @@ const router = createRouter({
       component: () => import('@/views/dashboard-view.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('@/views/settings-view.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/progress',
+      name: 'progress',
+      component: () => import('@/views/progress-view.vue'),
+      meta: { requiresAuth: true },
+    },
   ],
 })
 

@@ -1,0 +1,5 @@
+slug: error-handling
+name: Error Handling
+description: Understand Go's explicit error handling philosophy using error values and the error interface. Learn best practices for creating, wrapping, and propagating errors effectively.
+order: 3
+isPublished: true

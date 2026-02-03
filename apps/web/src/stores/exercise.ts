@@ -10,6 +10,7 @@ export const useExerciseStore = defineStore('exercise', () => {
   const blanks = ref<BlankRegion[]>([])
   const isSubmitting = ref(false)
   const latestSubmission = ref<Submission | null>(null)
+  let pollInterval: ReturnType<typeof setInterval> | null = null
 
   const hasPassedSubmission = computed(() =>
     submissions.value.some((s) => s.status === 'passed')
@@ -26,6 +27,37 @@ export const useExerciseStore = defineStore('exercise', () => {
     latestSubmission.value = submissions.value[0] ?? null
   }
 
+  async function pollSubmissionStatus(submissionId: string) {
+    stopPolling()
+
+    pollInterval = setInterval(async () => {
+      try {
+        const updated = await api.submissions.getById(submissionId)
+        latestSubmission.value = updated
+
+        // Update in submissions list
+        const idx = submissions.value.findIndex((s) => s.id === submissionId)
+        if (idx >= 0) {
+          submissions.value[idx] = updated
+        }
+
+        // Stop polling when submission is complete
+        if (updated.status !== 'pending' && updated.status !== 'running') {
+          stopPolling()
+        }
+      } catch {
+        stopPolling()
+      }
+    }, 1000)
+  }
+
+  function stopPolling() {
+    if (pollInterval) {
+      clearInterval(pollInterval)
+      pollInterval = null
+    }
+  }
+
   async function submitCode(code: string) {
     if (!exercise.value) return
 
@@ -37,6 +69,10 @@ export const useExerciseStore = defineStore('exercise', () => {
       })
       latestSubmission.value = submission
       submissions.value = [submission, ...submissions.value]
+
+      // Start polling for status updates
+      pollSubmissionStatus(submission.id)
+
       return submission
     } finally {
       isSubmitting.value = false
@@ -48,6 +84,7 @@ export const useExerciseStore = defineStore('exercise', () => {
   }
 
   function reset() {
+    stopPolling()
     exercise.value = null
     submissions.value = []
     currentCode.value = ''
@@ -69,5 +106,6 @@ export const useExerciseStore = defineStore('exercise', () => {
     submitCode,
     updateCode,
     reset,
+    stopPolling,
   }
 })

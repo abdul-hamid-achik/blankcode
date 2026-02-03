@@ -1,0 +1,5 @@
+slug: error-handling-and-options
+name: Error Handling & Options
+description: Handle errors idiomatically using Result and Option types instead of exceptions. Learn how to propagate errors with the ? operator and write robust, explicit error-handling code.
+order: 4
+isPublished: true

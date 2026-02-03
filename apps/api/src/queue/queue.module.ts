@@ -1,11 +1,12 @@
 import { Global, Module, type OnModuleDestroy } from '@nestjs/common'
-import { Queue, Worker, type ConnectionOptions } from 'bullmq'
+import { Queue, type ConnectionOptions } from 'bullmq'
 import { config } from '../config/index.js'
 
 export const SUBMISSION_QUEUE = Symbol('SUBMISSION_QUEUE')
 export const GENERATION_QUEUE = Symbol('GENERATION_QUEUE')
+export const REDIS_CONNECTION = Symbol('REDIS_CONNECTION')
 
-const connection: ConnectionOptions = {
+export const connection: ConnectionOptions = {
   host: config.redis.host,
   port: config.redis.port,
 }
@@ -13,6 +14,10 @@ const connection: ConnectionOptions = {
 @Global()
 @Module({
   providers: [
+    {
+      provide: REDIS_CONNECTION,
+      useValue: connection,
+    },
     {
       provide: SUBMISSION_QUEUE,
       useFactory: () => new Queue('submissions', { connection }),
@@ -22,7 +27,7 @@ const connection: ConnectionOptions = {
       useFactory: () => new Queue('generation', { connection }),
     },
   ],
-  exports: [SUBMISSION_QUEUE, GENERATION_QUEUE],
+  exports: [SUBMISSION_QUEUE, GENERATION_QUEUE, REDIS_CONNECTION],
 })
 export class QueueModule implements OnModuleDestroy {
   private queues: Queue[] = []

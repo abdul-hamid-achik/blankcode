@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { DatabaseModule } from './database/database.module.js'
 import { QueueModule } from './queue/queue.module.js'
+import { RateLimitModule } from './common/rate-limit/rate-limit.module.js'
 import { AuthModule } from './modules/auth/auth.module.js'
 import { UsersModule } from './modules/users/users.module.js'
 import { TracksModule } from './modules/tracks/tracks.module.js'
@@ -19,6 +20,7 @@ import { AppController } from './app.controller.js'
     }),
     DatabaseModule,
     QueueModule,
+    RateLimitModule,
     AuthModule,
     UsersModule,
     TracksModule,

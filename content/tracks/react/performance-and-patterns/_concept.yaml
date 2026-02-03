@@ -1,0 +1,5 @@
+slug: performance-and-patterns
+name: Performance and Patterns
+description: Optimize React applications using code splitting, lazy loading, and memoization techniques. Explore advanced patterns like compound components, render props, and HOCs for scalable architecture.
+order: 6
+isPublished: true

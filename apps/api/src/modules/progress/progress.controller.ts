@@ -1,10 +1,20 @@
-import { Controller, Get, Param, Query } from '@nestjs/common'
+import { Controller, Get, Param } from '@nestjs/common'
 import { ProgressService } from './progress.service.js'
 import { CurrentUser } from '../../common/decorators/index.js'
 
 @Controller('progress')
 export class ProgressController {
   constructor(private progressService: ProgressService) {}
+
+  @Get('summary')
+  async getSummary(@CurrentUser() user: { id: string }) {
+    return { data: await this.progressService.getSummary(user.id) }
+  }
+
+  @Get('stats')
+  async getStats(@CurrentUser() user: { id: string }) {
+    return { data: await this.progressService.getStats(user.id) }
+  }
 
   @Get('exercises/:exerciseId')
   async getExerciseProgress(

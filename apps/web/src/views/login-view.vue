@@ -30,8 +30,8 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="container py-12">
-    <div class="w-full max-w-md mx-auto">
+  <div class="auth-container">
+    <div class="auth-card">
       <div class="text-center mb-8">
         <h1 class="text-2xl font-bold">Welcome back</h1>
         <p class="text-muted-foreground mt-1">Sign in to continue learning</p>
@@ -44,7 +44,7 @@ async function handleSubmit() {
           </div>
 
           <div class="space-y-2">
-            <label class="text-sm font-medium">Email</label>
+            <label class="text-sm font-medium block">Email</label>
             <Input
               v-model="email"
               type="email"
@@ -54,7 +54,7 @@ async function handleSubmit() {
           </div>
 
           <div class="space-y-2">
-            <label class="text-sm font-medium">Password</label>
+            <label class="text-sm font-medium block">Password</label>
             <Input
               v-model="password"
               type="password"

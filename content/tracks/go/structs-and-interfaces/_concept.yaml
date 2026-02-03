@@ -1,0 +1,5 @@
+slug: structs-and-interfaces
+name: Structs and Interfaces
+description: Master Go's type system through structs for data modeling and interfaces for polymorphism. Learn how Go's implicit interface satisfaction enables flexible and decoupled code design.
+order: 2
+isPublished: true

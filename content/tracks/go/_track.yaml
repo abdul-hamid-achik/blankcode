@@ -1,0 +1,5 @@
+slug: go
+name: Go
+description: Master Go, Google's fast and efficient programming language designed for building reliable and scalable software. Learn from basic syntax to advanced concurrency patterns and idiomatic Go practices.
+order: 1
+isPublished: true

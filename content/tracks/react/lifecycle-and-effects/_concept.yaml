@@ -1,0 +1,5 @@
+slug: lifecycle-and-effects
+name: Lifecycle and Effects
+description: Understand component lifecycle and side effects using the useEffect hook. Learn how to fetch data, subscribe to services, and clean up resources properly.
+order: 3
+isPublished: true

@@ -4,9 +4,9 @@ import AppFooter from './components/layout/app-footer.vue'
 </script>
 
 <template>
-  <div class="min-h-screen w-full flex flex-col bg-background text-foreground">
+  <div class="grid grid-rows-[auto_1fr_auto] min-h-screen bg-background text-foreground">
     <AppHeader />
-    <main class="flex-1 w-full">
+    <main>
       <RouterView />
     </main>
     <AppFooter />

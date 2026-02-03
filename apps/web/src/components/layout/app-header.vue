@@ -6,9 +6,16 @@ import Button from '@/components/ui/button.vue'
 
 const authStore = useAuthStore()
 
-const navLinks = [
-  { to: '/tracks', label: 'Tracks' },
-]
+
+const navLinks = computed(() => {
+  const links = [
+    { to: '/tracks', label: 'Tracks' },
+  ]
+  if (authStore.isAuthenticated) {
+    links.push({ to: '/progress', label: 'Progress' })
+  }
+  return links
+})
 </script>
 
 <template>
@@ -34,6 +41,9 @@ const navLinks = [
         <template v-if="authStore.isAuthenticated">
           <RouterLink to="/dashboard">
             <Button variant="ghost" size="sm">Dashboard</Button>
+          </RouterLink>
+          <RouterLink to="/settings">
+            <Button variant="ghost" size="sm">Settings</Button>
           </RouterLink>
           <Button variant="outline" size="sm" @click="authStore.logout">
             Logout

@@ -1,0 +1,5 @@
+slug: ownership-and-borrowing
+name: Ownership & Borrowing
+description: Master Rust's ownership system, borrowing rules, and lifetimes—the core concepts that enable memory safety without runtime overhead. Learn how references, mutable borrowing, and the borrow checker work together.
+order: 2
+isPublished: true

@@ -1,0 +1,5 @@
+slug: functions-modules
+name: Functions and Modules
+description: Learn to write reusable code with functions, understand scope, work with parameters and return values, and organize code using modules and packages.
+order: 3
+isPublished: true

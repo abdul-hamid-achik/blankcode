@@ -2,6 +2,17 @@ import { Controller, Get, Param } from '@nestjs/common'
 import { ExercisesService } from './exercises.service.js'
 import { Public } from '../../common/decorators/index.js'
 
+@Controller('exercises')
+export class ExercisesByIdController {
+  constructor(private exercisesService: ExercisesService) {}
+
+  @Public()
+  @Get(':id')
+  async findById(@Param('id') id: string) {
+    return { data: await this.exercisesService.findById(id) }
+  }
+}
+
 @Controller('tracks/:trackSlug/concepts/:conceptSlug/exercises')
 export class ExercisesController {
   constructor(private exercisesService: ExercisesService) {}

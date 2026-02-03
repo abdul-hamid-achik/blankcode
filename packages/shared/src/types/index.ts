@@ -2,7 +2,7 @@ export type Difficulty = 'beginner' | 'intermediate' | 'advanced' | 'expert'
 
 export type SubmissionStatus = 'pending' | 'running' | 'passed' | 'failed' | 'error'
 
-export type TrackSlug = 'typescript' | 'vue' | 'react' | 'node' | 'go' | 'rust'
+export type TrackSlug = 'typescript' | 'vue' | 'react' | 'node' | 'go' | 'rust' | 'python'
 
 export interface User {
   id: string
