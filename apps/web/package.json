@@ -1,0 +1,41 @@
+{
+  "name": "@blankcode/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@blankcode/shared": "workspace:*",
+    "@vueuse/core": "^12.0.0",
+    "pinia": "^3.0.0",
+    "radix-vue": "^1.9.0",
+    "vue": "^3.5.0",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@vitejs/plugin-vue": "^5.2.0",
+    "@vue/test-utils": "^2.4.0",
+    "autoprefixer": "^10.4.0",
+    "jsdom": "^26.0.0",
+    "msw": "^2.7.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "5.9.3",
+    "vite": "^6.2.0",
+    "vitest": "4.0.18",
+    "vue-tsc": "^2.2.0"
+  },
+  "peerDependencies": {
+    "zod": ">=4.0.0"
+  }
+}

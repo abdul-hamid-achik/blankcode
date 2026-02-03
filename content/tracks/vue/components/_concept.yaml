@@ -1,0 +1,5 @@
+slug: components
+name: Vue Components
+description: Build reusable Vue components with props, emits, slots, and the Composition API.
+order: 2
+isPublished: true

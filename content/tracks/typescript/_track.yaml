@@ -1,0 +1,5 @@
+slug: typescript
+name: TypeScript
+description: Master TypeScript from basics to advanced patterns. Learn type safety, generics, utility types, and more.
+order: 1
+isPublished: true

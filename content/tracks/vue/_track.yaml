@@ -1,0 +1,5 @@
+slug: vue
+name: Vue.js
+description: Master Vue 3 Composition API, reactivity, components, and state management with Pinia.
+order: 2
+isPublished: true

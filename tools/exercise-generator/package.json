@@ -1,0 +1,25 @@
+{
+  "name": "@blankcode/exercise-generator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "exercise-generator": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@blankcode/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "5.9.3"
+  },
+  "peerDependencies": {
+    "zod": ">=4.0.0"
+  }
+}

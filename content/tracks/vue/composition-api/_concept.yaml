@@ -1,0 +1,5 @@
+slug: composition-api
+name: Composition API
+description: Learn Vue 3's Composition API for organizing component logic with ref, reactive, computed, and watch.
+order: 1
+isPublished: true

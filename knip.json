@@ -1,0 +1,31 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["turbo.json"],
+      "project": ["*.{js,ts}"]
+    },
+    "apps/api": {
+      "entry": ["src/main.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "apps/web": {
+      "entry": ["src/main.ts", "vite.config.ts", "e2e/**/*.ts"],
+      "project": ["src/**/*.{ts,vue}"]
+    },
+    "packages/*": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "tools/*": {
+      "entry": ["src/index.ts", "src/cli.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  },
+  "ignoreDependencies": [
+    "@types/*",
+    "turbo",
+    "lefthook"
+  ],
+  "ignoreWorkspaces": ["content"]
+}

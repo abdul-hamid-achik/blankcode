@@ -1,0 +1,5 @@
+slug: basics
+name: TypeScript Basics
+description: Learn fundamental TypeScript concepts including types, interfaces, type inference, and basic type manipulation.
+order: 0
+isPublished: true

@@ -1,0 +1,5 @@
+slug: pinia
+name: Pinia State Management
+description: Learn state management with Pinia - Vue's official store library.
+order: 3
+isPublished: true

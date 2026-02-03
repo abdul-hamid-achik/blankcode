@@ -1,0 +1,5 @@
+slug: async-patterns
+name: Async Patterns
+description: Learn async/await, Promises, and asynchronous programming patterns in TypeScript.
+order: 1
+isPublished: true
