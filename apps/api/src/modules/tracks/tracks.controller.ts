@@ -1,7 +1,7 @@
 import type { TrackSlug } from '@blankcode/shared'
 import { Controller, Get, Param } from '@nestjs/common'
 import { Public } from '../../common/decorators/index.js'
-import type { TracksService } from './tracks.service.js'
+import { TracksService } from './tracks.service.js'
 
 @Controller('tracks')
 export class TracksController {
