@@ -12,7 +12,6 @@ import {
 import { z } from 'zod'
 import { CurrentUser, Public } from '../../common/decorators/index.js'
 import { createZodPipe } from '../../common/pipes/index.js'
-import type { JwtPayload } from '../auth/jwt.strategy.js'
 import { ExercisesService } from './exercises.service.js'
 
 @Controller('exercises')
@@ -26,8 +25,8 @@ export class ExercisesByIdController {
   }
 
   @Get(':id/progress')
-  async findWithProgress(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    return { data: await this.exercisesService.findWithProgress(id, user.sub) }
+  async findWithProgress(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+    return { data: await this.exercisesService.findWithProgress(id, user.id) }
   }
 
   @Post(':id/draft')
@@ -35,16 +34,16 @@ export class ExercisesByIdController {
   @UsePipes(createZodPipe(z.object({ code: z.string() })))
   async saveDraft(
     @Param('id') id: string,
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: { id: string },
     @Body() body: { code: string }
   ) {
-    return { data: await this.exercisesService.saveDraft(user.sub, id, body.code) }
+    return { data: await this.exercisesService.saveDraft(user.id, id, body.code) }
   }
 
   @Delete(':id/draft')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteDraft(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
-    await this.exercisesService.deleteDraft(user.sub, id)
+  async deleteDraft(@Param('id') id: string, @CurrentUser() user: { id: string }) {
+    await this.exercisesService.deleteDraft(user.id, id)
   }
 }
 

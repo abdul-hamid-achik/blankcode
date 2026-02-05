@@ -102,6 +102,10 @@ async function request<T>(endpoint: string, options: RequestInit = {}, retryCoun
     throw new Error(error.error?.message ?? 'Request failed')
   }
 
+  if (response.status === 204) {
+    return undefined as T
+  }
+
   const json = await response.json()
   return json.data ?? json
 }
