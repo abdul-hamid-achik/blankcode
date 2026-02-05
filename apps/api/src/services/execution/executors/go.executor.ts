@@ -184,7 +184,14 @@ go 1.22
       let exitCode: number
 
       if (config.execution.dockerEnabled) {
-        const result = await executeInDocker(context, files, ['go', 'test', '-v', './...'])
+        const result = await executeInDocker(context, files, [
+          'go',
+          'test',
+          '-v',
+          '-count=1',
+          '-vet=off',
+          '.',
+        ])
         logger.debug('Docker test execution complete', {
           submissionId: context.submissionId,
           exitCode: result.exitCode,
@@ -199,7 +206,7 @@ go 1.22
         try {
           const testResult = await executeLocally(
             'go',
-            ['test', '-v', './...'],
+            ['test', '-v', '-count=1', '-vet=off', '.'],
             workDir,
             context.timeoutMs
           )
