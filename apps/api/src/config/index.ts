@@ -26,7 +26,10 @@ export const config = {
       python: process.env['DOCKER_IMAGE_PYTHON'] ?? 'blankcode/runner-python:latest',
       go: process.env['DOCKER_IMAGE_GO'] ?? 'blankcode/runner-go:latest',
       rust: process.env['DOCKER_IMAGE_RUST'] ?? 'blankcode/runner-rust:latest',
-    },
+      vue: process.env['DOCKER_IMAGE_VUE'] ?? 'blankcode/runner-typescript:latest',
+      react: process.env['DOCKER_IMAGE_REACT'] ?? 'blankcode/runner-typescript:latest',
+      node: process.env['DOCKER_IMAGE_NODE'] ?? 'blankcode/runner-typescript:latest',
+    } as Record<string, string>,
   },
   rateLimit: {
     ttl: Number.parseInt(process.env['RATE_LIMIT_TTL'] ?? '60000', 10),

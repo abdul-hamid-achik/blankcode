@@ -130,7 +130,7 @@ export async function executeInDocker(
   files: Record<string, string>,
   command: string[]
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  const image = config.execution.images[context.language] ?? config.execution.images.typescript
+  const image = config.execution.images[context.language] ?? config.execution.images['typescript']!
 
   const workDir = await prepareWorkspace(files)
 
@@ -150,6 +150,20 @@ export async function executeInDocker(
   }
 }
 
+const SAFE_ENV_KEYS = [
+  'PATH',
+  'HOME',
+  'SHELL',
+  'USER',
+  'LANG',
+  'LC_ALL',
+  'TMPDIR',
+  'GOPATH',
+  'GOROOT',
+  'CARGO_HOME',
+  'RUSTUP_HOME',
+]
+
 export async function executeLocally(
   command: string,
   args: string[],
@@ -161,13 +175,17 @@ export async function executeLocally(
     let stderr = ''
     let killed = false
 
+    const safeEnv: Record<string, string> = { NODE_ENV: 'test' }
+    for (const key of SAFE_ENV_KEYS) {
+      if (process.env[key]) {
+        safeEnv[key] = process.env[key]!
+      }
+    }
+
     const proc = spawn(command, args, {
       cwd,
       timeout: timeoutMs,
-      env: {
-        ...process.env,
-        NODE_ENV: 'test',
-      },
+      env: safeEnv,
     })
 
     const timer = setTimeout(() => {
@@ -177,10 +195,18 @@ export async function executeLocally(
 
     proc.stdout.on('data', (data) => {
       stdout += data.toString()
+      if (stdout.length > 1024 * 1024) {
+        killed = true
+        proc.kill('SIGKILL')
+      }
     })
 
     proc.stderr.on('data', (data) => {
       stderr += data.toString()
+      if (stderr.length > 1024 * 1024) {
+        killed = true
+        proc.kill('SIGKILL')
+      }
     })
 
     proc.on('error', (err) => {

@@ -23,12 +23,44 @@ interface VitestJsonOutput {
 
 export function parseVitestOutput(output: string): TestResult[] {
   try {
-    const jsonMatch = output.match(/\{[\s\S]*"testResults"[\s\S]*\}/)
-    if (!jsonMatch) {
+    const idx = output.lastIndexOf('"testResults"')
+    if (idx === -1) {
       return parseVitestTextOutput(output)
     }
 
-    const json: VitestJsonOutput = JSON.parse(jsonMatch[0])
+    // Walk backwards to find the start of the JSON object
+    let braceCount = 0
+    let start = -1
+    for (let i = idx; i >= 0; i--) {
+      if (output[i] === '}') braceCount++
+      if (output[i] === '{') {
+        if (braceCount === 0) {
+          start = i
+          break
+        }
+        braceCount--
+      }
+    }
+
+    if (start === -1) return parseVitestTextOutput(output)
+
+    // Walk forward to find the matching closing brace
+    braceCount = 0
+    let end = -1
+    for (let i = start; i < output.length; i++) {
+      if (output[i] === '{') braceCount++
+      if (output[i] === '}') {
+        braceCount--
+        if (braceCount === 0) {
+          end = i + 1
+          break
+        }
+      }
+    }
+
+    if (end === -1) return parseVitestTextOutput(output)
+
+    const json: VitestJsonOutput = JSON.parse(output.slice(start, end))
     const results: TestResult[] = []
 
     for (const file of json.testResults) {
@@ -53,18 +85,24 @@ function parseVitestTextOutput(output: string): TestResult[] {
   const results: TestResult[] = []
   const passPattern = /✓\s+(.+?)\s+\((\d+)ms\)/
   const failPattern = /✗\s+(.+?)\s+\((\d+)ms\)/
-  const errorPattern = /Error:\s+(.+)/
+  let lastFailedIndex: number | null = null
 
   for (const line of output.split('\n')) {
     const result = parseTestLine(line, passPattern, failPattern)
     if (result) {
       results.push(result)
+      lastFailedIndex = result.passed ? null : results.length - 1
       continue
     }
 
-    const errorMatch = line.match(errorPattern)
-    if (errorMatch) {
-      attachErrorToLastFailedTest(results, errorMatch[1]?.trim() ?? '')
+    if (lastFailedIndex !== null) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      if (/^(Test Files|Tests|Snapshots|Duration)/.test(trimmed)) continue
+      const target = results[lastFailedIndex]
+      if (target) {
+        appendMessage(target, trimmed)
+      }
     }
   }
 
@@ -95,18 +133,12 @@ function parseTestLine(line: string, passPattern: RegExp, failPattern: RegExp): 
   return null
 }
 
-function attachErrorToLastFailedTest(results: TestResult[], errorMessage: string): void {
-  if (results.length === 0) return
-  const lastResult = results[results.length - 1]
-  if (lastResult && !lastResult.passed && !lastResult.message) {
-    lastResult.message = errorMessage
-  }
-}
-
 export function parsePytestOutput(output: string): TestResult[] {
   const results: TestResult[] = []
-  const passPattern = /PASSED\s+(.+?)\s*(?:\((\d+(?:\.\d+)?)s\))?/
-  const failPattern = /FAILED\s+(.+?)\s*(?:-\s*(.+))?/
+  const passPattern = /^PASSED\s+(.+?)\s*(?:\((\d+(?:\.\d+)?)s\))?$/
+  const failPattern = /^FAILED\s+(.+?)(?:\s+-\s+(.+))?$/
+  const failureDetails = collectPytestFailureDetails(output)
+  const seenFailures = new Set<string>()
 
   for (const line of output.split('\n')) {
     const passMatch = line.match(passPattern)
@@ -122,10 +154,17 @@ export function parsePytestOutput(output: string): TestResult[] {
 
     const failMatch = line.match(failPattern)
     if (failMatch) {
+      const summaryName = failMatch[1]?.trim() ?? ''
+      if (seenFailures.has(summaryName)) {
+        continue
+      }
+      seenFailures.add(summaryName)
+      const detailKey = summaryName.split('::').pop() ?? summaryName
+      const details = failureDetails.get(summaryName) ?? failureDetails.get(detailKey)
       results.push({
-        name: failMatch[1]?.trim() ?? '',
+        name: summaryName,
         passed: false,
-        message: failMatch[2]?.trim() ?? null,
+        message: details ?? failMatch[2]?.trim() ?? null,
         duration: 0,
       })
     }
@@ -138,6 +177,7 @@ export function parseGoTestOutput(output: string): TestResult[] {
   const results: TestResult[] = []
   const passPattern = /--- PASS: (.+?) \((\d+(?:\.\d+)?)s\)/
   const failPattern = /--- FAIL: (.+?) \((\d+(?:\.\d+)?)s\)/
+  let lastFailedIndex: number | null = null
 
   for (const line of output.split('\n')) {
     const passMatch = line.match(passPattern)
@@ -148,6 +188,7 @@ export function parseGoTestOutput(output: string): TestResult[] {
         message: null,
         duration: parseFloat(passMatch[2] ?? '0') * 1000,
       })
+      lastFailedIndex = null
       continue
     }
 
@@ -159,6 +200,15 @@ export function parseGoTestOutput(output: string): TestResult[] {
         message: null,
         duration: parseFloat(failMatch[2] ?? '0') * 1000,
       })
+      lastFailedIndex = results.length - 1
+      continue
+    }
+
+    if (lastFailedIndex !== null && /^\s+/.test(line)) {
+      const target = results[lastFailedIndex]
+      if (target) {
+        appendMessage(target, line.trim())
+      }
     }
   }
 
@@ -194,4 +244,51 @@ export function parseCargoTestOutput(output: string): TestResult[] {
   }
 
   return results
+}
+
+function appendMessage(result: TestResult, messageLine: string): void {
+  const trimmed = messageLine.trim()
+  if (!trimmed) return
+  if (result.message) {
+    result.message = `${result.message}\n${trimmed}`
+  } else {
+    result.message = trimmed
+  }
+}
+
+function collectPytestFailureDetails(output: string): Map<string, string> {
+  const failureMap = new Map<string, string>()
+  const headerPattern = /^_{3,}\s+(.+?)\s+_{3,}\s*$/
+  const lines = output.split('\n')
+  let currentKey: string | null = null
+  let buffer: string[] = []
+
+  const flush = () => {
+    if (!currentKey || buffer.length === 0) return
+    failureMap.set(currentKey, buffer.join('\n'))
+    buffer = []
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (/^=+/.test(trimmed)) {
+      flush()
+      currentKey = null
+      continue
+    }
+
+    const headerMatch = line.match(headerPattern)
+    if (headerMatch) {
+      flush()
+      currentKey = headerMatch[1]?.trim() ?? null
+      continue
+    }
+
+    if (currentKey && trimmed) {
+      buffer.push(trimmed)
+    }
+  }
+
+  flush()
+  return failureMap
 }

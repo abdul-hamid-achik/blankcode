@@ -61,6 +61,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   submissions: many(submissions),
   userProgress: many(userProgress),
   conceptMastery: many(conceptMastery),
+  refreshTokens: many(refreshTokens),
+  codeDrafts: many(codeDrafts),
 }))
 
 export const tracks = pgTable(
@@ -147,6 +149,7 @@ export const exercisesRelations = relations(exercises, ({ one, many }) => ({
   }),
   submissions: many(submissions),
   userProgress: many(userProgress),
+  codeDrafts: many(codeDrafts),
 }))
 
 export const submissions = pgTable(
@@ -173,12 +176,14 @@ export const submissions = pgTable(
     errorMessage: text('error_message'),
     executionTimeMs: integer('execution_time_ms'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('submissions_user_id_idx').on(table.userId),
     index('submissions_exercise_id_idx').on(table.exerciseId),
     index('submissions_user_exercise_idx').on(table.userId, table.exerciseId),
     index('submissions_status_idx').on(table.status),
+    index('submissions_created_at_idx').on(table.createdAt),
   ]
 )
 
@@ -266,5 +271,64 @@ export const conceptMasteryRelations = relations(conceptMastery, ({ one }) => ({
   concept: one(concepts, {
     fields: [conceptMastery.conceptId],
     references: [concepts.id],
+  }),
+}))
+
+export const refreshTokens = pgTable(
+  'refresh_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    token: text('token').notNull(),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('refresh_tokens_user_id_idx').on(table.userId),
+    index('refresh_tokens_token_hash_idx').on(table.tokenHash),
+    index('refresh_tokens_expires_at_idx').on(table.expiresAt),
+  ]
+)
+
+export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [refreshTokens.userId],
+    references: [users.id],
+  }),
+}))
+
+export const codeDrafts = pgTable(
+  'code_drafts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    exerciseId: uuid('exercise_id')
+      .notNull()
+      .references(() => exercises.id, { onDelete: 'cascade' }),
+    code: text('code').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('code_drafts_user_exercise_idx').on(table.userId, table.exerciseId),
+    index('code_drafts_user_id_idx').on(table.userId),
+    index('code_drafts_exercise_id_idx').on(table.exerciseId),
+    index('code_drafts_updated_at_idx').on(table.updatedAt),
+  ]
+)
+
+export const codeDraftsRelations = relations(codeDrafts, ({ one }) => ({
+  user: one(users, {
+    fields: [codeDrafts.userId],
+    references: [users.id],
+  }),
+  exercise: one(exercises, {
+    fields: [codeDrafts.exerciseId],
+    references: [exercises.id],
   }),
 }))

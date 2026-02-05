@@ -1,7 +1,14 @@
-import { Injectable, Inject } from '@nestjs/common'
-import { eq, and, count, desc, sql } from 'drizzle-orm'
-import { DRIZZLE, type Database } from '../../database/drizzle.provider.js'
-import { userProgress, conceptMastery, exercises, concepts, tracks, submissions } from '@blankcode/db/schema'
+import {
+  conceptMastery,
+  concepts,
+  exercises,
+  submissions,
+  tracks,
+  userProgress,
+} from '@blankcode/db/schema'
+import { Inject, Injectable } from '@nestjs/common'
+import { and, desc, eq, gte, isNotNull, sql as rawSql } from 'drizzle-orm'
+import { type Database, DRIZZLE } from '../../database/drizzle.provider.js'
 
 @Injectable()
 export class ProgressService {
@@ -24,14 +31,18 @@ export class ProgressService {
   }
 
   async getTrackProgress(userId: string, trackSlug: string) {
+    const track = await this.db.query.tracks.findFirst({
+      where: eq(tracks.slug, trackSlug as (typeof tracks.slug.enumValues)[number]),
+    })
+
+    if (!track) return []
+
     const trackConcepts = await this.db.query.concepts.findMany({
+      where: eq(concepts.trackId, track.id),
       with: {
-        track: true,
         exercises: true,
       },
     })
-
-    const filteredConcepts = trackConcepts.filter((c) => c.track.slug === trackSlug)
 
     const masteryRecords = await this.db.query.conceptMastery.findMany({
       where: eq(conceptMastery.userId, userId),
@@ -39,7 +50,7 @@ export class ProgressService {
 
     const masteryMap = new Map(masteryRecords.map((m) => [m.conceptId, m]))
 
-    return filteredConcepts.map((concept) => ({
+    return trackConcepts.map((concept) => ({
       conceptId: concept.id,
       conceptSlug: concept.slug,
       conceptName: concept.name,
@@ -49,21 +60,9 @@ export class ProgressService {
   }
 
   async markExerciseCompleted(userId: string, exerciseId: string, submissionId: string) {
-    const existing = await this.getExerciseProgress(userId, exerciseId)
-
-    if (existing) {
-      await this.db
-        .update(userProgress)
-        .set({
-          isCompleted: true,
-          attempts: existing.attempts + 1,
-          bestSubmissionId: submissionId,
-          completedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(userProgress.id, existing.id))
-    } else {
-      await this.db.insert(userProgress).values({
+    await this.db
+      .insert(userProgress)
+      .values({
         userId,
         exerciseId,
         isCompleted: true,
@@ -71,30 +70,42 @@ export class ProgressService {
         bestSubmissionId: submissionId,
         completedAt: new Date(),
       })
-    }
+      .onConflictDoUpdate({
+        target: [userProgress.userId, userProgress.exerciseId],
+        set: {
+          isCompleted: true,
+          attempts: rawSql`${userProgress.attempts} + 1`,
+          bestSubmissionId: rawSql`CASE
+            WHEN ${userProgress.bestSubmissionId} IS NULL THEN ${submissionId}
+            WHEN (SELECT execution_time_ms FROM submissions WHERE id = ${submissionId}) <
+                 (SELECT execution_time_ms FROM submissions WHERE id = ${userProgress.bestSubmissionId})
+            THEN ${submissionId}
+            ELSE ${userProgress.bestSubmissionId}
+          END`,
+          completedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      })
 
     await this.updateConceptMastery(userId, exerciseId)
   }
 
   async incrementAttempts(userId: string, exerciseId: string) {
-    const existing = await this.getExerciseProgress(userId, exerciseId)
-
-    if (existing) {
-      await this.db
-        .update(userProgress)
-        .set({
-          attempts: existing.attempts + 1,
-          updatedAt: new Date(),
-        })
-        .where(eq(userProgress.id, existing.id))
-    } else {
-      await this.db.insert(userProgress).values({
+    await this.db
+      .insert(userProgress)
+      .values({
         userId,
         exerciseId,
         isCompleted: false,
         attempts: 1,
       })
-    }
+      .onConflictDoUpdate({
+        target: [userProgress.userId, userProgress.exerciseId],
+        set: {
+          attempts: rawSql`${userProgress.attempts} + 1`,
+          updatedAt: new Date(),
+        },
+      })
   }
 
   async getSummary(userId: string) {
@@ -156,6 +167,64 @@ export class ProgressService {
     }
   }
 
+  async getActivityTimeline(userId: string) {
+    const days = 30
+    const now = new Date()
+    const todayUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+    const startUtc = new Date(todayUtc)
+    startUtc.setUTCDate(startUtc.getUTCDate() - (days - 1))
+
+    const [submissionRows, completionRows] = await Promise.all([
+      this.db.query.submissions.findMany({
+        where: and(eq(submissions.userId, userId), gte(submissions.createdAt, startUtc)),
+        columns: {
+          createdAt: true,
+        },
+      }),
+      this.db.query.userProgress.findMany({
+        where: and(
+          eq(userProgress.userId, userId),
+          eq(userProgress.isCompleted, true),
+          isNotNull(userProgress.completedAt),
+          gte(userProgress.completedAt, startUtc)
+        ),
+        columns: {
+          completedAt: true,
+        },
+      }),
+    ])
+
+    const counts = new Map<string, { submissions: number; exercisesCompleted: number }>()
+    const increment = (key: string, field: 'submissions' | 'exercisesCompleted') => {
+      const current = counts.get(key) ?? { submissions: 0, exercisesCompleted: 0 }
+      current[field] += 1
+      counts.set(key, current)
+    }
+
+    for (const row of submissionRows) {
+      increment(this.toDateKey(row.createdAt), 'submissions')
+    }
+
+    for (const row of completionRows) {
+      if (row.completedAt) {
+        increment(this.toDateKey(row.completedAt), 'exercisesCompleted')
+      }
+    }
+
+    return Array.from({ length: days }, (_, index) => {
+      const date = new Date(startUtc)
+      date.setUTCDate(startUtc.getUTCDate() + index)
+      const key = this.toDateKey(date)
+      const entry = counts.get(key) ?? { submissions: 0, exercisesCompleted: 0 }
+
+      return {
+        date: key,
+        submissions: entry.submissions,
+        exercisesCompleted: entry.exercisesCompleted,
+      }
+    })
+  }
+
   private calculateStreak(completedProgress: { completedAt: Date | null }[]) {
     if (completedProgress.length === 0) {
       return { currentStreak: 0, longestStreak: 0 }
@@ -211,6 +280,13 @@ export class ProgressService {
     return { currentStreak, longestStreak }
   }
 
+  private toDateKey(value: Date | string) {
+    const date = typeof value === 'string' ? new Date(value) : value
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+      .toISOString()
+      .slice(0, 10)
+  }
+
   private async updateConceptMastery(userId: string, exerciseId: string) {
     const exercise = await this.db.query.exercises.findFirst({
       where: eq(exercises.id, exerciseId),
@@ -226,34 +302,17 @@ export class ProgressService {
     })
 
     const completedProgress = await this.db.query.userProgress.findMany({
-      where: and(
-        eq(userProgress.userId, userId),
-        eq(userProgress.isCompleted, true)
-      ),
+      where: and(eq(userProgress.userId, userId), eq(userProgress.isCompleted, true)),
     })
 
     const completedExerciseIds = new Set(completedProgress.map((p) => p.exerciseId))
-    const completedInConcept = conceptExercises.filter((e) =>
-      completedExerciseIds.has(e.id)
-    ).length
+    const completedInConcept = conceptExercises.filter((e) => completedExerciseIds.has(e.id)).length
 
     const masteryLevel = completedInConcept / conceptExercises.length
 
-    const existing = await this.getConceptMastery(userId, exercise.conceptId)
-
-    if (existing) {
-      await this.db
-        .update(conceptMastery)
-        .set({
-          masteryLevel,
-          exercisesCompleted: completedInConcept,
-          exercisesTotal: conceptExercises.length,
-          lastPracticedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(conceptMastery.id, existing.id))
-    } else {
-      await this.db.insert(conceptMastery).values({
+    await this.db
+      .insert(conceptMastery)
+      .values({
         userId,
         conceptId: exercise.conceptId,
         masteryLevel,
@@ -261,6 +320,15 @@ export class ProgressService {
         exercisesTotal: conceptExercises.length,
         lastPracticedAt: new Date(),
       })
-    }
+      .onConflictDoUpdate({
+        target: [conceptMastery.userId, conceptMastery.conceptId],
+        set: {
+          masteryLevel,
+          exercisesCompleted: completedInConcept,
+          exercisesTotal: conceptExercises.length,
+          lastPracticedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      })
   }
 }

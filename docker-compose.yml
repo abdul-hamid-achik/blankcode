@@ -30,7 +30,7 @@ services:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -47,6 +47,31 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    develop:
+      watch:
+        - path: ./apps/api
+          action: rebuild
+          ignore:
+            - "**/node_modules/**"
+            - "**/dist/**"
+        - path: ./packages/db
+          action: rebuild
+          ignore:
+            - "**/node_modules/**"
+            - "**/dist/**"
+        - path: ./packages/shared
+          action: rebuild
+          ignore:
+            - "**/node_modules/**"
+            - "**/dist/**"
+        - path: ./package.json
+          action: rebuild
+        - path: ./bun.lock
+          action: rebuild
+        - path: ./turbo.json
+          action: rebuild
+        - path: ./tsconfig.base.json
+          action: rebuild
     container_name: blankcode-api
     restart: unless-stopped
     environment:
@@ -75,11 +100,43 @@ services:
           memory: 512M
           cpus: '1'
 
+  # SECURITY NOTE: Worker requires Docker socket access for sandboxed code execution.
+  # The 'user: root' and Docker socket mount grant host-level Docker access.
+  # In production, consider:
+  #   1. Running a dedicated Docker-in-Docker (DinD) sidecar
+  #   2. Using rootless Docker mode
+  #   3. Restricting via AppArmor/seccomp profiles
+  #   4. Using a dedicated execution cluster (e.g., Firecracker VMs)
   worker:
     profiles: ["full"]
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    develop:
+      watch:
+        - path: ./apps/api
+          action: rebuild
+          ignore:
+            - "**/node_modules/**"
+            - "**/dist/**"
+        - path: ./packages/db
+          action: rebuild
+          ignore:
+            - "**/node_modules/**"
+            - "**/dist/**"
+        - path: ./packages/shared
+          action: rebuild
+          ignore:
+            - "**/node_modules/**"
+            - "**/dist/**"
+        - path: ./package.json
+          action: rebuild
+        - path: ./bun.lock
+          action: rebuild
+        - path: ./turbo.json
+          action: rebuild
+        - path: ./tsconfig.base.json
+          action: rebuild
     container_name: blankcode-worker
     restart: unless-stopped
     user: root
@@ -112,6 +169,26 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+    develop:
+      watch:
+        - path: ./apps/web
+          action: rebuild
+          ignore:
+            - "**/node_modules/**"
+            - "**/dist/**"
+        - path: ./packages/shared
+          action: rebuild
+          ignore:
+            - "**/node_modules/**"
+            - "**/dist/**"
+        - path: ./package.json
+          action: rebuild
+        - path: ./bun.lock
+          action: rebuild
+        - path: ./turbo.json
+          action: rebuild
+        - path: ./tsconfig.base.json
+          action: rebuild
     container_name: blankcode-web
     restart: unless-stopped
     ports:

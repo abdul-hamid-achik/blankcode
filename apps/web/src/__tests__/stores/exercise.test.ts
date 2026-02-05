@@ -102,12 +102,10 @@ describe('useExerciseStore', () => {
       expect(store.submissions).toContainEqual(mockSubmission)
     })
 
-    it('sets isSubmitting during submission', async () => {
+    it('sets isSubmitting during submission and keeps it true while polling', async () => {
       vi.mocked(api.exercises.getById).mockResolvedValue(mockExercise)
       vi.mocked(api.submissions.getByExercise).mockResolvedValue([])
-      vi.mocked(api.submissions.create).mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve(mockSubmission), 100))
-      )
+      vi.mocked(api.submissions.create).mockResolvedValue(mockSubmission)
 
       const store = useExerciseStore()
       await store.loadExercise('ex-1')
@@ -116,7 +114,11 @@ describe('useExerciseStore', () => {
       expect(store.isSubmitting).toBe(true)
 
       await promise
-      expect(store.isSubmitting).toBe(false)
+      // isSubmitting stays true because polling is still running
+      expect(store.isSubmitting).toBe(true)
+
+      // Clean up polling
+      store.stopPolling()
     })
 
     it('does nothing if no exercise loaded', async () => {
@@ -171,6 +173,116 @@ describe('useExerciseStore', () => {
       expect(store.submissions).toEqual([])
       expect(store.currentCode).toBe('')
       expect(store.latestSubmission).toBeNull()
+      expect(store.timedOut).toBe(false)
+    })
+  })
+
+  describe('timedOut', () => {
+    it('starts as false', () => {
+      const store = useExerciseStore()
+      expect(store.timedOut).toBe(false)
+    })
+  })
+
+  describe('retrySubmission', () => {
+    it('calls API retry and restarts polling', async () => {
+      vi.mocked(api.exercises.getById).mockResolvedValue(mockExercise)
+      vi.mocked(api.submissions.getByExercise).mockResolvedValue([])
+      vi.mocked(api.submissions.create).mockResolvedValue(mockSubmission)
+      vi.mocked(api.submissions.retry).mockResolvedValue(mockSubmission)
+
+      const store = useExerciseStore()
+      await store.loadExercise('ex-1')
+
+      await store.retrySubmission('sub-1')
+
+      expect(api.submissions.retry).toHaveBeenCalledWith('sub-1')
+      expect(store.timedOut).toBe(false)
+    })
+  })
+
+  describe('submissionError', () => {
+    it('sets submissionError on API failure', async () => {
+      vi.mocked(api.exercises.getWithProgress).mockRejectedValue(new Error('fail'))
+      vi.mocked(api.exercises.getById).mockResolvedValue(mockExercise)
+      vi.mocked(api.submissions.getByExercise).mockResolvedValue([])
+      vi.mocked(api.submissions.create).mockRejectedValue(new Error('Network error'))
+
+      const store = useExerciseStore()
+      await store.loadExercise('ex-1')
+
+      await store.submitCode('const x = 42')
+
+      expect(store.submissionError).toBe('Network error')
+      expect(store.isSubmitting).toBe(false)
+    })
+
+    it('clears submissionError on next submit attempt', async () => {
+      vi.mocked(api.exercises.getWithProgress).mockRejectedValue(new Error('fail'))
+      vi.mocked(api.exercises.getById).mockResolvedValue(mockExercise)
+      vi.mocked(api.submissions.getByExercise).mockResolvedValue([])
+      vi.mocked(api.submissions.create)
+        .mockRejectedValueOnce(new Error('Network error'))
+        .mockResolvedValueOnce(mockSubmission)
+
+      const store = useExerciseStore()
+      await store.loadExercise('ex-1')
+
+      await store.submitCode('const x = 42')
+      expect(store.submissionError).toBe('Network error')
+
+      await store.submitCode('const x = 42')
+      expect(store.submissionError).toBeNull()
+
+      store.stopPolling()
+    })
+  })
+
+  describe('loadError', () => {
+    it('sets loadError when both load attempts fail', async () => {
+      vi.mocked(api.exercises.getWithProgress).mockRejectedValue(new Error('fail'))
+      vi.mocked(api.exercises.getById).mockRejectedValue(new Error('Not found'))
+
+      const store = useExerciseStore()
+      await store.loadExercise('ex-1')
+
+      expect(store.loadError).toBe('Not found')
+      expect(store.exercise).toBeNull()
+    })
+
+    it('does not set loadError when fallback succeeds', async () => {
+      vi.mocked(api.exercises.getWithProgress).mockRejectedValue(new Error('fail'))
+      vi.mocked(api.exercises.getById).mockResolvedValue(mockExercise)
+      vi.mocked(api.submissions.getByExercise).mockResolvedValue([])
+
+      const store = useExerciseStore()
+      await store.loadExercise('ex-1')
+
+      expect(store.loadError).toBeNull()
+      expect(store.exercise).toEqual(mockExercise)
+    })
+  })
+
+  describe('double-submit guard', () => {
+    it('ignores submit when already submitting', async () => {
+      vi.mocked(api.exercises.getWithProgress).mockRejectedValue(new Error('fail'))
+      vi.mocked(api.exercises.getById).mockResolvedValue(mockExercise)
+      vi.mocked(api.submissions.getByExercise).mockResolvedValue([])
+      vi.mocked(api.submissions.create).mockResolvedValue(mockSubmission)
+
+      const store = useExerciseStore()
+      await store.loadExercise('ex-1')
+
+      // First submit
+      const promise1 = store.submitCode('const x = 42')
+      // Second submit while first is in progress
+      const promise2 = store.submitCode('const x = 42')
+
+      await Promise.all([promise1, promise2])
+
+      expect(api.submissions.create).toHaveBeenCalledTimes(1)
+
+      store.stopPolling()
     })
   })
 })

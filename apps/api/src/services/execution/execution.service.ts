@@ -1,5 +1,5 @@
 import { config } from '../../config/index.js'
-import { typescriptExecutor, pythonExecutor, goExecutor, rustExecutor } from './executors/index.js'
+import { goExecutor, pythonExecutor, rustExecutor, typescriptExecutor } from './executors/index.js'
 import type { ExecutionContext, ExecutionResult, LanguageExecutor } from './types.js'
 
 const executors: Record<string, LanguageExecutor> = {
@@ -8,6 +8,9 @@ const executors: Record<string, LanguageExecutor> = {
   python: pythonExecutor,
   go: goExecutor,
   rust: rustExecutor,
+  vue: typescriptExecutor,
+  react: typescriptExecutor,
+  node: typescriptExecutor,
 }
 
 export class ExecutionService {

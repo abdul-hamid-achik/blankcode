@@ -1,5 +1,5 @@
-import { Global, Module, type OnModuleDestroy } from '@nestjs/common'
-import { Queue, type ConnectionOptions } from 'bullmq'
+import { Global, Inject, Module, type OnModuleDestroy } from '@nestjs/common'
+import { type ConnectionOptions, Queue } from 'bullmq'
 import { config } from '../config/index.js'
 
 export const SUBMISSION_QUEUE = Symbol('SUBMISSION_QUEUE')
@@ -20,7 +20,16 @@ export const connection: ConnectionOptions = {
     },
     {
       provide: SUBMISSION_QUEUE,
-      useFactory: () => new Queue('submissions', { connection }),
+      useFactory: () =>
+        new Queue('submissions', {
+          connection,
+          defaultJobOptions: {
+            attempts: 3,
+            backoff: { type: 'exponential', delay: 1000 },
+            removeOnComplete: 100,
+            removeOnFail: 500,
+          },
+        }),
     },
     {
       provide: GENERATION_QUEUE,
@@ -30,11 +39,12 @@ export const connection: ConnectionOptions = {
   exports: [SUBMISSION_QUEUE, GENERATION_QUEUE, REDIS_CONNECTION],
 })
 export class QueueModule implements OnModuleDestroy {
-  private queues: Queue[] = []
-
-  constructor() {}
+  constructor(
+    @Inject(SUBMISSION_QUEUE) private submissionQueue: Queue,
+    @Inject(GENERATION_QUEUE) private generationQueue: Queue
+  ) {}
 
   async onModuleDestroy() {
-    await Promise.all(this.queues.map((q) => q.close()))
+    await Promise.all([this.submissionQueue.close(), this.generationQueue.close()])
   }
 }

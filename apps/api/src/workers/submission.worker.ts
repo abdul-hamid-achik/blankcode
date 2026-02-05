@@ -1,6 +1,6 @@
 import * as schema from '@blankcode/db/schema'
 import { type Job, Worker } from 'bullmq'
-import { eq } from 'drizzle-orm'
+import { eq, sql as rawSql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { config } from '../config/index.js'
@@ -102,23 +102,9 @@ async function processSubmission(job: Job<SubmissionJobData>) {
 }
 
 async function markExerciseCompleted(userId: string, exerciseId: string, submissionId: string) {
-  const existing = await db.query.userProgress.findFirst({
-    where: (up, { and, eq }) => and(eq(up.userId, userId), eq(up.exerciseId, exerciseId)),
-  })
-
-  if (existing) {
-    await db
-      .update(schema.userProgress)
-      .set({
-        isCompleted: true,
-        attempts: existing.attempts + 1,
-        bestSubmissionId: submissionId,
-        completedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.userProgress.id, existing.id))
-  } else {
-    await db.insert(schema.userProgress).values({
+  await db
+    .insert(schema.userProgress)
+    .values({
       userId,
       exerciseId,
       isCompleted: true,
@@ -126,32 +112,42 @@ async function markExerciseCompleted(userId: string, exerciseId: string, submiss
       bestSubmissionId: submissionId,
       completedAt: new Date(),
     })
-  }
+    .onConflictDoUpdate({
+      target: [schema.userProgress.userId, schema.userProgress.exerciseId],
+      set: {
+        isCompleted: true,
+        attempts: rawSql`${schema.userProgress.attempts} + 1`,
+        bestSubmissionId: rawSql`CASE
+          WHEN ${schema.userProgress.bestSubmissionId} IS NULL THEN ${submissionId}
+          WHEN (SELECT execution_time_ms FROM submissions WHERE id = ${submissionId}) <
+               (SELECT execution_time_ms FROM submissions WHERE id = ${schema.userProgress.bestSubmissionId})
+          THEN ${submissionId}
+          ELSE ${schema.userProgress.bestSubmissionId}
+        END`,
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      },
+    })
 
   await updateConceptMastery(userId, exerciseId)
 }
 
 async function incrementAttempts(userId: string, exerciseId: string) {
-  const existing = await db.query.userProgress.findFirst({
-    where: (up, { and, eq }) => and(eq(up.userId, userId), eq(up.exerciseId, exerciseId)),
-  })
-
-  if (existing) {
-    await db
-      .update(schema.userProgress)
-      .set({
-        attempts: existing.attempts + 1,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.userProgress.id, existing.id))
-  } else {
-    await db.insert(schema.userProgress).values({
+  await db
+    .insert(schema.userProgress)
+    .values({
       userId,
       exerciseId,
       isCompleted: false,
       attempts: 1,
     })
-  }
+    .onConflictDoUpdate({
+      target: [schema.userProgress.userId, schema.userProgress.exerciseId],
+      set: {
+        attempts: rawSql`${schema.userProgress.attempts} + 1`,
+        updatedAt: new Date(),
+      },
+    })
 }
 
 async function updateConceptMastery(userId: string, exerciseId: string) {
@@ -177,23 +173,9 @@ async function updateConceptMastery(userId: string, exerciseId: string) {
 
   const masteryLevel = completedInConcept / conceptExercises.length
 
-  const existing = await db.query.conceptMastery.findFirst({
-    where: (cm, { and, eq }) => and(eq(cm.userId, userId), eq(cm.conceptId, exercise.conceptId)),
-  })
-
-  if (existing) {
-    await db
-      .update(schema.conceptMastery)
-      .set({
-        masteryLevel,
-        exercisesCompleted: completedInConcept,
-        exercisesTotal: conceptExercises.length,
-        lastPracticedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.conceptMastery.id, existing.id))
-  } else {
-    await db.insert(schema.conceptMastery).values({
+  await db
+    .insert(schema.conceptMastery)
+    .values({
       userId,
       conceptId: exercise.conceptId,
       masteryLevel,
@@ -201,13 +183,40 @@ async function updateConceptMastery(userId: string, exerciseId: string) {
       exercisesTotal: conceptExercises.length,
       lastPracticedAt: new Date(),
     })
-  }
+    .onConflictDoUpdate({
+      target: [schema.conceptMastery.userId, schema.conceptMastery.conceptId],
+      set: {
+        masteryLevel,
+        exercisesCompleted: completedInConcept,
+        exercisesTotal: conceptExercises.length,
+        lastPracticedAt: new Date(),
+        updatedAt: new Date(),
+      },
+    })
 }
 
 export function createSubmissionWorker() {
   const worker = new Worker<SubmissionJobData>('submissions', processSubmission, {
     connection,
     concurrency: 5,
+    lockDuration: 60000,
+    stalledInterval: 30000,
+  })
+
+  worker.on('failed', async (job, err) => {
+    if (job && job.attemptsMade >= (job.opts?.attempts ?? 3)) {
+      await db
+        .update(schema.submissions)
+        .set({
+          status: 'error',
+          errorMessage: `Job failed after ${job.attemptsMade} attempts: ${err.message}`,
+        })
+        .where(eq(schema.submissions.id, job.data.submissionId))
+    }
+  })
+
+  worker.on('stalled', (jobId) => {
+    console.warn(`[Worker] Job ${jobId} stalled, will be retried`)
   })
 
   return worker

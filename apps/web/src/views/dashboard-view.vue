@@ -1,32 +1,23 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
+import { api } from '@/api'
+import Button from '@/components/ui/button.vue'
+import Card from '@/components/ui/card.vue'
+import { useAsync } from '@/composables/use-async'
 import { useAuthStore } from '@/stores/auth'
 import { useProgressStore } from '@/stores/progress'
-import { useAsync } from '@/composables/use-async'
-import { api } from '@/api'
-import Card from '@/components/ui/card.vue'
-import Button from '@/components/ui/button.vue'
+import { getStatusClasses, getStatusLabel } from '@/utils/submission-status'
 
 const authStore = useAuthStore()
 const progressStore = useProgressStore()
 
-const { data: submissions, execute: loadSubmissions } = useAsync(() =>
-  api.submissions.getMine(10)
-)
+const { data: submissions, execute: loadSubmissions } = useAsync(() => api.submissions.getMine(10))
 
 onMounted(() => {
   loadSubmissions()
   progressStore.loadStats()
 })
-
-const statusColors: Record<string, string> = {
-  pending: 'bg-muted-foreground/20 text-muted-foreground',
-  running: 'bg-info/20 text-info',
-  passed: 'bg-success/20 text-success',
-  failed: 'bg-destructive/20 text-destructive',
-  error: 'bg-destructive/20 text-destructive',
-}
 </script>
 
 <template>
@@ -71,7 +62,7 @@ const statusColors: Record<string, string> = {
             <div class="flex items-center justify-between">
               <div>
                 <div class="font-medium">
-                  Exercise {{ submission.exerciseId.slice(0, 8) }}
+                  {{ (submission as any).exercise?.title ?? 'Exercise ' + submission.exerciseId.slice(0, 8) }}
                 </div>
                 <div class="text-sm text-muted-foreground">
                   {{ new Date(submission.createdAt).toLocaleDateString() }}
@@ -80,10 +71,10 @@ const statusColors: Record<string, string> = {
               <span
                 :class="[
                   'text-xs px-2 py-1 rounded-full',
-                  statusColors[submission.status],
+                  getStatusClasses(submission.status).bgClass,
                 ]"
               >
-                {{ submission.status }}
+                {{ getStatusLabel(submission.status) }}
               </span>
             </div>
           </Card>

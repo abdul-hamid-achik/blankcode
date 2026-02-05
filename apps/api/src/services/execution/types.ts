@@ -18,7 +18,7 @@ export interface ExecutionContext {
   exerciseId: string
   code: string
   testCode: string
-  language: 'typescript' | 'javascript' | 'python' | 'go' | 'rust'
+  language: 'typescript' | 'javascript' | 'python' | 'go' | 'rust' | 'vue' | 'react' | 'node'
   timeoutMs: number
   memoryLimitMb: number
 }

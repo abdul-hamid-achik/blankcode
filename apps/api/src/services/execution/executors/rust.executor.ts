@@ -13,6 +13,11 @@ export class RustExecutor implements LanguageExecutor {
       testCode = `use solution::*;\n\n${testCode}`
     }
 
+    const usesTokio = /tokio::/m.test(context.code) || /tokio::/m.test(testCode)
+    const dependencyBlock = usesTokio
+      ? '\n[dependencies]\ntokio = { version = "1.39.0", features = ["macros", "rt-multi-thread", "time"] }\n'
+      : '\n'
+
     const files = {
       'src/lib.rs': context.code,
       'tests/solution_test.rs': testCode,
@@ -24,7 +29,7 @@ edition = "2021"
 [[test]]
 name = "solution_test"
 path = "tests/solution_test.rs"
-`,
+${dependencyBlock}`,
     }
 
     try {

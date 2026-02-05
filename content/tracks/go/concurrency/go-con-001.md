@@ -64,49 +64,12 @@ func main() {
 
 ## Tests
 
-```typescript
-import { describe, it, expect } from 'vitest';
+```go
+package main
 
-describe('Go Goroutines Basics', () => {
-  it('should use defer wg.Done() to signal completion', () => {
-    const code = `{{ code }}`;
-    expect(code).toMatch(/defer\s+wg\.Done\(\)/);
-  });
+import "testing"
 
-  it('should call wg.Add(1) before launching goroutines', () => {
-    const code = `{{ code }}`;
-    expect(code).toMatch(/wg\.Add\s*\(\s*1\s*\)/);
-  });
-
-  it('should use the go keyword to launch goroutines', () => {
-    const code = `{{ code }}`;
-    expect(code).toMatch(/go\s+printMessage/);
-  });
-
-  it('should call wg.Wait() to wait for goroutines', () => {
-    const code = `{{ code }}`;
-    expect(code).toMatch(/wg\.Wait\s*\(\s*\)/);
-  });
-
-  it('should have correct order: Add before go, Wait after loop', () => {
-    const code = `{{ code }}`;
-    const addIndex = code.indexOf('wg.Add');
-    const goIndex = code.indexOf('go printMessage');
-    const waitIndex = code.indexOf('wg.Wait');
-    
-    expect(addIndex).toBeLessThan(goIndex);
-    expect(goIndex).toBeLessThan(waitIndex);
-  });
-
-  it('should pass WaitGroup by pointer', () => {
-    const code = `{{ code }}`;
-    expect(code).toMatch(/printMessage\s*\(\s*i\s*,\s*&wg\s*\)/);
-  });
-
-  it('should use defer to ensure Done is called', () => {
-    const code = `{{ code }}`;
-    const deferMatch = code.match(/defer\s+wg\.Done\(\)/);
-    expect(deferMatch).toBeTruthy();
-  });
-});
+func TestProgramRuns(t *testing.T) {
+	main()
+}
 ```

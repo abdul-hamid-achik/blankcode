@@ -1,10 +1,10 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common'
-import { eq, and, desc } from 'drizzle-orm'
-import { Queue } from 'bullmq'
-import { DRIZZLE, type Database } from '../../database/drizzle.provider.js'
-import { SUBMISSION_QUEUE } from '../../queue/queue.module.js'
-import { submissions } from '@blankcode/db/schema'
+import { codeDrafts, exercises, submissions } from '@blankcode/db/schema'
 import type { SubmissionCreateInput } from '@blankcode/shared'
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common'
+import { Queue } from 'bullmq'
+import { and, desc, eq } from 'drizzle-orm'
+import { type Database, DRIZZLE } from '../../database/drizzle.provider.js'
+import { SUBMISSION_QUEUE } from '../../queue/queue.module.js'
 
 @Injectable()
 export class SubmissionsService {
@@ -14,6 +14,13 @@ export class SubmissionsService {
   ) {}
 
   async create(userId: string, input: SubmissionCreateInput) {
+    const exercise = await this.db.query.exercises.findFirst({
+      where: eq(exercises.id, input.exerciseId),
+    })
+    if (!exercise) {
+      throw new NotFoundException('Exercise not found')
+    }
+
     const [submission] = await this.db
       .insert(submissions)
       .values({
@@ -24,11 +31,26 @@ export class SubmissionsService {
       })
       .returning()
 
-    await this.submissionQueue.add('execute', {
-      submissionId: submission!.id,
-      exerciseId: input.exerciseId,
-      code: input.code,
+    const existingDraft = await this.db.query.codeDrafts.findFirst({
+      where: and(eq(codeDrafts.userId, userId), eq(codeDrafts.exerciseId, input.exerciseId)),
     })
+
+    if (existingDraft?.id) {
+      await this.db.delete(codeDrafts).where(eq(codeDrafts.id, existingDraft.id))
+    }
+
+    try {
+      await this.submissionQueue.add('execute', {
+        submissionId: submission?.id,
+        exerciseId: input.exerciseId,
+        code: input.code,
+      })
+    } catch {
+      await this.db
+        .update(submissions)
+        .set({ status: 'error', errorMessage: 'Failed to enqueue submission' })
+        .where(eq(submissions.id, submission!.id))
+    }
 
     return submission
   }
@@ -66,6 +88,24 @@ export class SubmissionsService {
         exercise: true,
       },
     })
+  }
+
+  async retry(id: string, userId: string) {
+    const submission = await this.findById(id, userId)
+
+    if (submission.status !== 'error' && submission.status !== 'failed') {
+      throw new BadRequestException('Can only retry failed or errored submissions')
+    }
+
+    await this.db.update(submissions).set({ status: 'pending' }).where(eq(submissions.id, id))
+
+    await this.submissionQueue.add('execute', {
+      submissionId: submission.id,
+      exerciseId: submission.exerciseId,
+      code: submission.code,
+    })
+
+    return { ...submission, status: 'pending' as const }
   }
 
   async updateStatus(

@@ -1,6 +1,6 @@
 import { Controller, Get, Param } from '@nestjs/common'
-import { ProgressService } from './progress.service.js'
 import { CurrentUser } from '../../common/decorators/index.js'
+import { ProgressService } from './progress.service.js'
 
 @Controller('progress')
 export class ProgressController {
@@ -38,5 +38,10 @@ export class ProgressController {
     @Param('trackSlug') trackSlug: string
   ) {
     return { data: await this.progressService.getTrackProgress(user.id, trackSlug) }
+  }
+
+  @Get('activity')
+  async getActivityTimeline(@CurrentUser() user: { id: string }) {
+    return { data: await this.progressService.getActivityTimeline(user.id) }
   }
 }

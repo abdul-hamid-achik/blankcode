@@ -67,53 +67,23 @@ fn give_and_take_ownership(s: String) -> String {
 
 ## Tests
 
-```typescript
-import { describe, it, expect } from 'vitest';
+```rust
+#[test]
+fn ownership_moves_and_clones() {
+    let s1 = String::from("hello");
+    let s2 = s1;
+    assert_eq!(s2, "hello");
 
-describe('Rust Ownership Basics', () => {
-  it('should transfer ownership from s1 to s2', () => {
-    const code = `let s2 = s1;`;
-    expect(code).toContain('s1');
-    expect(code).not.toContain('&s1');
-    expect(code).not.toContain('s1.clone()');
-  });
+    let s3 = String::from("world");
+    let s4 = s3.clone();
+    assert_eq!(s3, "world");
+    assert_eq!(s4, "world");
+}
 
-  it('should clone s3 to create s4', () => {
-    const code = `let s4 = s3.clone();`;
-    expect(code).toContain('.clone()');
-  });
-
-  it('should pass ownership to give_and_take_ownership function', () => {
-    const code = `let s5 = give_and_take_ownership(s5);`;
-    expect(code).toContain('give_and_take_ownership(s5)');
-    expect(code).not.toContain('&s5');
-  });
-
-  it('should return ownership from give_and_take_ownership function', () => {
-    const code = `s`;
-    expect(code).toBe('s');
-    expect(code).not.toContain('&s');
-  });
-
-  it('blank 1 should be s1', () => {
-    const blank1 = 's1';
-    expect(blank1).toBe('s1');
-  });
-
-  it('blank 2 should use clone method', () => {
-    const blank2 = 's3.clone()';
-    expect(blank2).toContain('clone');
-  });
-
-  it('blank 3 should call function with s5', () => {
-    const blank3 = 'give_and_take_ownership(s5)';
-    expect(blank3).toContain('give_and_take_ownership');
-    expect(blank3).toContain('s5');
-  });
-
-  it('blank 4 should return s', () => {
-    const blank4 = 's';
-    expect(blank4).toBe('s');
-  });
-});
+#[test]
+fn ownership_is_returned() {
+    let s5 = String::from("rust");
+    let s5 = give_and_take_ownership(s5);
+    assert_eq!(s5, "rust");
+}
 ```
