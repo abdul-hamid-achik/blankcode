@@ -1,7 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { setActivePinia, createPinia } from 'pinia'
-import { useAuthStore } from '@/stores/auth'
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '@/api'
+import { useAuthStore } from '@/stores/auth'
 
 vi.mock('@/api')
 
@@ -10,6 +10,11 @@ describe('useAuthStore', () => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
     vi.mocked(localStorage.getItem).mockReturnValue(null)
+    vi.mocked(localStorage.getItem).mockImplementation((key) => {
+      if (key === 'token') return null
+      if (key === 'refreshToken') return null
+      return null
+    })
   })
 
   describe('initial state', () => {
@@ -39,7 +44,9 @@ describe('useAuthStore', () => {
     it('sets user and token on successful login', async () => {
       vi.mocked(api.auth.login).mockResolvedValue({
         user: { id: '1', email: 'test@example.com' } as any,
-        token: 'new-token',
+        accessToken: 'new-token',
+        refreshToken: 'new-refresh-token',
+        refreshTokenExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       })
 
       const store = useAuthStore()
@@ -54,9 +61,7 @@ describe('useAuthStore', () => {
       vi.mocked(api.auth.login).mockRejectedValue(new Error('Invalid credentials'))
 
       const store = useAuthStore()
-      await expect(store.login('test@example.com', 'wrong')).rejects.toThrow(
-        'Invalid credentials'
-      )
+      await expect(store.login('test@example.com', 'wrong')).rejects.toThrow('Invalid credentials')
     })
   })
 
@@ -64,7 +69,9 @@ describe('useAuthStore', () => {
     it('sets user and token on successful registration', async () => {
       vi.mocked(api.auth.register).mockResolvedValue({
         user: { id: '1', email: 'new@example.com', username: 'newuser' } as any,
-        token: 'new-token',
+        accessToken: 'new-token',
+        refreshToken: 'new-refresh-token',
+        refreshTokenExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       })
 
       const store = useAuthStore()
@@ -106,7 +113,24 @@ describe('useAuthStore', () => {
 
       expect(store.user).toBeNull()
       expect(store.token).toBeNull()
-      expect(localStorage.removeItem).toHaveBeenCalledWith('token')
+      expect(store.refreshToken).toBeNull()
+    })
+  })
+
+  describe('initialize', () => {
+    it('fetches user once when token exists', async () => {
+      vi.mocked(localStorage.getItem).mockReturnValue('existing-token')
+      vi.mocked(api.users.getMe).mockResolvedValue({
+        id: '1',
+        email: 'test@example.com',
+      } as any)
+
+      const store = useAuthStore()
+      await store.initialize()
+      await store.initialize()
+
+      expect(api.users.getMe).toHaveBeenCalledTimes(1)
+      expect(store.isInitialized).toBe(true)
     })
   })
 
@@ -114,7 +138,9 @@ describe('useAuthStore', () => {
     it('clears user and token', async () => {
       vi.mocked(api.auth.login).mockResolvedValue({
         user: { id: '1' } as any,
-        token: 'token',
+        accessToken: 'token',
+        refreshToken: 'refresh-token',
+        refreshTokenExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       })
 
       const store = useAuthStore()
@@ -123,7 +149,7 @@ describe('useAuthStore', () => {
 
       expect(store.user).toBeNull()
       expect(store.token).toBeNull()
-      expect(localStorage.removeItem).toHaveBeenCalledWith('token')
+      expect(store.refreshToken).toBeNull()
     })
   })
 })

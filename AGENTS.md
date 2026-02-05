@@ -11,6 +11,7 @@ BlankCode is a monorepo coding exercise platform built with:
 - **Queue**: BullMQ with Redis for async code execution
 - **Testing**: Vitest for unit tests, Playwright for E2E
 - **Tooling**: Turbo, Bun, Biome, TypeScript
+- **Runtime/Package Manager**: Bun (`bun`/`bunx`)
 
 ## Critical Rules
 
@@ -114,6 +115,10 @@ If hooks fail, fix the issues before forcing a commit.
 **Every time you are corrected, add a new rule to this AGENTS.md file so the mistake never happens again** (unless a similar rule already exists).
 
 This file is a living document. When you learn something new about this codebase - a gotcha, a pattern, a requirement - add it here.
+
+### 8. Verify Docker Compose CLI Flags
+
+Before suggesting Docker Compose commands with flags (e.g., `--profile`), verify the supported CLI syntax for the installed Compose version by checking `docker compose --help` or running a quick local command.
 
 ## Project Structure
 

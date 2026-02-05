@@ -20,14 +20,21 @@ describe('AuthService', () => {
       users: {
         findFirst: ReturnType<typeof vi.fn>
       }
+      refreshTokens: {
+        findFirst: ReturnType<typeof vi.fn>
+      }
     }
     insert: ReturnType<typeof vi.fn>
+    update: ReturnType<typeof vi.fn>
   }
 
   beforeEach(async () => {
     mockDb = {
       query: {
         users: {
+          findFirst: vi.fn(),
+        },
+        refreshTokens: {
           findFirst: vi.fn(),
         },
       },
@@ -41,6 +48,11 @@ describe('AuthService', () => {
               displayName: 'Test User',
             },
           ]),
+        }),
+      }),
+      update: vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([]),
         }),
       }),
     }
@@ -64,6 +76,7 @@ describe('AuthService', () => {
     service = module.get<AuthService>(AuthService)
     jwtService = module.get<JwtService>(JwtService)
     vi.spyOn(jwtService, 'sign').mockReturnValue('mock-token')
+    vi.spyOn(bcrypt, 'hash').mockResolvedValue('mock-refresh-token-hash' as never)
   })
 
   describe('register', () => {
@@ -77,7 +90,8 @@ describe('AuthService', () => {
         password: 'password123',
       })
 
-      expect(result.token).toBe('mock-token')
+      expect(result.accessToken).toBe('mock-token')
+      expect(result.refreshToken).toBeDefined()
       expect(result.user).toBeDefined()
       expect(bcrypt.hash).toHaveBeenCalledWith('password123', 12)
     })
@@ -125,7 +139,8 @@ describe('AuthService', () => {
         password: 'password123',
       })
 
-      expect(result.token).toBe('mock-token')
+      expect(result.accessToken).toBe('mock-token')
+      expect(result.refreshToken).toBeDefined()
       expect(result.user.email).toBe('test@example.com')
     })
 

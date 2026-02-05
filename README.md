@@ -205,6 +205,9 @@ docker compose --profile full up -d
 
 # With code execution runners
 docker compose --profile full --profile runners up -d
+
+# Watch for changes and rebuild
+docker compose --profile full watch
 ```
 
 ### Services

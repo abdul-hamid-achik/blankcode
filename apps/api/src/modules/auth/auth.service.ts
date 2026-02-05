@@ -1,9 +1,10 @@
-import { users } from '@blankcode/db/schema'
+import { refreshTokens, users } from '@blankcode/db/schema'
 import type { UserCreateInput, UserLoginInput } from '@blankcode/shared'
 import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcrypt'
-import { eq } from 'drizzle-orm'
+import * as crypto from 'crypto'
+import { and, eq, gt, isNull } from 'drizzle-orm'
 import { type Database, DRIZZLE } from '../../database/drizzle.provider.js'
 
 @Injectable()
@@ -51,9 +52,15 @@ export class AuthService {
       throw new Error('Failed to create user')
     }
 
-    const token = this.jwtService.sign({ sub: user.id, email: user.email })
+    const accessToken = this.jwtService.sign({ sub: user.id, email: user.email })
+    const refreshTokenResult = await this.generateRefreshToken(user.id)
 
-    return { user, token }
+    return {
+      user,
+      accessToken,
+      refreshToken: refreshTokenResult.token,
+      refreshTokenExpiresAt: refreshTokenResult.expiresAt,
+    }
   }
 
   async login(input: UserLoginInput) {
@@ -71,7 +78,8 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials')
     }
 
-    const token = this.jwtService.sign({ sub: user.id, email: user.email })
+    const accessToken = this.jwtService.sign({ sub: user.id, email: user.email })
+    const refreshTokenResult = await this.generateRefreshToken(user.id)
 
     return {
       user: {
@@ -80,7 +88,9 @@ export class AuthService {
         username: user.username,
         displayName: user.displayName,
       },
-      token,
+      accessToken,
+      refreshToken: refreshTokenResult.token,
+      refreshTokenExpiresAt: refreshTokenResult.expiresAt,
     }
   }
 
@@ -97,5 +107,88 @@ export class AuthService {
     })
 
     return user ?? null
+  }
+
+  private async generateRefreshToken(userId: string) {
+    const token = crypto.randomBytes(64).toString('hex')
+    const tokenHash = await bcrypt.hash(token, 10)
+
+    const expiresAt = new Date()
+    expiresAt.setDate(expiresAt.getDate() + 30)
+
+    await this.db.insert(refreshTokens).values({
+      userId,
+      token: '',
+      tokenHash,
+      expiresAt,
+    })
+
+    return { token, expiresAt }
+  }
+
+  async validateAndRotateRefreshToken(token: string): Promise<{
+    user: { id: string; email: string; username: string; displayName: string | null }
+    accessToken: string
+    refreshToken: string
+    refreshTokenExpiresAt: Date
+  }> {
+    const tokenRecord = await this.db.query.refreshTokens.findFirst({
+      where: and(isNull(refreshTokens.revokedAt), gt(refreshTokens.expiresAt, new Date())),
+      with: {
+        user: true,
+      },
+    })
+
+    if (!tokenRecord) {
+      throw new UnauthorizedException('Invalid refresh token')
+    }
+
+    const isValid = await bcrypt.compare(token, tokenRecord.tokenHash)
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid refresh token')
+    }
+
+    await this.db
+      .update(refreshTokens)
+      .set({ revokedAt: new Date() })
+      .where(eq(refreshTokens.id, tokenRecord.id))
+
+    const accessToken = this.jwtService.sign({
+      sub: tokenRecord.user.id,
+      email: tokenRecord.user.email,
+    })
+    const refreshTokenResult = await this.generateRefreshToken(tokenRecord.user.id)
+
+    return {
+      user: {
+        id: tokenRecord.user.id,
+        email: tokenRecord.user.email,
+        username: tokenRecord.user.username,
+        displayName: tokenRecord.user.displayName,
+      },
+      accessToken,
+      refreshToken: refreshTokenResult.token,
+      refreshTokenExpiresAt: refreshTokenResult.expiresAt,
+    }
+  }
+
+  async revokeRefreshToken(token: string): Promise<void> {
+    const tokenRecord = await this.db.query.refreshTokens.findFirst({
+      where: and(isNull(refreshTokens.revokedAt), gt(refreshTokens.expiresAt, new Date())),
+    })
+
+    if (!tokenRecord) {
+      return
+    }
+
+    const isValid = await bcrypt.compare(token, tokenRecord.tokenHash)
+    if (!isValid) {
+      return
+    }
+
+    await this.db
+      .update(refreshTokens)
+      .set({ revokedAt: new Date() })
+      .where(eq(refreshTokens.id, tokenRecord.id))
   }
 }
