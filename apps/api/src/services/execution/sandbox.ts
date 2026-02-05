@@ -32,7 +32,7 @@ export async function runInSandbox(
     '--network=none',
     `--memory=${memoryLimitMb}m`,
     `--cpus=${cpuLimit}`,
-    '--pids-limit=50',
+    '--pids-limit=150',
     '--security-opt=no-new-privileges',
     '-v',
     `${workDir}:/app:rw`,
