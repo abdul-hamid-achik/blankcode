@@ -6,6 +6,8 @@ import type { ExecutionContext, ExecutionResult, LanguageExecutor } from '../typ
 export class TypeScriptExecutor implements LanguageExecutor {
   async execute(context: ExecutionContext): Promise<ExecutionResult> {
     const startTime = Date.now()
+    const isReact = context.language === 'react'
+    const ext = isReact ? '.tsx' : '.ts'
 
     // Auto-export top-level functions and const/let declarations from solution
     let solutionCode = context.code
@@ -23,24 +25,44 @@ export class TypeScriptExecutor implements LanguageExecutor {
       .replace(/import\s*\{[^}]*\}\s*from\s*['"]vitest['"]\s*;?\n?/g, '')
       .replace(/import\s+.*\s+from\s*['"]vitest['"]\s*;?\n?/g, '')
 
-    if (!testCode.includes("from './solution'") && !testCode.includes('from "./solution"')) {
-      testCode = `import * as solution from './solution';\nObject.assign(globalThis, solution);\n\n${testCode}`
+    if (isReact) {
+      // Rewrite component imports like from './Counter' to from './solution'
+      testCode = testCode.replace(/from\s+['"]\.\/(?!solution)[^'"]+['"]/g, "from './solution'")
+    } else {
+      if (!testCode.includes("from './solution'") && !testCode.includes('from "./solution"')) {
+        testCode = `import * as solution from './solution';\nObject.assign(globalThis, solution);\n\n${testCode}`
+      }
+    }
+
+    const tsconfigOptions = {
+      target: 'ES2022',
+      module: 'ESNext',
+      moduleResolution: 'bundler',
+      strict: true,
+      esModuleInterop: true,
+      skipLibCheck: true,
+      ...(isReact ? { jsx: 'react-jsx' as const } : {}),
     }
 
     // Common files for both Docker and local execution
-    const baseFiles = {
-      'solution.ts': solutionCode,
-      'solution.test.ts': testCode,
-      'tsconfig.json': JSON.stringify({
-        compilerOptions: {
-          target: 'ES2022',
-          module: 'ESNext',
-          moduleResolution: 'bundler',
-          strict: true,
-          esModuleInterop: true,
-          skipLibCheck: true,
-        },
-      }),
+    const baseFiles: Record<string, string> = {
+      [`solution${ext}`]: solutionCode,
+      [`solution.test${ext}`]: testCode,
+      'tsconfig.json': JSON.stringify({ compilerOptions: tsconfigOptions }),
+    }
+
+    if (isReact) {
+      baseFiles['setup.ts'] = `import '@testing-library/jest-dom';\n`
+      baseFiles['vitest.config.ts'] = [
+        `import { defineConfig } from 'vitest/config';`,
+        `export default defineConfig({`,
+        `  test: {`,
+        `    globals: true,`,
+        `    environment: 'jsdom',`,
+        `    setupFiles: ['./setup.ts'],`,
+        `  },`,
+        `});`,
+      ].join('\n')
     }
 
     try {
@@ -49,34 +71,55 @@ export class TypeScriptExecutor implements LanguageExecutor {
       let exitCode: number
 
       if (config.execution.dockerEnabled) {
-        // Docker: Use globally installed vitest with CLI flags (no config/package.json needed)
-        // Pass the test file pattern as a positional argument
-        const result = await executeInDocker(context, baseFiles, [
-          'vitest',
-          'run',
-          '--reporter=json',
-          '--globals',
-          'solution.test.ts',
-        ])
+        const command = isReact
+          ? [
+              'vitest',
+              'run',
+              '--reporter=json',
+              '--config',
+              'vitest.config.ts',
+              `solution.test${ext}`,
+            ]
+          : ['vitest', 'run', '--reporter=json', '--globals', `solution.test${ext}`]
+
+        const result = await executeInDocker(context, baseFiles, command)
         stdout = result.stdout
         stderr = result.stderr
         exitCode = result.exitCode
       } else {
         // Local: Need package.json and vitest config for npm install
-        const localFiles = {
+        const localDeps: Record<string, string> = {
+          vitest: '^2.0.0',
+          typescript: '^5.0.0',
+        }
+        if (isReact) {
+          Object.assign(localDeps, {
+            react: '^18.0.0',
+            'react-dom': '^18.0.0',
+            '@types/react': '^18.0.0',
+            '@types/react-dom': '^18.0.0',
+            '@testing-library/react': '^14.0.0',
+            '@testing-library/jest-dom': '^6.0.0',
+            jsdom: '^24.0.0',
+          })
+        }
+
+        const localFiles: Record<string, string> = {
           ...baseFiles,
           'package.json': JSON.stringify({
             name: 'test-runner',
             type: 'module',
             scripts: {
-              test: 'vitest run --reporter=json',
+              test: isReact
+                ? `vitest run --reporter=json --config vitest.config.ts`
+                : 'vitest run --reporter=json',
             },
-            devDependencies: {
-              vitest: '^2.0.0',
-              typescript: '^5.0.0',
-            },
+            devDependencies: localDeps,
           }),
-          'vitest.config.ts': `
+        }
+
+        if (!isReact) {
+          localFiles['vitest.config.ts'] = `
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
@@ -87,8 +130,9 @@ export default defineConfig({
     outputFile: './results.json',
   },
 })
-`,
+`
         }
+
         const workDir = await prepareWorkspace(localFiles)
         try {
           // Install dependencies

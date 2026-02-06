@@ -18,7 +18,7 @@ export const useExerciseStore = defineStore('exercise', () => {
   let pollInterval: ReturnType<typeof setInterval> | null = null
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null
   let pollStartTime = 0
-  const POLL_TIMEOUT_MS = 60000
+  const POLL_TIMEOUT_MS = 90000
 
   const hasPassedSubmission = computed(() => submissions.value.some((s) => s.status === 'passed'))
 
@@ -74,11 +74,14 @@ export const useExerciseStore = defineStore('exercise', () => {
           isSubmitting.value = false
         }
       } catch {
-        timedOut.value = true
-        stopPolling()
-        isSubmitting.value = false
+        // Don't give up on transient errors (429, network blips) — just skip this tick
+        if (Date.now() - pollStartTime >= POLL_TIMEOUT_MS) {
+          timedOut.value = true
+          stopPolling()
+          isSubmitting.value = false
+        }
       }
-    }, 1000)
+    }, 2000)
   }
 
   function stopPolling() {

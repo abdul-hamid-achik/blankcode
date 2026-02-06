@@ -146,7 +146,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       DOCKER_ENABLED: ${DOCKER_ENABLED:-true}
-      EXECUTION_TIMEOUT_MS: ${EXECUTION_TIMEOUT_MS:-30000}
+      EXECUTION_TIMEOUT_MS: ${EXECUTION_TIMEOUT_MS:-60000}
       EXECUTION_MEMORY_MB: ${EXECUTION_MEMORY_MB:-256}
       # Path must match both inside this container AND on the host for docker-in-docker
       EXECUTION_WORKSPACE_PATH: /tmp/blankcode-workspaces
@@ -214,6 +214,13 @@ services:
       context: ./docker/runners
       dockerfile: Dockerfile.python
     image: blankcode/runner-python:latest
+
+  runner-react:
+    profiles: ["runners"]
+    build:
+      context: ./docker/runners
+      dockerfile: Dockerfile.react
+    image: blankcode/runner-react:latest
 
   runner-go:
     profiles: ["runners"]

@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { config } from '../../config/index.js'
@@ -102,16 +102,17 @@ export async function runInSandbox(
 
 export async function prepareWorkspace(files: Record<string, string>): Promise<string> {
   const workDir = join(getWorkspaceBasePath(), randomUUID())
-  await mkdir(workDir, { recursive: true })
-  await mkdir(join(workDir, 'tmp'), { recursive: true })
+  await mkdir(workDir, { recursive: true, mode: 0o777 })
+  await mkdir(join(workDir, 'tmp'), { recursive: true, mode: 0o777 })
 
   for (const [filename, content] of Object.entries(files)) {
     const filePath = join(workDir, filename)
     const dir = join(workDir, ...filename.split('/').slice(0, -1))
     if (dir !== workDir) {
-      await mkdir(dir, { recursive: true })
+      await mkdir(dir, { recursive: true, mode: 0o777 })
     }
     await writeFile(filePath, content, 'utf-8')
+    await chmod(filePath, 0o644)
   }
 
   return workDir

@@ -1,0 +1,22 @@
+FROM node:22-alpine
+
+# Install dependencies in a temp dir, then move node_modules to root
+# Node.js resolution from /app/ walks up and finds /node_modules/
+RUN mkdir -p /tmp/deps && cd /tmp/deps && npm init -y && \
+    npm install \
+    vitest typescript @types/node \
+    react react-dom @types/react @types/react-dom \
+    @testing-library/react @testing-library/jest-dom \
+    jsdom && \
+    mv /tmp/deps/node_modules /node_modules && \
+    rm -rf /tmp/deps
+
+ENV PATH="/node_modules/.bin:$PATH"
+
+WORKDIR /app
+
+# Create non-root user for security
+RUN adduser -D -u 10000 runner
+USER runner
+
+CMD ["vitest", "run"]

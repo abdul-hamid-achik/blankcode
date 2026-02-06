@@ -135,38 +135,50 @@ function parseTestLine(line: string, passPattern: RegExp, failPattern: RegExp): 
 
 export function parsePytestOutput(output: string): TestResult[] {
   const results: TestResult[] = []
-  const passPattern = /^PASSED\s+(.+?)\s*(?:\((\d+(?:\.\d+)?)s\))?$/
-  const failPattern = /^FAILED\s+(.+?)(?:\s+-\s+(.+))?$/
+  // Verbose format: test_solution.py::test_name PASSED [100%]
+  const verbosePattern = /^(.+?)\s+(PASSED|FAILED)(?:\s|$)/
+  // Summary format: FAILED test_solution.py::test_name - message
+  const summaryFailPattern = /^FAILED\s+(.+?)(?:\s+-\s+(.+))?$/
   const failureDetails = collectPytestFailureDetails(output)
-  const seenFailures = new Set<string>()
+  const seenTests = new Set<string>()
 
   for (const line of output.split('\n')) {
-    const passMatch = line.match(passPattern)
-    if (passMatch) {
-      results.push({
-        name: passMatch[1]?.trim() ?? '',
-        passed: true,
-        message: null,
-        duration: passMatch[2] ? parseFloat(passMatch[2]) * 1000 : 0,
-      })
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('=')) continue
+
+    // Verbose format: lines containing :: are test results
+    const verboseMatch = trimmed.match(verbosePattern)
+    if (verboseMatch && verboseMatch[1]?.includes('::')) {
+      const name = verboseMatch[1].trim()
+      const passed = verboseMatch[2] === 'PASSED'
+      if (!seenTests.has(name)) {
+        seenTests.add(name)
+        if (passed) {
+          results.push({ name, passed: true, message: null, duration: 0 })
+        } else {
+          const detailKey = name.split('::').pop() ?? name
+          const details = failureDetails.get(name) ?? failureDetails.get(detailKey)
+          results.push({ name, passed: false, message: details ?? null, duration: 0 })
+        }
+      }
       continue
     }
 
-    const failMatch = line.match(failPattern)
-    if (failMatch) {
-      const summaryName = failMatch[1]?.trim() ?? ''
-      if (seenFailures.has(summaryName)) {
-        continue
+    // Summary format: FAILED test_path::test_name - message
+    const summaryMatch = trimmed.match(summaryFailPattern)
+    if (summaryMatch) {
+      const name = summaryMatch[1]?.trim() ?? ''
+      if (!seenTests.has(name)) {
+        seenTests.add(name)
+        const detailKey = name.split('::').pop() ?? name
+        const details = failureDetails.get(name) ?? failureDetails.get(detailKey)
+        results.push({
+          name,
+          passed: false,
+          message: details ?? summaryMatch[2]?.trim() ?? null,
+          duration: 0,
+        })
       }
-      seenFailures.add(summaryName)
-      const detailKey = summaryName.split('::').pop() ?? summaryName
-      const details = failureDetails.get(summaryName) ?? failureDetails.get(detailKey)
-      results.push({
-        name: summaryName,
-        passed: false,
-        message: details ?? failMatch[2]?.trim() ?? null,
-        duration: 0,
-      })
     }
   }
 

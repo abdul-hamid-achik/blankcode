@@ -16,7 +16,7 @@ export const config = {
     corsOrigin: process.env['CORS_ORIGIN'] ?? 'http://localhost:5173',
   },
   execution: {
-    timeoutMs: Number.parseInt(process.env['EXECUTION_TIMEOUT_MS'] ?? '30000', 10),
+    timeoutMs: Number.parseInt(process.env['EXECUTION_TIMEOUT_MS'] ?? '60000', 10),
     memoryLimitMb: Number.parseInt(process.env['EXECUTION_MEMORY_MB'] ?? '256', 10),
     cpuLimit: Number.parseFloat(process.env['EXECUTION_CPU_LIMIT'] ?? '0.5'),
     dockerEnabled: process.env['DOCKER_ENABLED'] !== 'false',
@@ -27,7 +27,7 @@ export const config = {
       go: process.env['DOCKER_IMAGE_GO'] ?? 'blankcode/runner-go:latest',
       rust: process.env['DOCKER_IMAGE_RUST'] ?? 'blankcode/runner-rust:latest',
       vue: process.env['DOCKER_IMAGE_VUE'] ?? 'blankcode/runner-typescript:latest',
-      react: process.env['DOCKER_IMAGE_REACT'] ?? 'blankcode/runner-typescript:latest',
+      react: process.env['DOCKER_IMAGE_REACT'] ?? 'blankcode/runner-react:latest',
       node: process.env['DOCKER_IMAGE_NODE'] ?? 'blankcode/runner-typescript:latest',
     } as Record<string, string>,
   },

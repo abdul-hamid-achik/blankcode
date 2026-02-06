@@ -5,8 +5,17 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache musl-dev
 
-# Create non-root user for security
-RUN adduser -D -u 10000 runner
+# Create non-root user with writable Cargo cache directories
+# CARGO_HOME/bin stays read-only (contains rustc, cargo binaries)
+# registry + git dirs need write access for crate downloads
+RUN adduser -D -u 10000 runner && \
+    mkdir -p /usr/local/cargo/registry /usr/local/cargo/git && \
+    chmod -R a+w /usr/local/cargo/registry /usr/local/cargo/git && \
+    mkdir -p /home/runner && \
+    chown -R runner:runner /home/runner
+
+ENV HOME=/home/runner
+
 USER runner
 
 CMD ["cargo", "test", "--", "--nocapture"]

@@ -82,7 +82,7 @@ func TestRectangleArea(t *testing.T) {
 
 func TestCircleArea(t *testing.T) {
 	circle := Circle{Radius: 2}
-	const expected = 12.57
+	const expected = 12.56
 	actual := float64(int(circle.Area()*100)) / 100
 	if actual != expected {
 		t.Fatalf("expected circle area %.2f, got %.2f", expected, actual)
