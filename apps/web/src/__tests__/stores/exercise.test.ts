@@ -38,6 +38,7 @@ describe('useExerciseStore', () => {
     errorMessage: null,
     executionTimeMs: 100,
     createdAt: new Date(),
+    updatedAt: new Date(),
   }
 
   describe('initial state', () => {

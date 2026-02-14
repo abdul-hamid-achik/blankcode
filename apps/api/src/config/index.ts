@@ -1,3 +1,5 @@
+const KNOWN_DEFAULT_SECRETS = ['development-secret-change-me']
+
 export const config = {
   database: {
     url: process.env['DATABASE_URL'] ?? 'postgresql://postgres:postgres@localhost:5432/blankcode',
@@ -39,4 +41,19 @@ export const config = {
     submissionTtl: Number.parseInt(process.env['RATE_LIMIT_SUBMISSION_TTL'] ?? '60000', 10),
     submissionLimit: Number.parseInt(process.env['RATE_LIMIT_SUBMISSION_MAX'] ?? '30', 10),
   },
+  admin: {
+    emails: (process.env['ADMIN_EMAILS'] ?? '')
+      .split(',')
+      .map((e) => e.trim())
+      .filter(Boolean),
+  },
+}
+
+if (
+  process.env['NODE_ENV'] === 'production' &&
+  (!process.env['JWT_SECRET'] || KNOWN_DEFAULT_SECRETS.includes(config.jwt.secret))
+) {
+  throw new Error(
+    'JWT_SECRET must be set to a secure value in production. The default secret is not allowed.'
+  )
 }

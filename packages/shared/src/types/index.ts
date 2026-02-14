@@ -92,6 +92,7 @@ export interface Submission {
   errorMessage: string | null
   executionTimeMs: number | null
   createdAt: Date
+  updatedAt: Date
 }
 
 export interface TestResult {

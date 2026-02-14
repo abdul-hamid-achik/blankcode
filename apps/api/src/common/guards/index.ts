@@ -1,6 +1,13 @@
-import { type ExecutionContext, Inject, Injectable } from '@nestjs/common'
+import {
+  type CanActivate,
+  type ExecutionContext,
+  ForbiddenException,
+  Inject,
+  Injectable,
+} from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { AuthGuard } from '@nestjs/passport'
+import { config } from '../../config/index.js'
 import { IS_PUBLIC_KEY } from '../decorators/index.js'
 
 @Injectable()
@@ -19,5 +26,19 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     }
 
     return super.canActivate(context)
+  }
+}
+
+@Injectable()
+export class AdminGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest()
+    const user = request.user as { email?: string } | undefined
+
+    if (!user?.email || !config.admin.emails.includes(user.email)) {
+      throw new ForbiddenException('Admin access required')
+    }
+
+    return true
   }
 }

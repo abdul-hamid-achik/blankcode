@@ -1,8 +1,9 @@
+import helmet from '@fastify/helmet'
 import { NestFactory } from '@nestjs/core'
 import type { NestFastifyApplication } from '@nestjs/platform-fastify'
 import { FastifyAdapter } from '@nestjs/platform-fastify'
-import helmet from '@fastify/helmet'
 import { AppModule } from './app.module.js'
+import { AllExceptionsFilter } from './common/filters/index.js'
 import { config } from './config/index.js'
 
 async function bootstrap() {
@@ -24,6 +25,9 @@ async function bootstrap() {
     },
     crossOriginEmbedderPolicy: false,
   })
+
+  // Global exception filter
+  app.useGlobalFilters(new AllExceptionsFilter())
 
   // CORS
   app.enableCors({

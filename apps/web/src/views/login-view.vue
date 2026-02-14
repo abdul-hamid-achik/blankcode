@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter, RouterLink } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import Button from '@/components/ui/button.vue'
-import Input from '@/components/ui/input.vue'
 import Card from '@/components/ui/card.vue'
+import Input from '@/components/ui/input.vue'
+import { useAuthStore } from '@/stores/auth'
 
+const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
@@ -20,7 +21,7 @@ async function handleSubmit() {
 
   try {
     await authStore.login(email.value, password.value)
-    router.push('/dashboard')
+    router.push((route.query['redirect'] as string) || '/dashboard')
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Login failed'
   } finally {

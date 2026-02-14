@@ -3,7 +3,6 @@ import type { UserCreateInput, UserLoginInput } from '@blankcode/shared'
 import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import * as bcrypt from 'bcrypt'
-import * as crypto from 'crypto'
 import { and, eq, gt, isNull } from 'drizzle-orm'
 import { type Database, DRIZZLE } from '../../database/drizzle.provider.js'
 
@@ -110,15 +109,18 @@ export class AuthService {
   }
 
   private async generateRefreshToken(userId: string) {
-    const token = crypto.randomBytes(64).toString('hex')
+    const bytes = new Uint8Array(64)
+    crypto.getRandomValues(bytes)
+    const token = Buffer.from(bytes).toString('hex')
     const tokenHash = await bcrypt.hash(token, 10)
+    const lookupHash = new Bun.CryptoHasher('sha256').update(token).digest('hex')
 
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 30)
 
     await this.db.insert(refreshTokens).values({
       userId,
-      token: '',
+      token: lookupHash,
       tokenHash,
       expiresAt,
     })
@@ -132,8 +134,14 @@ export class AuthService {
     refreshToken: string
     refreshTokenExpiresAt: Date
   }> {
+    const lookupHash = new Bun.CryptoHasher('sha256').update(token).digest('hex')
+
     const tokenRecord = await this.db.query.refreshTokens.findFirst({
-      where: and(isNull(refreshTokens.revokedAt), gt(refreshTokens.expiresAt, new Date())),
+      where: and(
+        eq(refreshTokens.token, lookupHash),
+        isNull(refreshTokens.revokedAt),
+        gt(refreshTokens.expiresAt, new Date())
+      ),
       with: {
         user: true,
       },
@@ -173,8 +181,14 @@ export class AuthService {
   }
 
   async revokeRefreshToken(token: string): Promise<void> {
+    const lookupHash = new Bun.CryptoHasher('sha256').update(token).digest('hex')
+
     const tokenRecord = await this.db.query.refreshTokens.findFirst({
-      where: and(isNull(refreshTokens.revokedAt), gt(refreshTokens.expiresAt, new Date())),
+      where: and(
+        eq(refreshTokens.token, lookupHash),
+        isNull(refreshTokens.revokedAt),
+        gt(refreshTokens.expiresAt, new Date())
+      ),
     })
 
     if (!tokenRecord) {

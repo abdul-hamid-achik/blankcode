@@ -15,9 +15,10 @@ async function recoverStaleSubmissions() {
     .set({
       status: 'error',
       errorMessage: 'Worker recovery: submission was stuck in running state',
+      updatedAt: new Date(),
     })
     .where(
-      and(eq(schema.submissions.status, 'running'), lt(schema.submissions.createdAt, staleTimeout))
+      and(eq(schema.submissions.status, 'running'), lt(schema.submissions.updatedAt, staleTimeout))
     )
     .returning()
   if (stale.length > 0) {
@@ -27,7 +28,7 @@ async function recoverStaleSubmissions() {
 
 console.log('[Worker] Starting submission worker...')
 
-const worker = createSubmissionWorker()
+const worker = createSubmissionWorker(db)
 
 recoverStaleSubmissions().catch((err) => {
   console.error('[Worker] Failed to recover stale submissions:', err)

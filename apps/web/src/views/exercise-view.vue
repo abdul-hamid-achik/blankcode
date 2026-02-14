@@ -1,18 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import CodeEditor from '@/components/editor/code-editor.vue'
 import TestResults from '@/components/editor/test-results.vue'
 import HintsPanel from '@/components/exercise/hints-panel.vue'
 import Button from '@/components/ui/button.vue'
 import { useKeyboard } from '@/composables/use-keyboard'
-import { useAuthStore } from '@/stores/auth'
 import { useExerciseStore } from '@/stores/exercise'
 
 const route = useRoute()
-const router = useRouter()
 const exerciseStore = useExerciseStore()
-const authStore = useAuthStore()
 
 const exerciseId = computed(() => route.params['exerciseId'] as string)
 
@@ -47,19 +44,12 @@ const codeSourceLabel = computed(() => {
   }
 })
 
-function handleAuthLogout() {
-  authStore.logout()
-  router.push('/login')
-}
-
 onMounted(() => {
   exerciseStore.loadExercise(exerciseId.value)
-  window.addEventListener('auth:logout', handleAuthLogout)
 })
 
 onUnmounted(() => {
   exerciseStore.reset()
-  window.removeEventListener('auth:logout', handleAuthLogout)
 })
 
 useKeyboard([
@@ -96,8 +86,8 @@ function handleCodeUpdate(code: string) {
       Loading exercise...
     </div>
 
-    <div v-else class="h-full flex">
-      <div class="flex-1 flex flex-col">
+    <div v-else class="h-full flex flex-col lg:flex-row">
+      <div class="flex-1 flex flex-col min-w-0">
         <div class="border-b border-border px-6 py-4">
           <h1 class="text-xl font-semibold">{{ exerciseStore.exercise.title }}</h1>
           <p class="text-sm text-muted-foreground mt-1">
@@ -136,7 +126,7 @@ function handleCodeUpdate(code: string) {
         </div>
       </div>
 
-      <div class="w-96 border-l border-border bg-muted/30 p-6 overflow-y-auto">
+      <div class="w-full lg:w-96 border-t lg:border-t-0 lg:border-l border-border bg-muted/30 p-6 overflow-y-auto">
         <h2 class="font-semibold mb-4">Results</h2>
 
         <div v-if="exerciseStore.isSubmitting && !exerciseStore.latestSubmission" class="flex items-center gap-2 text-info text-sm">
