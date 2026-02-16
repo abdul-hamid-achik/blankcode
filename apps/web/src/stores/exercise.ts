@@ -104,7 +104,9 @@ export const useExerciseStore = defineStore('exercise', () => {
     try {
       await api.exercises.saveDraft(exercise.value.id, code)
       codeSource.value = 'draft'
-    } catch {
+    } catch (error) {
+      console.error('Failed to save draft:', error)
+      // Don't throw - draft save failure shouldn't block the user
     } finally {
       isSaving.value = false
     }

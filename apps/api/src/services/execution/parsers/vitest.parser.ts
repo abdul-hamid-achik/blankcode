@@ -1,5 +1,7 @@
 import type { TestResult } from '../types.js'
 
+const MAX_MESSAGE_LENGTH = 2000
+
 interface VitestTestResult {
   name?: string
   title?: string
@@ -66,10 +68,14 @@ export function parseVitestOutput(output: string): TestResult[] {
     for (const file of json.testResults) {
       for (const test of file.assertionResults) {
         const testName = test.title || test.fullName || test.name || 'Unknown test'
+        let message = test.failureMessages?.join('\n') || test.message || null
+        if (message && message.length > MAX_MESSAGE_LENGTH) {
+          message = `${message.slice(0, MAX_MESSAGE_LENGTH)}\n...[truncated]`
+        }
         results.push({
           name: testName,
           passed: test.status === 'pass' || test.status === 'passed',
-          message: test.failureMessages?.join('\n') || test.message || null,
+          message,
           duration: test.duration ?? 0,
         })
       }
@@ -157,8 +163,11 @@ export function parsePytestOutput(output: string): TestResult[] {
           results.push({ name, passed: true, message: null, duration: 0 })
         } else {
           const detailKey = name.split('::').pop() ?? name
-          const details = failureDetails.get(name) ?? failureDetails.get(detailKey)
-          results.push({ name, passed: false, message: details ?? null, duration: 0 })
+          let details = failureDetails.get(name) ?? failureDetails.get(detailKey) ?? null
+          if (details && details.length > MAX_MESSAGE_LENGTH) {
+            details = `${details.slice(0, MAX_MESSAGE_LENGTH)}\n...[truncated]`
+          }
+          results.push({ name, passed: false, message: details, duration: 0 })
         }
       }
       continue
@@ -171,11 +180,18 @@ export function parsePytestOutput(output: string): TestResult[] {
       if (!seenTests.has(name)) {
         seenTests.add(name)
         const detailKey = name.split('::').pop() ?? name
-        const details = failureDetails.get(name) ?? failureDetails.get(detailKey)
+        let details =
+          failureDetails.get(name) ??
+          failureDetails.get(detailKey) ??
+          summaryMatch[2]?.trim() ??
+          null
+        if (details && details.length > MAX_MESSAGE_LENGTH) {
+          details = `${details.slice(0, MAX_MESSAGE_LENGTH)}\n...[truncated]`
+        }
         results.push({
           name,
           passed: false,
-          message: details ?? summaryMatch[2]?.trim() ?? null,
+          message: details,
           duration: 0,
         })
       }
@@ -261,10 +277,16 @@ export function parseCargoTestOutput(output: string): TestResult[] {
 function appendMessage(result: TestResult, messageLine: string): void {
   const trimmed = messageLine.trim()
   if (!trimmed) return
+  // Stop accumulating once message is already at the limit
+  if (result.message && result.message.length >= MAX_MESSAGE_LENGTH) return
   if (result.message) {
     result.message = `${result.message}\n${trimmed}`
   } else {
     result.message = trimmed
+  }
+  // Truncate if we just exceeded the limit
+  if (result.message && result.message.length > MAX_MESSAGE_LENGTH) {
+    result.message = `${result.message.slice(0, MAX_MESSAGE_LENGTH)}\n...[truncated]`
   }
 }
 

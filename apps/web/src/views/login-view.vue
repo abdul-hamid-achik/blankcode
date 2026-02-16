@@ -21,7 +21,12 @@ async function handleSubmit() {
 
   try {
     await authStore.login(email.value, password.value)
-    router.push((route.query['redirect'] as string) || '/dashboard')
+    const redirectTo = route.query['redirect'] as string | undefined
+    const safeRedirect =
+      redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//')
+        ? redirectTo
+        : '/dashboard'
+    router.push(safeRedirect)
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Login failed'
   } finally {

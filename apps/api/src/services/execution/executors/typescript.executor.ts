@@ -1,4 +1,5 @@
 import { config } from '../../../config/index.js'
+import { logger } from '../logger.js'
 import { parseVitestOutput } from '../parsers/vitest.parser.js'
 import { cleanupWorkspace, executeInDocker, executeLocally, prepareWorkspace } from '../sandbox.js'
 import type { ExecutionContext, ExecutionResult, LanguageExecutor } from '../types.js'
@@ -9,14 +10,15 @@ export class TypeScriptExecutor implements LanguageExecutor {
     const isReact = context.language === 'react'
     const ext = isReact ? '.tsx' : '.ts'
 
-    // Auto-export top-level functions and const/let declarations from solution
+    // Auto-export top-level declarations from solution.
+    // Uses negative lookahead to avoid double-exporting already-exported symbols.
     let solutionCode = context.code
-    // Add export to function declarations that aren't already exported
-    solutionCode = solutionCode.replace(/^(function\s+\w+)/gm, 'export $1')
-    // Add export to const/let declarations at the start of a line
-    solutionCode = solutionCode.replace(/^(const|let)\s+(\w+)\s*=/gm, 'export $1 $2 =')
-    // Fix double exports if already exported
-    solutionCode = solutionCode.replace(/export\s+export\s+/g, 'export ')
+    // Export function declarations (including async functions)
+    solutionCode = solutionCode.replace(/^(?!export\s)((?:async\s+)?function\s+\w+)/gm, 'export $1')
+    // Export const/let declarations
+    solutionCode = solutionCode.replace(/^(?!export\s)((?:const|let)\s+\w+\s*=)/gm, 'export $1')
+    // Export class declarations
+    solutionCode = solutionCode.replace(/^(?!export\s)(class\s+\w+)/gm, 'export $1')
 
     // Process test code:
     // 1. Remove vitest imports (we use --globals flag)
@@ -118,7 +120,22 @@ export class TypeScriptExecutor implements LanguageExecutor {
           }),
         }
 
-        if (!isReact) {
+        if (isReact) {
+          // Override the base React vitest config with local-specific settings
+          localFiles['vitest.config.ts'] = [
+            `import { defineConfig } from 'vitest/config';`,
+            `export default defineConfig({`,
+            `  test: {`,
+            `    include: ['*.test.tsx'],`,
+            `    globals: true,`,
+            `    environment: 'jsdom',`,
+            `    setupFiles: ['./setup.ts'],`,
+            `    reporters: ['json'],`,
+            `    outputFile: './results.json',`,
+            `  },`,
+            `});`,
+          ].join('\n')
+        } else {
           localFiles['vitest.config.ts'] = `
 import { defineConfig } from 'vitest/config'
 
@@ -153,7 +170,11 @@ export default defineConfig({
           stderr = testResult.stderr
           exitCode = testResult.exitCode
         } finally {
-          await cleanupWorkspace(workDir)
+          try {
+            await cleanupWorkspace(workDir)
+          } catch (cleanupError) {
+            logger.warn('Failed to clean up workspace', { workDir, error: String(cleanupError) })
+          }
         }
       }
 

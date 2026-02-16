@@ -1,3 +1,4 @@
+import { DIFFICULTIES, SUBMISSION_STATUSES, TRACK_SLUGS } from '@blankcode/shared/types'
 import { relations } from 'drizzle-orm'
 import {
   boolean,
@@ -14,30 +15,14 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core'
 
-export const difficultyEnum = pgEnum('difficulty', [
-  'beginner',
-  'intermediate',
-  'advanced',
-  'expert',
+export const difficultyEnum = pgEnum('difficulty', [...DIFFICULTIES] as [string, ...string[]])
+
+export const submissionStatusEnum = pgEnum('submission_status', [...SUBMISSION_STATUSES] as [
+  string,
+  ...string[],
 ])
 
-export const submissionStatusEnum = pgEnum('submission_status', [
-  'pending',
-  'running',
-  'passed',
-  'failed',
-  'error',
-])
-
-export const trackSlugEnum = pgEnum('track_slug', [
-  'typescript',
-  'vue',
-  'react',
-  'node',
-  'go',
-  'rust',
-  'python',
-])
+export const trackSlugEnum = pgEnum('track_slug', [...TRACK_SLUGS] as [string, ...string[]])
 
 export const users = pgTable(
   'users',
@@ -312,6 +297,7 @@ export const codeDrafts = pgTable(
       .notNull()
       .references(() => exercises.id, { onDelete: 'cascade' }),
     code: text('code').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

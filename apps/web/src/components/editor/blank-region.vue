@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { BlankRegion } from '@blankcode/shared'
+import { computed } from 'vue'
 
 interface Props {
   blank: BlankRegion
@@ -18,12 +18,8 @@ const emit = defineEmits<{
   blur: []
 }>()
 
-const inputWidth = computed(() => {
-  const minWidth = 60
-  const charWidth = 9
-  const padding = 16
-  return Math.max(minWidth, props.value.length * charWidth + padding)
-})
+// Use a consistent width that doesn't reveal the answer length
+const inputWidth = computed(() => 120)
 
 function handleInput(event: Event) {
   const target = event.target as HTMLInputElement

@@ -12,18 +12,7 @@ import type {
 const API_BASE = import.meta.env.VITE_API_URL ?? '/api'
 
 let isRefreshing = false
-let refreshSubscribers: Array<(token: string) => void> = []
-
-function onTokenRefreshed(token: string) {
-  for (const callback of refreshSubscribers) {
-    callback(token)
-  }
-  refreshSubscribers = []
-}
-
-function addRefreshSubscriber(callback: (token: string) => void) {
-  refreshSubscribers.push(callback)
-}
+let refreshPromise: Promise<string | null> | null = null
 
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = localStorage.getItem('refreshToken')
@@ -65,32 +54,32 @@ async function request<T>(endpoint: string, options: RequestInit = {}, retryCoun
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  })
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30_000)
+
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    })
+  } finally {
+    clearTimeout(timeoutId)
+  }
 
   if (response.status === 401 && retryCount === 0) {
-    if (isRefreshing) {
-      return new Promise((resolve) => {
-        addRefreshSubscriber((newToken) => {
-          headers['Authorization'] = `Bearer ${newToken}`
-          fetch(`${API_BASE}${endpoint}`, {
-            ...options,
-            headers,
-          })
-            .then((res) => res.json())
-            .then((json) => resolve(json.data ?? json))
-        })
+    if (!isRefreshing) {
+      isRefreshing = true
+      refreshPromise = refreshAccessToken().finally(() => {
+        isRefreshing = false
+        refreshPromise = null
       })
     }
 
-    isRefreshing = true
-    const newToken = await refreshAccessToken()
-    isRefreshing = false
+    const newToken = await refreshPromise
 
     if (newToken) {
-      onTokenRefreshed(newToken)
       return request(endpoint, options, retryCount + 1)
     } else {
       window.dispatchEvent(new Event('auth:logout'))

@@ -3,6 +3,10 @@ import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(),
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) return savedPosition
+    return { top: 0 }
+  },
   routes: [
     {
       path: '/',
@@ -70,7 +74,12 @@ const router = createRouter({
 
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
-  await authStore.initialize()
+  try {
+    await authStore.initialize()
+  } catch (error) {
+    console.error('Auth initialization failed:', error)
+    // Allow navigation to continue - auth state will be unauthenticated
+  }
 
   if (to.meta['requiresAuth'] && !authStore.isAuthenticated) {
     next({ name: 'login', query: { redirect: to.fullPath } })

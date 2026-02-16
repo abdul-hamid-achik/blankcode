@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
-import { useAsync } from '@/composables/use-async'
 import { api } from '@/api'
 import Card from '@/components/ui/card.vue'
+import { useAsync } from '@/composables/use-async'
 
 const { data: tracks, isLoading, execute } = useAsync(() => api.tracks.getAll())
 
@@ -20,8 +20,8 @@ onMounted(() => {
         Choose a track to start practicing code completion exercises.
       </p>
 
-      <div v-if="isLoading" class="text-center py-12 text-muted-foreground">
-        Loading tracks...
+      <div v-if="isLoading" class="flex items-center justify-center py-12">
+        <div class="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
       </div>
 
       <div v-else-if="tracks" class="grid gap-4">

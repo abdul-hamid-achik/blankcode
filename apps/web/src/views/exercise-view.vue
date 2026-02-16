@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Concept, Track } from '@blankcode/shared'
 import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import CodeEditor from '@/components/editor/code-editor.vue'
@@ -8,13 +9,20 @@ import Button from '@/components/ui/button.vue'
 import { useKeyboard } from '@/composables/use-keyboard'
 import { useExerciseStore } from '@/stores/exercise'
 
+interface ExerciseWithRelations {
+  concept?: Concept & { track?: Track }
+}
+
 const route = useRoute()
 const exerciseStore = useExerciseStore()
 
 const exerciseId = computed(() => route.params['exerciseId'] as string)
 
 const language = computed(() => {
-  const trackSlug = (exerciseStore.exercise as any)?.concept?.track?.slug
+  const ex = exerciseStore.exercise as
+    | (typeof exerciseStore.exercise & ExerciseWithRelations)
+    | null
+  const trackSlug: string | undefined = ex?.concept?.track?.slug
   switch (trackSlug) {
     case 'typescript':
       return 'typescript'

@@ -1,8 +1,11 @@
-export type Difficulty = 'beginner' | 'intermediate' | 'advanced' | 'expert'
+export const DIFFICULTIES = ['beginner', 'intermediate', 'advanced', 'expert'] as const
+export type Difficulty = (typeof DIFFICULTIES)[number]
 
-export type SubmissionStatus = 'pending' | 'running' | 'passed' | 'failed' | 'error'
+export const SUBMISSION_STATUSES = ['pending', 'running', 'passed', 'failed', 'error'] as const
+export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number]
 
-export type TrackSlug = 'typescript' | 'vue' | 'react' | 'node' | 'go' | 'rust' | 'python'
+export const TRACK_SLUGS = ['typescript', 'vue', 'react', 'node', 'go', 'rust', 'python'] as const
+export type TrackSlug = (typeof TRACK_SLUGS)[number]
 
 export interface User {
   id: string

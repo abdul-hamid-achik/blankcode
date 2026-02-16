@@ -1,4 +1,5 @@
 import { config } from '../../../config/index.js'
+import { logger } from '../logger.js'
 import { parseCargoTestOutput } from '../parsers/vitest.parser.js'
 import { cleanupWorkspace, executeInDocker, executeLocally, prepareWorkspace } from '../sandbox.js'
 import type { ExecutionContext, ExecutionResult, LanguageExecutor } from '../types.js'
@@ -55,7 +56,11 @@ ${dependencyBlock}`,
           stderr = testResult.stderr
           exitCode = testResult.exitCode
         } finally {
-          await cleanupWorkspace(workDir)
+          try {
+            await cleanupWorkspace(workDir)
+          } catch (cleanupError) {
+            logger.warn('Failed to clean up workspace', { workDir, error: String(cleanupError) })
+          }
         }
       }
 

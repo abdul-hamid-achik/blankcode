@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Exercise, Submission } from '@blankcode/shared'
 import { onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { api } from '@/api'
@@ -9,10 +10,16 @@ import { useAuthStore } from '@/stores/auth'
 import { useProgressStore } from '@/stores/progress'
 import { getStatusClasses, getStatusLabel } from '@/utils/submission-status'
 
+interface SubmissionWithExercise extends Submission {
+  exercise?: Pick<Exercise, 'title'>
+}
+
 const authStore = useAuthStore()
 const progressStore = useProgressStore()
 
-const { data: submissions, execute: loadSubmissions } = useAsync(() => api.submissions.getMine(10))
+const { data: submissions, execute: loadSubmissions } = useAsync(
+  () => api.submissions.getMine(10) as Promise<SubmissionWithExercise[]>
+)
 
 onMounted(() => {
   loadSubmissions()
@@ -62,7 +69,7 @@ onMounted(() => {
             <div class="flex items-center justify-between">
               <div>
                 <div class="font-medium">
-                  {{ (submission as any).exercise?.title ?? 'Exercise ' + submission.exerciseId.slice(0, 8) }}
+                  {{ submission.exercise?.title ?? 'Exercise ' + submission.exerciseId.slice(0, 8) }}
                 </div>
                 <div class="text-sm text-muted-foreground">
                   {{ new Date(submission.createdAt).toLocaleDateString() }}

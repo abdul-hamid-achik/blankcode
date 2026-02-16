@@ -17,8 +17,8 @@ onMounted(() => {
 
 <template>
   <div class="container py-12">
-    <div v-if="isLoading" class="text-center py-12 text-muted-foreground">
-      Loading track...
+    <div v-if="isLoading" class="flex items-center justify-center py-12">
+      <div class="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
     </div>
 
     <div v-else-if="track" class="max-w-4xl mx-auto">

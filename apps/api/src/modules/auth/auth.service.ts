@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { refreshTokens, users } from '@blankcode/db/schema'
 import type { UserCreateInput, UserLoginInput } from '@blankcode/shared'
 import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common'
@@ -113,7 +114,7 @@ export class AuthService {
     crypto.getRandomValues(bytes)
     const token = Buffer.from(bytes).toString('hex')
     const tokenHash = await bcrypt.hash(token, 10)
-    const lookupHash = new Bun.CryptoHasher('sha256').update(token).digest('hex')
+    const lookupHash = createHash('sha256').update(token).digest('hex')
 
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 30)
@@ -134,7 +135,7 @@ export class AuthService {
     refreshToken: string
     refreshTokenExpiresAt: Date
   }> {
-    const lookupHash = new Bun.CryptoHasher('sha256').update(token).digest('hex')
+    const lookupHash = createHash('sha256').update(token).digest('hex')
 
     const tokenRecord = await this.db.query.refreshTokens.findFirst({
       where: and(
@@ -181,7 +182,7 @@ export class AuthService {
   }
 
   async revokeRefreshToken(token: string): Promise<void> {
-    const lookupHash = new Bun.CryptoHasher('sha256').update(token).digest('hex')
+    const lookupHash = createHash('sha256').update(token).digest('hex')
 
     const tokenRecord = await this.db.query.refreshTokens.findFirst({
       where: and(

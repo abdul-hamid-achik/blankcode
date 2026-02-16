@@ -8,6 +8,12 @@ import { createSubmissionWorker } from './submission.worker.js'
 const sql = postgres(config.database.url)
 const db = drizzle(sql, { schema })
 
+// Configurable interval for periodic stale job recovery (default: 2 minutes)
+const STALE_CHECK_INTERVAL = Number.parseInt(
+  process.env['STALE_CHECK_INTERVAL_MS'] ?? String(2 * 60 * 1000),
+  10
+)
+
 async function recoverStaleSubmissions() {
   const staleTimeout = new Date(Date.now() - 5 * 60 * 1000)
   const stale = await db
@@ -30,20 +36,35 @@ console.log('[Worker] Starting submission worker...')
 
 const worker = createSubmissionWorker(db)
 
+// Run stale recovery once at startup, then periodically
 recoverStaleSubmissions().catch((err) => {
   console.error('[Worker] Failed to recover stale submissions:', err)
 })
 
-process.on('SIGTERM', async () => {
-  console.log('[Worker] Received SIGTERM, shutting down...')
-  await worker.close()
-  process.exit(0)
-})
+const staleCheckTimer = setInterval(() => {
+  recoverStaleSubmissions().catch((err) => {
+    console.error('[Worker] Periodic stale recovery failed:', err)
+  })
+}, STALE_CHECK_INTERVAL)
 
-process.on('SIGINT', async () => {
-  console.log('[Worker] Received SIGINT, shutting down...')
-  await worker.close()
-  process.exit(0)
-})
+async function gracefulShutdown(signal: string) {
+  console.log(`[Worker] Received ${signal}, shutting down gracefully...`)
+  clearInterval(staleCheckTimer)
+
+  const shutdownTimeout = setTimeout(() => {
+    console.error('[Worker] Graceful shutdown timed out after 30s, forcing exit')
+    process.exit(1)
+  }, 30_000)
+
+  try {
+    await worker.close()
+  } finally {
+    clearTimeout(shutdownTimeout)
+    process.exit(0)
+  }
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
+process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 
 console.log('[Worker] Submission worker started')

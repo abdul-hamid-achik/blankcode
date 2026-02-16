@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
 import { HttpException, HttpStatus } from '@nestjs/common'
+import { describe, expect, it, vi } from 'vitest'
 import { ZodError, z } from 'zod'
 import { AllExceptionsFilter } from '../common/filters/index.js'
 
@@ -69,13 +69,11 @@ describe('AllExceptionsFilter', () => {
 
     filter.catch(exception, host as any)
 
-    expect(host.response.status).toHaveBeenCalledWith(
-      HttpStatus.INTERNAL_SERVER_ERROR
-    )
+    expect(host.response.status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR)
     expect(host.response.send).toHaveBeenCalledWith(
       expect.objectContaining({
         error: expect.objectContaining({
-          message: 'Something went wrong',
+          message: 'Internal server error',
         }),
       })
     )
@@ -87,8 +85,6 @@ describe('AllExceptionsFilter', () => {
 
     filter.catch(exception, host as any)
 
-    expect(host.response.status).toHaveBeenCalledWith(
-      HttpStatus.INTERNAL_SERVER_ERROR
-    )
+    expect(host.response.status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR)
   })
 })

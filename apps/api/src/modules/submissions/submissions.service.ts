@@ -1,51 +1,69 @@
 import { codeDrafts, exercises, submissions } from '@blankcode/db/schema'
 import type { SubmissionCreateInput } from '@blankcode/shared'
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common'
 import { Queue } from 'bullmq'
 import { and, desc, eq } from 'drizzle-orm'
 import { type Database, DRIZZLE } from '../../database/drizzle.provider.js'
 import { SUBMISSION_QUEUE } from '../../queue/queue.module.js'
 
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  pending: ['running', 'error'],
+  running: ['passed', 'failed', 'error'],
+}
+
 @Injectable()
 export class SubmissionsService {
+  private readonly logger = new Logger(SubmissionsService.name)
+
   constructor(
     @Inject(DRIZZLE) private db: Database,
     @Inject(SUBMISSION_QUEUE) private submissionQueue: Queue
   ) {}
 
   async create(userId: string, input: SubmissionCreateInput) {
-    const exercise = await this.db.query.exercises.findFirst({
-      where: eq(exercises.id, input.exerciseId),
-    })
-    if (!exercise) {
-      throw new NotFoundException('Exercise not found')
-    }
-
-    const [submission] = await this.db
-      .insert(submissions)
-      .values({
-        userId,
-        exerciseId: input.exerciseId,
-        code: input.code,
-        status: 'pending',
+    const submission = await this.db.transaction(async (tx) => {
+      const exercise = await tx.query.exercises.findFirst({
+        where: eq(exercises.id, input.exerciseId),
       })
-      .returning()
+      if (!exercise) {
+        throw new NotFoundException('Exercise not found')
+      }
 
-    const existingDraft = await this.db.query.codeDrafts.findFirst({
-      where: and(eq(codeDrafts.userId, userId), eq(codeDrafts.exerciseId, input.exerciseId)),
+      if (!exercise.isPublished) {
+        throw new NotFoundException('Exercise not found')
+      }
+
+      const [created] = await tx
+        .insert(submissions)
+        .values({
+          userId,
+          exerciseId: input.exerciseId,
+          code: input.code,
+          status: 'pending',
+        })
+        .returning()
+
+      await tx
+        .delete(codeDrafts)
+        .where(and(eq(codeDrafts.userId, userId), eq(codeDrafts.exerciseId, input.exerciseId)))
+
+      return created
     })
-
-    if (existingDraft?.id) {
-      await this.db.delete(codeDrafts).where(eq(codeDrafts.id, existingDraft.id))
-    }
 
     try {
-      await this.submissionQueue.add('execute', {
-        submissionId: submission?.id,
-        exerciseId: input.exerciseId,
-        code: input.code,
-      })
-    } catch {
+      await this.submissionQueue.add(
+        'execute',
+        {
+          submissionId: submission?.id,
+          exerciseId: input.exerciseId,
+          code: input.code,
+        },
+        {
+          jobId: `submission-${submission!.id}`,
+        }
+      )
+    } catch (err) {
+      this.logger.error(`Failed to enqueue submission ${submission?.id}`, err)
       await this.db
         .update(submissions)
         .set({ status: 'error', errorMessage: 'Failed to enqueue submission' })
@@ -79,11 +97,12 @@ export class SubmissionsService {
     })
   }
 
-  async findByUser(userId: string, limit = 20) {
+  async findByUser(userId: string, limit = 20, offset = 0) {
     return this.db.query.submissions.findMany({
       where: eq(submissions.userId, userId),
       orderBy: desc(submissions.createdAt),
       limit,
+      offset,
       with: {
         exercise: true,
       },
@@ -99,11 +118,17 @@ export class SubmissionsService {
 
     await this.db.update(submissions).set({ status: 'pending' }).where(eq(submissions.id, id))
 
-    await this.submissionQueue.add('execute', {
-      submissionId: submission.id,
-      exerciseId: submission.exerciseId,
-      code: submission.code,
-    })
+    await this.submissionQueue.add(
+      'execute',
+      {
+        submissionId: submission.id,
+        exerciseId: submission.exerciseId,
+        code: submission.code,
+      },
+      {
+        jobId: `submission-${submission.id}-retry-${Date.now()}`,
+      }
+    )
 
     return { ...submission, status: 'pending' as const }
   }
@@ -119,6 +144,21 @@ export class SubmissionsService {
     }>,
     executionTimeMs?: number
   ) {
+    const existing = await this.db.query.submissions.findFirst({
+      where: eq(submissions.id, id),
+      columns: { status: true },
+    })
+
+    if (existing) {
+      const currentStatus = existing.status
+      const allowedTransitions = VALID_TRANSITIONS[currentStatus]
+      if (allowedTransitions && !allowedTransitions.includes(status)) {
+        throw new BadRequestException(
+          `Invalid status transition from '${currentStatus}' to '${status}'`
+        )
+      }
+    }
+
     const [submission] = await this.db
       .update(submissions)
       .set({

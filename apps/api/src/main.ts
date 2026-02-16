@@ -1,16 +1,24 @@
 import helmet from '@fastify/helmet'
+import { Logger } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import type { NestFastifyApplication } from '@nestjs/platform-fastify'
 import { FastifyAdapter } from '@nestjs/platform-fastify'
 import { AppModule } from './app.module.js'
 import { AllExceptionsFilter } from './common/filters/index.js'
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js'
 import { config } from './config/index.js'
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ logger: true })
+    new FastifyAdapter({
+      logger: {
+        level: process.env['NODE_ENV'] === 'production' ? 'info' : 'debug',
+      },
+    })
   )
+
+  const logger = new Logger('Bootstrap')
 
   // Security headers
   await app.register(helmet, {
@@ -29,6 +37,9 @@ async function bootstrap() {
   // Global exception filter
   app.useGlobalFilters(new AllExceptionsFilter())
 
+  // Global request logging interceptor
+  app.useGlobalInterceptors(new LoggingInterceptor())
+
   // CORS
   app.enableCors({
     origin: config.api.corsOrigin,
@@ -41,7 +52,7 @@ async function bootstrap() {
   const host = config.api.host
 
   await app.listen(port, host)
-  console.log(`API running on http://${host}:${port}`)
+  logger.log(`API running on http://${host}:${port}`)
 }
 
 bootstrap()

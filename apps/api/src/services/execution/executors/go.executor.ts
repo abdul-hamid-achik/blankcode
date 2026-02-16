@@ -97,7 +97,11 @@ go 1.22
           stderr = runResult.stderr
           exitCode = runResult.exitCode
         } finally {
-          await cleanupWorkspace(workDir)
+          try {
+            await cleanupWorkspace(workDir)
+          } catch (cleanupError) {
+            logger.warn('Failed to clean up workspace', { workDir, error: String(cleanupError) })
+          }
         }
       }
 
@@ -214,7 +218,11 @@ go 1.22
           stderr = testResult.stderr
           exitCode = testResult.exitCode
         } finally {
-          await cleanupWorkspace(workDir)
+          try {
+            await cleanupWorkspace(workDir)
+          } catch (cleanupError) {
+            logger.warn('Failed to clean up workspace', { workDir, error: String(cleanupError) })
+          }
         }
       }
 

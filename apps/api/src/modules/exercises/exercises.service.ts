@@ -51,7 +51,7 @@ export class ExercisesService {
 
   async findById(id: string) {
     const exercise = await this.db.query.exercises.findFirst({
-      where: eq(exercises.id, id),
+      where: and(eq(exercises.id, id), eq(exercises.isPublished, true)),
       with: {
         concept: {
           with: {

@@ -2,9 +2,12 @@ import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { chmod, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { config } from '../../config/index.js'
+import { logger } from './logger.js'
 import type { ExecutionContext } from './types.js'
+
+const MAX_OUTPUT_SIZE = 1024 * 1024 // 1MB
 
 // Use configurable workspace path for docker-in-docker compatibility
 // This path must be accessible from both the worker container and the host
@@ -58,16 +61,18 @@ export async function runInSandbox(
 
     proc.stdout.on('data', (data) => {
       stdout += data.toString()
-      if (stdout.length > 1024 * 1024) {
+      if (stdout.length > MAX_OUTPUT_SIZE) {
         killed = true
+        stdout = `${stdout.slice(0, MAX_OUTPUT_SIZE)}\n[OUTPUT TRUNCATED]`
         proc.kill('SIGKILL')
       }
     })
 
     proc.stderr.on('data', (data) => {
       stderr += data.toString()
-      if (stderr.length > 1024 * 1024) {
+      if (stderr.length > MAX_OUTPUT_SIZE) {
         killed = true
+        stderr = `${stderr.slice(0, MAX_OUTPUT_SIZE)}\n[OUTPUT TRUNCATED]`
         proc.kill('SIGKILL')
       }
     })
@@ -107,6 +112,10 @@ export async function prepareWorkspace(files: Record<string, string>): Promise<s
 
   for (const [filename, content] of Object.entries(files)) {
     const filePath = join(workDir, filename)
+    const resolved = resolve(filePath)
+    if (!resolved.startsWith(resolve(workDir))) {
+      throw new Error(`Path traversal detected: ${filename}`)
+    }
     const dir = join(workDir, ...filename.split('/').slice(0, -1))
     if (dir !== workDir) {
       await mkdir(dir, { recursive: true, mode: 0o777 })
@@ -147,7 +156,11 @@ export async function executeInDocker(
 
     return result
   } finally {
-    await cleanupWorkspace(workDir)
+    try {
+      await cleanupWorkspace(workDir)
+    } catch (cleanupError) {
+      logger.warn('Failed to clean up workspace', { workDir, error: String(cleanupError) })
+    }
   }
 }
 
@@ -196,16 +209,18 @@ export async function executeLocally(
 
     proc.stdout.on('data', (data) => {
       stdout += data.toString()
-      if (stdout.length > 1024 * 1024) {
+      if (stdout.length > MAX_OUTPUT_SIZE) {
         killed = true
+        stdout = `${stdout.slice(0, MAX_OUTPUT_SIZE)}\n[OUTPUT TRUNCATED]`
         proc.kill('SIGKILL')
       }
     })
 
     proc.stderr.on('data', (data) => {
       stderr += data.toString()
-      if (stderr.length > 1024 * 1024) {
+      if (stderr.length > MAX_OUTPUT_SIZE) {
         killed = true
+        stderr = `${stderr.slice(0, MAX_OUTPUT_SIZE)}\n[OUTPUT TRUNCATED]`
         proc.kill('SIGKILL')
       }
     })

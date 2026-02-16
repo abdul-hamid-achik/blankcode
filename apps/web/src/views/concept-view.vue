@@ -29,8 +29,8 @@ const difficultyColors: Record<string, string> = {
 
 <template>
   <div class="container py-12">
-    <div v-if="isLoading" class="text-center py-12 text-muted-foreground">
-      Loading exercises...
+    <div v-if="isLoading" class="flex items-center justify-center py-12">
+      <div class="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
     </div>
 
     <div v-else class="max-w-4xl mx-auto">
@@ -88,8 +88,8 @@ const difficultyColors: Record<string, string> = {
         </RouterLink>
       </div>
 
-      <div v-else class="text-center py-12 text-muted-foreground">
-        No exercises available yet.
+      <div v-else-if="exercises && exercises.length === 0" class="text-center py-8 text-muted-foreground">
+        No exercises available for this concept yet.
       </div>
     </div>
   </div>

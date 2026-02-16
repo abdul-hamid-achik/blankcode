@@ -26,7 +26,7 @@ export const connection: ConnectionOptions = {
           defaultJobOptions: {
             attempts: 3,
             backoff: { type: 'exponential', delay: 1000 },
-            removeOnComplete: 100,
+            removeOnComplete: { count: 50, age: 3600 },
             removeOnFail: 500,
           },
         }),

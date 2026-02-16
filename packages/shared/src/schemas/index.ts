@@ -1,11 +1,11 @@
 import { z } from 'zod'
-import type { Difficulty, SubmissionStatus, TrackSlug } from '../types/index.js'
+import { DIFFICULTIES, SUBMISSION_STATUSES, TRACK_SLUGS } from '../types/index.js'
 
-export const difficultySchema = z.enum(['beginner', 'intermediate', 'advanced', 'expert'])
+export const difficultySchema = z.enum(DIFFICULTIES)
 
-export const submissionStatusSchema = z.enum(['pending', 'running', 'passed', 'failed', 'error'])
+export const submissionStatusSchema = z.enum(SUBMISSION_STATUSES)
 
-export const trackSlugSchema = z.enum(['typescript', 'vue', 'react', 'node', 'go', 'rust', 'python'])
+export const trackSlugSchema = z.enum(TRACK_SLUGS)
 
 export const paginationSchema = z.object({
   page: z.coerce.number().int().positive().default(1),

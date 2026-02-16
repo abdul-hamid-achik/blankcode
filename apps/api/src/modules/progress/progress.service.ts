@@ -77,6 +77,10 @@ export class ProgressService {
           attempts: rawSql`${userProgress.attempts} + 1`,
           bestSubmissionId: rawSql`CASE
             WHEN ${userProgress.bestSubmissionId} IS NULL THEN ${submissionId}
+            WHEN (SELECT execution_time_ms FROM submissions WHERE id = ${submissionId}) IS NULL
+            THEN ${userProgress.bestSubmissionId}
+            WHEN (SELECT execution_time_ms FROM submissions WHERE id = ${userProgress.bestSubmissionId}) IS NULL
+            THEN ${submissionId}
             WHEN (SELECT execution_time_ms FROM submissions WHERE id = ${submissionId}) <
                  (SELECT execution_time_ms FROM submissions WHERE id = ${userProgress.bestSubmissionId})
             THEN ${submissionId}

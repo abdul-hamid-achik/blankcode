@@ -24,14 +24,14 @@ export class FastifyThrottlerGuard extends ThrottlerGuard {
         // @AuthThrottle() overrides to 5 req/60s on login/register.
         name: 'auth',
         ttl: config.rateLimit.authTtl,
-        limit: config.rateLimit.limit,
+        limit: config.rateLimit.authLimit,
       },
       {
         // Default high so polling isn't throttled.
         // @SubmissionThrottle() overrides to 30 req/60s on create/retry.
         name: 'submission',
         ttl: config.rateLimit.submissionTtl,
-        limit: config.rateLimit.limit,
+        limit: config.rateLimit.submissionLimit,
       },
     ]),
   ],
