@@ -8,7 +8,10 @@ const authStore = useAuthStore()
 const mobileMenuOpen = ref(false)
 
 const navLinks = computed(() => {
-  const links = [{ to: '/tracks', label: 'Tracks' }]
+  const links = [
+    { to: '/tracks', label: 'Tracks' },
+    { to: '/tutorials', label: 'Tutorials' },
+  ]
   if (authStore.isAuthenticated) {
     links.push({ to: '/progress', label: 'Progress' })
   }
