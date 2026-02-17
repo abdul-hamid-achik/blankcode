@@ -9,7 +9,7 @@
       "project": ["src/**/*.ts"]
     },
     "apps/web": {
-      "entry": ["src/main.ts", "vite.config.ts", "e2e/**/*.ts"],
+      "entry": ["src/main.ts", "vite.config.ts", "content-collections.ts", "e2e/**/*.ts"],
       "project": ["src/**/*.{ts,vue}"]
     },
     "packages/*": {

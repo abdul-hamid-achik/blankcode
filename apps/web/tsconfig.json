@@ -10,10 +10,11 @@
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "content-collections": ["./.content-collections/generated"]
     },
     "types": ["vite/client"]
   },
-  "include": ["src/**/*", "src/**/*.vue", "e2e/**/*"],
+  "include": ["src/**/*", "src/**/*.vue", "e2e/**/*", "content-collections.ts"],
   "exclude": ["node_modules", "dist"]
 }
