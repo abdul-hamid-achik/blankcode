@@ -1,3 +1,39 @@
+x-dev-build: &dev-build
+  context: .
+  dockerfile_inline: |
+    FROM oven/bun:1-debian
+    RUN apt-get update && \
+        apt-get install -y --no-install-recommends \
+          git python3 make g++ ca-certificates curl && \
+        install -m 0755 -d /etc/apt/keyrings && \
+        curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc && \
+        chmod a+r /etc/apt/keyrings/docker.asc && \
+        echo "deb [arch=$$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $$(. /etc/os-release && echo $$VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list && \
+        apt-get update && \
+        apt-get install -y --no-install-recommends docker-ce-cli && \
+        rm -rf /var/lib/apt/lists/*
+    WORKDIR /app
+    COPY package.json bun.lock turbo.json tsconfig.base.json ./
+    COPY apps/api/package.json ./apps/api/
+    COPY apps/web/package.json ./apps/web/
+    COPY packages/db/package.json ./packages/db/
+    COPY packages/shared/package.json ./packages/shared/
+    COPY packages/exercise-parser/package.json ./packages/exercise-parser/
+    COPY tools/content-importer/package.json ./tools/content-importer/
+    COPY tools/exercise-generator/package.json ./tools/exercise-generator/
+    RUN git init && bun install --frozen-lockfile
+
+x-dev-volumes: &dev-volumes
+  - .:/app
+  - /app/node_modules
+  - /app/apps/api/node_modules
+  - /app/apps/web/node_modules
+  - /app/packages/db/node_modules
+  - /app/packages/shared/node_modules
+  - /app/packages/exercise-parser/node_modules
+  - /app/tools/content-importer/node_modules
+  - /app/tools/exercise-generator/node_modules
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -43,125 +79,99 @@ services:
           memory: 256M
 
   api:
-    profiles: ["full"]
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-    develop:
-      watch:
-        - path: ./apps/api
-          action: rebuild
-          ignore:
-            - "**/node_modules/**"
-            - "**/dist/**"
-        - path: ./packages/db
-          action: rebuild
-          ignore:
-            - "**/node_modules/**"
-            - "**/dist/**"
-        - path: ./packages/shared
-          action: rebuild
-          ignore:
-            - "**/node_modules/**"
-            - "**/dist/**"
-        - path: ./package.json
-          action: rebuild
-        - path: ./bun.lock
-          action: rebuild
-        - path: ./turbo.json
-          action: rebuild
-        - path: ./tsconfig.base.json
-          action: rebuild
+    build: *dev-build
     container_name: blankcode-api
     restart: unless-stopped
+    command: >
+      sh -c "bunx turbo build --filter=@blankcode/shared --filter=@blankcode/db &&
+             cd apps/api && bunx nest start --watch"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-blankcode}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-development-secret-change-me}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
-      NODE_ENV: ${NODE_ENV:-production}
+      NODE_ENV: development
     ports:
       - "${API_PORT:-3000}:3000"
+    volumes: *dev-volumes
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1'
+
+  web:
+    build: *dev-build
+    container_name: blankcode-web
+    restart: unless-stopped
+    command: ["sh", "-c", "cd apps/web && bunx vite --host 0.0.0.0"]
+    environment:
+      NODE_ENV: development
+      API_URL: http://api:3000
+    ports:
+      - "5173:5173"
+    volumes: *dev-volumes
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:5173 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     deploy:
       resources:
         limits:
           memory: 512M
-          cpus: '1'
 
   # SECURITY NOTE: Worker requires Docker socket access for sandboxed code execution.
   # The 'user: root' and Docker socket mount grant host-level Docker access.
-  # In production, consider:
-  #   1. Running a dedicated Docker-in-Docker (DinD) sidecar
-  #   2. Using rootless Docker mode
-  #   3. Restricting via AppArmor/seccomp profiles
-  #   4. Using a dedicated execution cluster (e.g., Firecracker VMs)
   worker:
-    profiles: ["full"]
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-    develop:
-      watch:
-        - path: ./apps/api
-          action: rebuild
-          ignore:
-            - "**/node_modules/**"
-            - "**/dist/**"
-        - path: ./packages/db
-          action: rebuild
-          ignore:
-            - "**/node_modules/**"
-            - "**/dist/**"
-        - path: ./packages/shared
-          action: rebuild
-          ignore:
-            - "**/node_modules/**"
-            - "**/dist/**"
-        - path: ./package.json
-          action: rebuild
-        - path: ./bun.lock
-          action: rebuild
-        - path: ./turbo.json
-          action: rebuild
-        - path: ./tsconfig.base.json
-          action: rebuild
+    build: *dev-build
     container_name: blankcode-worker
     restart: unless-stopped
     user: root
-    command: ["bun", "run", "apps/api/dist/workers/index.js"]
+    command: ["bun", "--watch", "apps/api/src/workers/index.ts"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-blankcode}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-development-secret-change-me}
-      NODE_ENV: ${NODE_ENV:-production}
+      NODE_ENV: development
       DOCKER_ENABLED: ${DOCKER_ENABLED:-true}
       EXECUTION_TIMEOUT_MS: ${EXECUTION_TIMEOUT_MS:-60000}
       EXECUTION_MEMORY_MB: ${EXECUTION_MEMORY_MB:-256}
-      # Path must match both inside this container AND on the host for docker-in-docker
       EXECUTION_WORKSPACE_PATH: /tmp/blankcode-workspaces
     volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/api/node_modules
+      - /app/apps/web/node_modules
+      - /app/packages/db/node_modules
+      - /app/packages/shared/node_modules
+      - /app/packages/exercise-parser/node_modules
+      - /app/tools/content-importer/node_modules
+      - /app/tools/exercise-generator/node_modules
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp/blankcode-workspaces:/tmp/blankcode-workspaces
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
+      api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "node -e 'process.exit(0)' || exit 1"]
+      test: ["CMD-SHELL", "bun -e 'process.exit(0)'"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -172,49 +182,7 @@ services:
           memory: 1G
           cpus: '2'
 
-  web:
-    profiles: ["full"]
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    develop:
-      watch:
-        - path: ./apps/web
-          action: rebuild
-          ignore:
-            - "**/node_modules/**"
-            - "**/dist/**"
-        - path: ./packages/shared
-          action: rebuild
-          ignore:
-            - "**/node_modules/**"
-            - "**/dist/**"
-        - path: ./package.json
-          action: rebuild
-        - path: ./bun.lock
-          action: rebuild
-        - path: ./turbo.json
-          action: rebuild
-        - path: ./tsconfig.base.json
-          action: rebuild
-    container_name: blankcode-web
-    restart: unless-stopped
-    ports:
-      - "${WEB_PORT:-80}:80"
-    depends_on:
-      - api
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:80/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-
-  # Code execution runners - build with: docker compose --profile runners build
+  # Code execution runners — build with: task runners
   runner-typescript:
     profiles: ["runners"]
     build:
