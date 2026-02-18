@@ -1,6 +1,7 @@
 import { DIFFICULTIES, SUBMISSION_STATUSES, TRACK_SLUGS } from '@blankcode/shared/types'
 import { relations } from 'drizzle-orm'
 import {
+  bigint,
   boolean,
   index,
   integer,
@@ -8,6 +9,7 @@ import {
   pgEnum,
   pgTable,
   real,
+  serial,
   text,
   timestamp,
   uniqueIndex,
@@ -318,3 +320,51 @@ export const codeDraftsRelations = relations(codeDrafts, ({ one }) => ({
     references: [exercises.id],
   }),
 }))
+
+export const clusterRunners = pgTable('cluster_runners', {
+  machineId: serial('machine_id').primaryKey(),
+  address: varchar('address', { length: 255 }).notNull(),
+  runner: text('runner').notNull(),
+  healthy: boolean('healthy').notNull().default(true),
+  lastHeartbeat: timestamp('last_heartbeat', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const clusterLocks = pgTable('cluster_locks', {
+  shardId: varchar('shard_id', { length: 50 }).primaryKey(),
+  address: varchar('address', { length: 255 }).notNull(),
+  acquiredAt: timestamp('acquired_at', { withTimezone: true }).notNull(),
+})
+
+export const clusterMigrations = pgTable('cluster_migrations', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  name: varchar('name', { length: 255 }).notNull(),
+  timestamp: bigint('timestamp', { mode: 'number' }).notNull(),
+  done: boolean('done').notNull().default(false),
+})
+
+export const clusterMessages = pgTable('cluster_messages', {
+  id: text('id').primaryKey(),
+  messageId: text('message_id').notNull(),
+  shardId: text('shard_id'),
+  entityType: text('entity_type').notNull(),
+  entityId: text('entity_id').notNull(),
+  kind: text('kind').notNull(),
+  tag: text('tag'),
+  payload: jsonb('payload'),
+  headers: jsonb('headers'),
+  traceId: text('trace_id'),
+  spanId: text('span_id'),
+  sampled: integer('sampled'),
+  requestId: text('request_id').notNull(),
+  replyId: text('reply_id'),
+  deliverAt: timestamp('deliver_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const clusterReplies = pgTable('cluster_replies', {
+  id: text('id').primaryKey(),
+  kind: text('kind').notNull(),
+  requestId: text('request_id').notNull(),
+  payload: jsonb('payload'),
+  sequence: bigint('sequence', { mode: 'number' }),
+})

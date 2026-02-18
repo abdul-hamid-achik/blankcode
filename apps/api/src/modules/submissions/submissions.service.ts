@@ -1,139 +1,39 @@
-import { codeDrafts, exercises, submissions } from '@blankcode/db/schema'
+import { Drizzle } from '@blankcode/db/client'
+import { exercises, submissions } from '@blankcode/db/schema'
 import type { SubmissionCreateInput } from '@blankcode/shared'
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common'
-import { Queue } from 'bullmq'
 import { and, desc, eq } from 'drizzle-orm'
-import { type Database, DRIZZLE } from '../../database/drizzle.provider.js'
-import { SUBMISSION_QUEUE } from '../../queue/queue.module.js'
+import { Context, Effect, Layer } from 'effect'
+import { BadRequestError, InvalidTransitionError, NotFoundError } from '../../api/errors.js'
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ['running', 'error'],
   running: ['passed', 'failed', 'error'],
 }
 
-@Injectable()
-export class SubmissionsService {
-  private readonly logger = new Logger(SubmissionsService.name)
-
-  constructor(
-    @Inject(DRIZZLE) private db: Database,
-    @Inject(SUBMISSION_QUEUE) private submissionQueue: Queue
-  ) {}
-
-  async create(userId: string, input: SubmissionCreateInput) {
-    const submission = await this.db.transaction(async (tx) => {
-      const exercise = await tx.query.exercises.findFirst({
-        where: eq(exercises.id, input.exerciseId),
-      })
-      if (!exercise) {
-        throw new NotFoundException('Exercise not found')
-      }
-
-      if (!exercise.isPublished) {
-        throw new NotFoundException('Exercise not found')
-      }
-
-      const [created] = await tx
-        .insert(submissions)
-        .values({
-          userId,
-          exerciseId: input.exerciseId,
-          code: input.code,
-          status: 'pending',
-        })
-        .returning()
-
-      await tx
-        .delete(codeDrafts)
-        .where(and(eq(codeDrafts.userId, userId), eq(codeDrafts.exerciseId, input.exerciseId)))
-
-      return created
-    })
-
-    try {
-      await this.submissionQueue.add(
-        'execute',
-        {
-          submissionId: submission?.id,
-          exerciseId: input.exerciseId,
-          code: input.code,
-        },
-        {
-          jobId: `submission-${submission!.id}`,
-        }
-      )
-    } catch (err) {
-      this.logger.error(`Failed to enqueue submission ${submission?.id}`, err)
-      await this.db
-        .update(submissions)
-        .set({ status: 'error', errorMessage: 'Failed to enqueue submission' })
-        .where(eq(submissions.id, submission!.id))
-    }
-
-    return submission
-  }
-
-  async findById(id: string, userId?: string) {
-    const submission = await this.db.query.submissions.findFirst({
-      where: userId
-        ? and(eq(submissions.id, id), eq(submissions.userId, userId))
-        : eq(submissions.id, id),
-      with: {
-        exercise: true,
-      },
-    })
-
-    if (!submission) {
-      throw new NotFoundException('Submission not found')
-    }
-
-    return submission
-  }
-
-  async findByExercise(exerciseId: string, userId: string) {
-    return this.db.query.submissions.findMany({
-      where: and(eq(submissions.exerciseId, exerciseId), eq(submissions.userId, userId)),
-      orderBy: desc(submissions.createdAt),
-    })
-  }
-
-  async findByUser(userId: string, limit = 20, offset = 0) {
-    return this.db.query.submissions.findMany({
-      where: eq(submissions.userId, userId),
-      orderBy: desc(submissions.createdAt),
-      limit,
-      offset,
-      with: {
-        exercise: true,
-      },
-    })
-  }
-
-  async retry(id: string, userId: string) {
-    const submission = await this.findById(id, userId)
-
-    if (submission.status !== 'error' && submission.status !== 'failed') {
-      throw new BadRequestException('Can only retry failed or errored submissions')
-    }
-
-    await this.db.update(submissions).set({ status: 'pending' }).where(eq(submissions.id, id))
-
-    await this.submissionQueue.add(
-      'execute',
-      {
-        submissionId: submission.id,
-        exerciseId: submission.exerciseId,
-        code: submission.code,
-      },
-      {
-        jobId: `submission-${submission.id}-retry-${Date.now()}`,
-      }
-    )
-
-    return { ...submission, status: 'pending' as const }
-  }
-
-  async updateStatus(
+interface SubmissionsServiceShape {
+  readonly create: (
+    userId: string,
+    input: SubmissionCreateInput
+  ) => Effect.Effect<any, NotFoundError | BadRequestError>
+  readonly createAndExecute: (
+    userId: string,
+    input: SubmissionCreateInput
+  ) => Effect.Effect<any, NotFoundError | BadRequestError>
+  readonly findById: (id: string, userId?: string) => Effect.Effect<any, NotFoundError>
+  readonly findByExercise: (
+    exerciseId: string,
+    userId: string
+  ) => Effect.Effect<any[], NotFoundError>
+  readonly findByUser: (
+    userId: string,
+    limit?: number,
+    offset?: number
+  ) => Effect.Effect<any[], NotFoundError>
+  readonly retry: (
+    id: string,
+    userId: string
+  ) => Effect.Effect<any, NotFoundError | BadRequestError>
+  readonly updateStatus: (
     id: string,
     status: 'running' | 'passed' | 'failed' | 'error',
     testResults?: Array<{
@@ -142,33 +42,215 @@ export class SubmissionsService {
       message: string | null
       duration: number
     }>,
-    executionTimeMs?: number
-  ) {
-    const existing = await this.db.query.submissions.findFirst({
-      where: eq(submissions.id, id),
-      columns: { status: true },
-    })
-
-    if (existing) {
-      const currentStatus = existing.status
-      const allowedTransitions = VALID_TRANSITIONS[currentStatus]
-      if (allowedTransitions && !allowedTransitions.includes(status)) {
-        throw new BadRequestException(
-          `Invalid status transition from '${currentStatus}' to '${status}'`
-        )
-      }
-    }
-
-    const [submission] = await this.db
-      .update(submissions)
-      .set({
-        status,
-        testResults: testResults ?? null,
-        executionTimeMs: executionTimeMs ?? null,
-      })
-      .where(eq(submissions.id, id))
-      .returning()
-
-    return submission
-  }
+    executionTimeMs?: number,
+    errorMessage?: string
+  ) => Effect.Effect<any, NotFoundError | BadRequestError | InvalidTransitionError>
 }
+
+export class SubmissionsService extends Context.Tag('SubmissionsService')<
+  SubmissionsService,
+  SubmissionsServiceShape
+>() {}
+
+export const SubmissionsServiceLive = Layer.effect(
+  SubmissionsService,
+  Effect.gen(function* () {
+    const db = yield* Drizzle
+
+    return SubmissionsService.of({
+      create: (userId, input) =>
+        Effect.gen(function* () {
+          const exercise = yield* Effect.tryPromise({
+            try: () => db.query.exercises.findFirst({ where: eq(exercises.id, input.exerciseId) }),
+            catch: () => new NotFoundError({ resource: 'Exercise', id: input.exerciseId }),
+          })
+
+          if (!exercise || !exercise.isPublished) {
+            return yield* Effect.fail(
+              new NotFoundError({ resource: 'Exercise', id: input.exerciseId })
+            )
+          }
+
+          const submission = yield* Effect.tryPromise({
+            try: async () => {
+              const result = await db
+                .insert(submissions)
+                .values({
+                  userId,
+                  exerciseId: input.exerciseId,
+                  code: input.code,
+                  status: 'pending',
+                })
+                .returning()
+              return result[0]
+            },
+            catch: () => new BadRequestError({ message: 'Failed to create submission' }),
+          })
+
+          if (!submission) {
+            return yield* Effect.fail(
+              new BadRequestError({ message: 'Failed to create submission' })
+            )
+          }
+
+          return submission
+        }),
+
+      createAndExecute: (userId, input) =>
+        Effect.gen(function* () {
+          const exercise = yield* Effect.tryPromise({
+            try: () => db.query.exercises.findFirst({ where: eq(exercises.id, input.exerciseId) }),
+            catch: () => new NotFoundError({ resource: 'Exercise', id: input.exerciseId }),
+          })
+
+          if (!exercise || !exercise.isPublished) {
+            return yield* Effect.fail(
+              new NotFoundError({ resource: 'Exercise', id: input.exerciseId })
+            )
+          }
+
+          const submission = yield* Effect.tryPromise({
+            try: async () => {
+              const result = await db
+                .insert(submissions)
+                .values({
+                  userId,
+                  exerciseId: input.exerciseId,
+                  code: input.code,
+                  status: 'pending',
+                })
+                .returning()
+              return result[0]
+            },
+            catch: () => new BadRequestError({ message: 'Failed to create submission' }),
+          })
+
+          if (!submission) {
+            return yield* Effect.fail(
+              new BadRequestError({ message: 'Failed to create submission' })
+            )
+          }
+
+          return submission
+        }),
+
+      findById: (id, userId?) =>
+        Effect.gen(function* () {
+          const submission = yield* Effect.tryPromise({
+            try: () =>
+              db.query.submissions.findFirst({
+                where: userId
+                  ? and(eq(submissions.id, id), eq(submissions.userId, userId))
+                  : eq(submissions.id, id),
+                with: { exercise: true },
+              }),
+            catch: () => new NotFoundError({ resource: 'Submission', id }),
+          })
+
+          if (!submission) {
+            return yield* Effect.fail(new NotFoundError({ resource: 'Submission', id }))
+          }
+
+          return submission
+        }),
+
+      findByExercise: (exerciseId, userId) =>
+        Effect.tryPromise({
+          try: () =>
+            db.query.submissions.findMany({
+              where: and(eq(submissions.exerciseId, exerciseId), eq(submissions.userId, userId)),
+              orderBy: desc(submissions.createdAt),
+            }),
+          catch: () => new NotFoundError({ resource: 'Submissions', id: exerciseId }),
+        }),
+
+      findByUser: (userId, limit = 20, offset = 0) =>
+        Effect.tryPromise({
+          try: () =>
+            db.query.submissions.findMany({
+              where: eq(submissions.userId, userId),
+              orderBy: desc(submissions.createdAt),
+              limit,
+              offset,
+              with: { exercise: true },
+            }),
+          catch: () => new NotFoundError({ resource: 'Submissions', id: userId }),
+        }),
+
+      retry: (id, userId) =>
+        Effect.gen(function* () {
+          const submission = yield* Effect.tryPromise({
+            try: () =>
+              db.query.submissions.findFirst({
+                where: and(eq(submissions.id, id), eq(submissions.userId, userId)),
+                with: { exercise: true },
+              }),
+            catch: () => new NotFoundError({ resource: 'Submission', id }),
+          })
+
+          if (!submission) {
+            return yield* Effect.fail(new NotFoundError({ resource: 'Submission', id }))
+          }
+
+          if (submission.status !== 'error' && submission.status !== 'failed') {
+            return yield* Effect.fail(
+              new BadRequestError({ message: 'Can only retry failed or errored submissions' })
+            )
+          }
+
+          yield* Effect.tryPromise({
+            try: () =>
+              db
+                .update(submissions)
+                .set({ status: 'pending', updatedAt: new Date() })
+                .where(eq(submissions.id, id)),
+            catch: () => new BadRequestError({ message: 'Failed to update submission status' }),
+          })
+
+          return { ...submission, status: 'pending' as const }
+        }),
+
+      updateStatus: (id, status, testResults?, executionTimeMs?, errorMessage?) =>
+        Effect.gen(function* () {
+          const existing = yield* Effect.tryPromise({
+            try: () =>
+              db.query.submissions.findFirst({
+                where: eq(submissions.id, id),
+                columns: { status: true },
+              }),
+            catch: () => new NotFoundError({ resource: 'Submission', id }),
+          })
+
+          if (!existing) {
+            return yield* Effect.fail(new NotFoundError({ resource: 'Submission', id }))
+          }
+
+          const currentStatus = existing.status
+          const allowedTransitions = VALID_TRANSITIONS[currentStatus]
+          if (allowedTransitions && !allowedTransitions.includes(status)) {
+            return yield* Effect.fail(
+              new InvalidTransitionError({ from: currentStatus, to: status })
+            )
+          }
+
+          const [submission] = yield* Effect.tryPromise({
+            try: () =>
+              db
+                .update(submissions)
+                .set({
+                  status,
+                  testResults: testResults ?? null,
+                  executionTimeMs: executionTimeMs ?? null,
+                  ...(errorMessage !== undefined ? { errorMessage } : {}),
+                  updatedAt: new Date(),
+                })
+                .where(eq(submissions.id, id))
+                .returning(),
+            catch: () => new BadRequestError({ message: 'Failed to update submission status' }),
+          })
+
+          return submission
+        }),
+    })
+  })
+)

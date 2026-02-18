@@ -1,54 +1,58 @@
-import { describe, it, expect } from 'vitest'
-import { BadRequestException } from '@nestjs/common'
-import { z } from 'zod'
-import { ZodValidationPipe, createZodPipe } from '../common/pipes/index.js'
+import { Either, Schema } from 'effect'
+import { describe, expect, it } from 'vitest'
 
-describe('ZodValidationPipe', () => {
-  const testSchema = z.object({
-    name: z.string().min(1),
-    age: z.number().positive(),
+describe('Effect Schema Validation', () => {
+  const testSchema = Schema.Struct({
+    name: Schema.String.pipe(Schema.minLength(1)),
+    age: Schema.Number.pipe(Schema.positive()),
   })
 
-  it('transforms valid input', () => {
-    const pipe = new ZodValidationPipe(testSchema)
+  it('decodes valid input', () => {
     const input = { name: 'John', age: 30 }
+    const result = Schema.decodeUnknownEither(testSchema)(input)
 
-    const result = pipe.transform(input)
-
-    expect(result).toEqual(input)
-  })
-
-  it('throws BadRequestException for invalid input', () => {
-    const pipe = new ZodValidationPipe(testSchema)
-    const input = { name: '', age: -5 }
-
-    expect(() => pipe.transform(input)).toThrow(BadRequestException)
-  })
-
-  it('includes validation errors in exception', () => {
-    const pipe = new ZodValidationPipe(testSchema)
-    const input = { name: '', age: -5 }
-
-    try {
-      pipe.transform(input)
-      expect.fail('Should have thrown')
-    } catch (error) {
-      expect(error).toBeInstanceOf(BadRequestException)
-      const response = (error as BadRequestException).getResponse() as {
-        message: string
-        errors: Array<{ path: string; message: string }>
-      }
-      expect(response.message).toBe('Validation failed')
-      expect(response.errors.length).toBeGreaterThan(0)
+    expect(Either.isRight(result)).toBe(true)
+    if (Either.isRight(result)) {
+      expect(result.right).toEqual(input)
     }
   })
-})
 
-describe('createZodPipe', () => {
-  it('creates a ZodValidationPipe', () => {
-    const schema = z.object({ id: z.string() })
-    const pipe = createZodPipe(schema)
+  it('rejects invalid input', () => {
+    const input = { name: '', age: -5 }
+    const result = Schema.decodeUnknownEither(testSchema)(input)
 
-    expect(pipe).toBeInstanceOf(ZodValidationPipe)
+    expect(Either.isLeft(result)).toBe(true)
+  })
+
+  it('returns correct type for valid input', () => {
+    const input = { name: 'Alice', age: 25 }
+    const result = Schema.decodeUnknownEither(testSchema)(input)
+
+    expect(Either.isRight(result)).toBe(true)
+    if (Either.isRight(result)) {
+      expect(result.right.name).toBe('Alice')
+      expect(result.right.age).toBe(25)
+    }
+  })
+
+  it('works with NumberFromString', () => {
+    const schema = Schema.Struct({
+      limit: Schema.NumberFromString.pipe(Schema.int(), Schema.positive()),
+    })
+
+    const result = Schema.decodeUnknownEither(schema)({ limit: '20' })
+    expect(Either.isRight(result)).toBe(true)
+    if (Either.isRight(result)) {
+      expect(result.right.limit).toBe(20)
+    }
+  })
+
+  it('rejects non-numeric strings for NumberFromString', () => {
+    const schema = Schema.Struct({
+      limit: Schema.NumberFromString.pipe(Schema.int()),
+    })
+
+    const result = Schema.decodeUnknownEither(schema)({ limit: 'abc' })
+    expect(Either.isLeft(result)).toBe(true)
   })
 })

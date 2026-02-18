@@ -154,7 +154,7 @@ export function parsePytestOutput(output: string): TestResult[] {
 
     // Verbose format: lines containing :: are test results
     const verboseMatch = trimmed.match(verbosePattern)
-    if (verboseMatch && verboseMatch[1]?.includes('::')) {
+    if (verboseMatch?.[1]?.includes('::')) {
       const name = verboseMatch[1].trim()
       const passed = verboseMatch[2] === 'PASSED'
       if (!seenTests.has(name)) {

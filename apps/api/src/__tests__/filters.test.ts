@@ -1,90 +1,66 @@
-import { HttpException, HttpStatus } from '@nestjs/common'
-import { describe, expect, it, vi } from 'vitest'
-import { ZodError, z } from 'zod'
-import { AllExceptionsFilter } from '../common/filters/index.js'
+import { describe, expect, it } from 'vitest'
+import {
+  BadRequestError,
+  ConflictError,
+  ExecutionError,
+  ForbiddenError,
+  InvalidTransitionError,
+  NotFoundError,
+  QueueError,
+  RateLimitError,
+  UnauthorizedError,
+} from '../api/errors.js'
 
-describe('AllExceptionsFilter', () => {
-  const filter = new AllExceptionsFilter()
-
-  const createMockHost = () => {
-    const mockResponse = {
-      status: vi.fn().mockReturnThis(),
-      send: vi.fn().mockReturnThis(),
-    }
-    return {
-      switchToHttp: () => ({
-        getResponse: () => mockResponse,
-        getRequest: () => ({}),
-      }),
-      response: mockResponse,
-    }
-  }
-
-  it('handles HttpException', () => {
-    const host = createMockHost()
-    const exception = new HttpException('Not Found', HttpStatus.NOT_FOUND)
-
-    filter.catch(exception, host as any)
-
-    expect(host.response.status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND)
-    expect(host.response.send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: expect.objectContaining({
-          code: 'NOT_FOUND',
-          message: 'Not Found',
-        }),
-      })
-    )
+describe('Domain Errors (Schema.TaggedError)', () => {
+  it('NotFoundError has correct tag and fields', () => {
+    const err = new NotFoundError({ resource: 'User', id: '123' })
+    expect(err._tag).toBe('NotFoundError')
+    expect(err.resource).toBe('User')
+    expect(err.id).toBe('123')
   })
 
-  it('handles ZodError', () => {
-    const host = createMockHost()
-    const schema = z.object({ name: z.string() })
-    let zodError: ZodError
-    try {
-      schema.parse({ name: 123 })
-    } catch (e) {
-      zodError = e as ZodError
-    }
-
-    filter.catch(zodError!, host as any)
-
-    expect(host.response.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST)
-    expect(host.response.send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: expect.objectContaining({
-          code: 'BAD_REQUEST',
-          message: 'Validation error',
-          details: expect.objectContaining({
-            issues: expect.any(Array),
-          }),
-        }),
-      })
-    )
+  it('ConflictError has correct tag', () => {
+    const err = new ConflictError({ message: 'Already exists' })
+    expect(err._tag).toBe('ConflictError')
+    expect(err.message).toBe('Already exists')
   })
 
-  it('handles generic Error', () => {
-    const host = createMockHost()
-    const exception = new Error('Something went wrong')
-
-    filter.catch(exception, host as any)
-
-    expect(host.response.status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR)
-    expect(host.response.send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: expect.objectContaining({
-          message: 'Internal server error',
-        }),
-      })
-    )
+  it('UnauthorizedError has correct tag', () => {
+    const err = new UnauthorizedError({ message: 'Invalid credentials' })
+    expect(err._tag).toBe('UnauthorizedError')
+    expect(err.message).toBe('Invalid credentials')
   })
 
-  it('handles unknown exception types', () => {
-    const host = createMockHost()
-    const exception = 'string error'
+  it('ForbiddenError has correct tag', () => {
+    const err = new ForbiddenError({ message: 'Admin access required' })
+    expect(err._tag).toBe('ForbiddenError')
+  })
 
-    filter.catch(exception, host as any)
+  it('BadRequestError has correct tag', () => {
+    const err = new BadRequestError({ message: 'Validation failed' })
+    expect(err._tag).toBe('BadRequestError')
+  })
 
-    expect(host.response.status).toHaveBeenCalledWith(HttpStatus.INTERNAL_SERVER_ERROR)
+  it('QueueError has correct tag', () => {
+    const err = new QueueError({ submissionId: 'sub-1', message: 'timeout' })
+    expect(err._tag).toBe('QueueError')
+    expect(err.submissionId).toBe('sub-1')
+  })
+
+  it('InvalidTransitionError has correct tag and fields', () => {
+    const err = new InvalidTransitionError({ from: 'pending', to: 'passed' })
+    expect(err._tag).toBe('InvalidTransitionError')
+    expect(err.from).toBe('pending')
+    expect(err.to).toBe('passed')
+  })
+
+  it('ExecutionError has correct tag', () => {
+    const err = new ExecutionError({ message: 'Sandbox failed' })
+    expect(err._tag).toBe('ExecutionError')
+  })
+
+  it('RateLimitError has correct tag', () => {
+    const err = new RateLimitError({ message: 'Too many requests' })
+    expect(err._tag).toBe('RateLimitError')
   })
 })

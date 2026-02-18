@@ -46,6 +46,19 @@
           }
         }
       }
+    },
+    {
+      "includes": ["**/__tests__/**", "**/*.test.ts", "**/*.spec.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          },
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      }
     }
   ],
   "formatter": {
@@ -86,7 +99,8 @@
       "!**/.next",
       "!**/.nuxt",
       "!**/*.min.js",
-      "!**/*.min.css"
+      "!**/*.min.css",
+      "!**/*.css"
     ]
   }
 }

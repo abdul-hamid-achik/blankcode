@@ -1,5 +1,6 @@
 import type { BlankRegion, ExerciseFrontmatter, ParsedExercise } from '@blankcode/shared'
 import { exerciseFrontmatterSchema } from '@blankcode/shared'
+import { Either, Schema } from 'effect'
 import matter from 'gray-matter'
 
 const BLANK_START_MARKER = '___blank_start___'
@@ -30,14 +31,14 @@ export function parseExercise(markdown: string, options: ParseOptions = {}): Par
 
     let frontmatter: ExerciseFrontmatter
     if (validateFrontmatter) {
-      const result = exerciseFrontmatterSchema.safeParse(data)
-      if (!result.success) {
+      const result = Schema.decodeUnknownEither(exerciseFrontmatterSchema)(data)
+      if (Either.isLeft(result)) {
         return {
           success: false,
-          errors: result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`),
+          errors: [result.left.message],
         }
       }
-      frontmatter = result.data as ExerciseFrontmatter
+      frontmatter = result.right as ExerciseFrontmatter
     } else {
       frontmatter = data as ExerciseFrontmatter
     }
@@ -177,7 +178,7 @@ function generatePlaceholder(solution: string): string {
   if (trimmed.length <= 10) {
     return '_'.repeat(trimmed.length)
   }
-  return '_'.repeat(10) + '...'
+  return `${'_'.repeat(10)}...`
 }
 
 export function generateStarterCode(code: string, blanks: BlankRegion[]): string {

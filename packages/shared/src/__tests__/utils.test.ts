@@ -1,20 +1,20 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  slugify,
-  generateId,
-  sleep,
   chunk,
-  pick,
-  omit,
-  isNonNullable,
-  groupBy,
-  debounce,
-  throttle,
-  formatDuration,
-  truncate,
-  escapeHtml,
-  parseIntSafe,
   clamp,
+  debounce,
+  escapeHtml,
+  formatDuration,
+  generateId,
+  groupBy,
+  isNonNullable,
+  omit,
+  parseIntSafe,
+  pick,
+  sleep,
+  slugify,
+  throttle,
+  truncate,
 } from '../utils/index.js'
 
 describe('slugify', () => {
@@ -74,7 +74,10 @@ describe('chunk', () => {
   })
 
   it('handles exact division', () => {
-    expect(chunk([1, 2, 3, 4], 2)).toEqual([[1, 2], [3, 4]])
+    expect(chunk([1, 2, 3, 4], 2)).toEqual([
+      [1, 2],
+      [3, 4],
+    ])
   })
 
   it('handles chunk size larger than array', () => {
@@ -143,7 +146,10 @@ describe('groupBy', () => {
     ]
     const result = groupBy(items, (item) => item.type)
     expect(result).toEqual({
-      a: [{ type: 'a', value: 1 }, { type: 'a', value: 3 }],
+      a: [
+        { type: 'a', value: 1 },
+        { type: 'a', value: 3 },
+      ],
       b: [{ type: 'b', value: 2 }],
     })
   })

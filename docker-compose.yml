@@ -1,38 +1,30 @@
 x-dev-build: &dev-build
-  context: .
-  dockerfile_inline: |
-    FROM oven/bun:1-debian
-    RUN apt-get update && \
-        apt-get install -y --no-install-recommends \
-          git python3 make g++ ca-certificates curl && \
-        install -m 0755 -d /etc/apt/keyrings && \
-        curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc && \
-        chmod a+r /etc/apt/keyrings/docker.asc && \
-        echo "deb [arch=$$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $$(. /etc/os-release && echo $$VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list && \
-        apt-get update && \
-        apt-get install -y --no-install-recommends docker-ce-cli && \
-        rm -rf /var/lib/apt/lists/*
-    WORKDIR /app
-    COPY package.json bun.lock turbo.json tsconfig.base.json ./
-    COPY apps/api/package.json ./apps/api/
-    COPY apps/web/package.json ./apps/web/
-    COPY packages/db/package.json ./packages/db/
-    COPY packages/shared/package.json ./packages/shared/
-    COPY packages/exercise-parser/package.json ./packages/exercise-parser/
-    COPY tools/content-importer/package.json ./tools/content-importer/
-    COPY tools/exercise-generator/package.json ./tools/exercise-generator/
-    RUN git init && bun install --frozen-lockfile
+  build:
+    context: .
+    dockerfile_inline: |
+      FROM oven/bun:1-debian
+      RUN apt-get update && \
+          apt-get install -y --no-install-recommends \
+            git python3 make g++ ca-certificates curl && \
+          install -m 0755 -d /etc/apt/keyrings && \
+          curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc && \
+          chmod a+r /etc/apt/keyrings/docker.asc && \
+          echo "deb [arch=$$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $$(. /etc/os-release && echo $$VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list && \
+          apt-get update && \
+          apt-get install -y --no-install-recommends docker-ce-cli && \
+          rm -rf /var/lib/apt/lists/*
+      WORKDIR /app
 
 x-dev-volumes: &dev-volumes
   - .:/app
-  - /app/node_modules
-  - /app/apps/api/node_modules
-  - /app/apps/web/node_modules
-  - /app/packages/db/node_modules
-  - /app/packages/shared/node_modules
-  - /app/packages/exercise-parser/node_modules
-  - /app/tools/content-importer/node_modules
-  - /app/tools/exercise-generator/node_modules
+  - node_modules:/app/node_modules
+  - api_node_modules:/app/apps/api/node_modules
+  - web_node_modules:/app/apps/web/node_modules
+  - db_node_modules:/app/packages/db/node_modules
+  - shared_node_modules:/app/packages/shared/node_modules
+  - parser_node_modules:/app/packages/exercise-parser/node_modules
+  - importer_node_modules:/app/tools/content-importer/node_modules
+  - generator_node_modules:/app/tools/exercise-generator/node_modules
 
 services:
   postgres:
@@ -58,39 +50,20 @@ services:
         limits:
           memory: 512M
 
-  redis:
-    image: redis:7.4-alpine
-    container_name: blankcode-redis
-    restart: unless-stopped
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-
   api:
-    build: *dev-build
+    <<: *dev-build
     container_name: blankcode-api
     restart: unless-stopped
     command: >
-      sh -c "bunx turbo build --filter=@blankcode/shared --filter=@blankcode/db &&
-             cd apps/api && bunx nest start --watch"
+      sh -c "bun install &&
+             bunx turbo build --filter=@blankcode/shared --filter=@blankcode/db &&
+             cd packages/db && bunx drizzle-kit push --force && cd /app &&
+             bun --watch apps/api/src/main.ts"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-blankcode}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-development-secret-change-me}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       NODE_ENV: development
     ports:
       - "${API_PORT:-3000}:3000"
@@ -98,14 +71,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
-      interval: 5s
-      timeout: 3s
+      interval: 10s
+      timeout: 5s
       retries: 30
-      start_period: 60s
+      start_period: 120s
     deploy:
       resources:
         limits:
@@ -113,25 +84,27 @@ services:
           cpus: '1'
 
   web:
-    build: *dev-build
+    <<: *dev-build
     container_name: blankcode-web
     restart: unless-stopped
-    command: ["sh", "-c", "cd apps/web && bunx vite --host 0.0.0.0"]
+    command: >
+      sh -c "bun install &&
+             cd apps/web && bunx nuxi dev --host 0.0.0.0"
     environment:
       NODE_ENV: development
-      API_URL: http://api:3000
+      NUXT_PUBLIC_API_URL: http://api:3000
     ports:
-      - "5173:5173"
+      - "3001:3000"
     volumes: *dev-volumes
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:5173 || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 60s
     deploy:
       resources:
         limits:
@@ -140,16 +113,18 @@ services:
   # SECURITY NOTE: Worker requires Docker socket access for sandboxed code execution.
   # The 'user: root' and Docker socket mount grant host-level Docker access.
   worker:
-    build: *dev-build
+    <<: *dev-build
     container_name: blankcode-worker
     restart: unless-stopped
     user: root
-    command: ["bun", "--watch", "apps/api/src/workers/index.ts"]
+    command: >
+      sh -c "bun install &&
+             bunx turbo build --filter=@blankcode/shared --filter=@blankcode/db &&
+             bun --watch apps/api/src/workers/index.ts"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-blankcode}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
       JWT_SECRET: ${JWT_SECRET:-development-secret-change-me}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       NODE_ENV: development
       DOCKER_ENABLED: ${DOCKER_ENABLED:-true}
       EXECUTION_TIMEOUT_MS: ${EXECUTION_TIMEOUT_MS:-60000}
@@ -157,17 +132,19 @@ services:
       EXECUTION_WORKSPACE_PATH: /tmp/blankcode-workspaces
     volumes:
       - .:/app
-      - /app/node_modules
-      - /app/apps/api/node_modules
-      - /app/apps/web/node_modules
-      - /app/packages/db/node_modules
-      - /app/packages/shared/node_modules
-      - /app/packages/exercise-parser/node_modules
-      - /app/tools/content-importer/node_modules
-      - /app/tools/exercise-generator/node_modules
+      - node_modules:/app/node_modules
+      - api_node_modules:/app/apps/api/node_modules
+      - web_node_modules:/app/apps/web/node_modules
+      - db_node_modules:/app/packages/db/node_modules
+      - shared_node_modules:/app/packages/shared/node_modules
+      - parser_node_modules:/app/packages/exercise-parser/node_modules
+      - importer_node_modules:/app/tools/content-importer/node_modules
+      - generator_node_modules:/app/tools/exercise-generator/node_modules
       - /var/run/docker.sock:/var/run/docker.sock
       - /tmp/blankcode-workspaces:/tmp/blankcode-workspaces
     depends_on:
+      postgres:
+        condition: service_healthy
       api:
         condition: service_healthy
     healthcheck:
@@ -175,14 +152,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 120s
     deploy:
       resources:
         limits:
           memory: 1G
           cpus: '2'
 
-  # Code execution runners — build with: task runners
+  # Code execution runners — build with: docker compose --profile runners build
   runner-typescript:
     profiles: ["runners"]
     build:
@@ -220,4 +197,11 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
+  node_modules:
+  api_node_modules:
+  web_node_modules:
+  db_node_modules:
+  shared_node_modules:
+  parser_node_modules:
+  importer_node_modules:
+  generator_node_modules:

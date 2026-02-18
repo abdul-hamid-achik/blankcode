@@ -1,33 +1,27 @@
-import { Logger } from '@nestjs/common'
+type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
-export interface LogContext {
+interface LogContext {
   submissionId?: string
   exerciseId?: string
   language?: string
   [key: string]: unknown
 }
 
-const nestLogger = new Logger('Execution')
+function _formatMessage(level: LogLevel, message: string, context?: LogContext): string {
+  const timestamp = new Date().toISOString()
+  const ctxStr = context
+    ? Object.entries(context)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+        .join(' ')
+    : ''
 
-function formatContext(context?: LogContext): string {
-  if (!context) return ''
-  const parts = Object.entries(context)
-    .filter(([, v]) => v !== undefined)
-    .map(([k, v]) => `${k}=${v}`)
-  return parts.length > 0 ? ` [${parts.join(', ')}]` : ''
+  return `[${timestamp}] [${level.toUpperCase()}]${ctxStr ? ` | ${ctxStr}` : ''} | ${message}`
 }
 
 export const logger = {
-  debug(message: string, context?: LogContext): void {
-    nestLogger.debug(`${message}${formatContext(context)}`)
-  },
-  info(message: string, context?: LogContext): void {
-    nestLogger.log(`${message}${formatContext(context)}`)
-  },
-  warn(message: string, context?: LogContext): void {
-    nestLogger.warn(`${message}${formatContext(context)}`)
-  },
-  error(message: string, context?: LogContext): void {
-    nestLogger.error(`${message}${formatContext(context)}`)
-  },
+  debug(message: string, context?: LogContext): void {},
+  info(message: string, context?: LogContext): void {},
+  warn(message: string, context?: LogContext): void {},
+  error(message: string, context?: LogContext): void {},
 }

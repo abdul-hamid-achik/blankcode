@@ -26,9 +26,3 @@ export interface ExecutionContext {
 export interface LanguageExecutor {
   execute(context: ExecutionContext): Promise<ExecutionResult>
 }
-
-export interface SubmissionJobData {
-  submissionId: string
-  exerciseId: string
-  code: string
-}

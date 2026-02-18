@@ -1,20 +1,41 @@
+import { Drizzle } from '@blankcode/db/client'
 import type { TrackSlug } from '@blankcode/shared'
-import { NotFoundException } from '@nestjs/common'
-import { Test, type TestingModule } from '@nestjs/testing'
+import { Cause, Effect, Exit, Layer } from 'effect'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DRIZZLE } from '../database/drizzle.provider.js'
-import { TracksService } from '../modules/tracks/tracks.service.js'
+import { NotFoundError } from '../api/errors.js'
+import { TracksService, TracksServiceLive } from '../modules/tracks/tracks.service.js'
 
-describe('TracksService', () => {
-  let service: TracksService
-  let mockDb: {
+function createMockDb() {
+  return {
     query: {
       tracks: {
-        findMany: ReturnType<typeof vi.fn>
-        findFirst: ReturnType<typeof vi.fn>
-      }
-    }
+        findMany: vi.fn(),
+        findFirst: vi.fn(),
+      },
+    },
   }
+}
+
+function makeTestLayer(mockDb: ReturnType<typeof createMockDb>) {
+  return TracksServiceLive.pipe(Layer.provide(Layer.succeed(Drizzle, mockDb as any)))
+}
+
+async function runService<A, E>(
+  effect: Effect.Effect<A, E, TracksService>,
+  layer: Layer.Layer<TracksService>
+): Promise<A> {
+  const exit = await Effect.runPromiseExit(effect.pipe(Effect.provide(layer)))
+  if (Exit.isSuccess(exit)) return exit.value
+  const cause = exit.cause
+  if (Cause.isFailType(cause)) {
+    throw cause.error
+  }
+  throw new Error('Unexpected effect failure')
+}
+
+describe('TracksService', () => {
+  let mockDb: ReturnType<typeof createMockDb>
+  let testLayer: Layer.Layer<TracksService>
 
   const mockTrack = {
     id: 'track-1',
@@ -38,34 +59,22 @@ describe('TracksService', () => {
     isPublished: true,
   }
 
-  beforeEach(async () => {
-    mockDb = {
-      query: {
-        tracks: {
-          findMany: vi.fn(),
-          findFirst: vi.fn(),
-        },
-      },
-    }
-
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        TracksService,
-        {
-          provide: DRIZZLE,
-          useValue: mockDb,
-        },
-      ],
-    }).compile()
-
-    service = module.get<TracksService>(TracksService)
+  beforeEach(() => {
+    mockDb = createMockDb()
+    testLayer = makeTestLayer(mockDb)
   })
 
   describe('findAll', () => {
     it('returns all published tracks', async () => {
       mockDb.query.tracks.findMany.mockResolvedValue([mockTrack])
 
-      const result = await service.findAll()
+      const result = await runService(
+        Effect.gen(function* () {
+          const svc = yield* TracksService
+          return yield* svc.findAll()
+        }),
+        testLayer
+      )
 
       expect(result).toHaveLength(1)
       expect(result[0]?.slug).toBe('typescript')
@@ -74,7 +83,13 @@ describe('TracksService', () => {
     it('returns empty array when no tracks', async () => {
       mockDb.query.tracks.findMany.mockResolvedValue([])
 
-      const result = await service.findAll()
+      const result = await runService(
+        Effect.gen(function* () {
+          const svc = yield* TracksService
+          return yield* svc.findAll()
+        }),
+        testLayer
+      )
 
       expect(result).toHaveLength(0)
     })
@@ -87,18 +102,30 @@ describe('TracksService', () => {
         concepts: [mockConcept],
       })
 
-      const result = await service.findBySlug('typescript')
+      const result = await runService(
+        Effect.gen(function* () {
+          const svc = yield* TracksService
+          return yield* svc.findBySlug('typescript' as TrackSlug)
+        }),
+        testLayer
+      )
 
       expect(result.slug).toBe('typescript')
       expect(result.concepts).toHaveLength(1)
     })
 
-    it('throws NotFoundException for invalid slug', async () => {
+    it('throws NotFoundError for invalid slug', async () => {
       mockDb.query.tracks.findFirst.mockResolvedValue(null)
 
-      await expect(service.findBySlug('nonexistent' as TrackSlug)).rejects.toThrow(
-        NotFoundException
-      )
+      await expect(
+        runService(
+          Effect.gen(function* () {
+            const svc = yield* TracksService
+            return yield* svc.findBySlug('nonexistent' as TrackSlug)
+          }),
+          testLayer
+        )
+      ).rejects.toBeInstanceOf(NotFoundError)
     })
   })
 
@@ -106,15 +133,29 @@ describe('TracksService', () => {
     it('returns track by id', async () => {
       mockDb.query.tracks.findFirst.mockResolvedValue(mockTrack)
 
-      const result = await service.findById('track-1')
+      const result = await runService(
+        Effect.gen(function* () {
+          const svc = yield* TracksService
+          return yield* svc.findById('track-1')
+        }),
+        testLayer
+      )
 
       expect(result.id).toBe('track-1')
     })
 
-    it('throws NotFoundException for invalid id', async () => {
+    it('throws NotFoundError for invalid id', async () => {
       mockDb.query.tracks.findFirst.mockResolvedValue(null)
 
-      await expect(service.findById('nonexistent')).rejects.toThrow(NotFoundException)
+      await expect(
+        runService(
+          Effect.gen(function* () {
+            const svc = yield* TracksService
+            return yield* svc.findById('nonexistent')
+          }),
+          testLayer
+        )
+      ).rejects.toBeInstanceOf(NotFoundError)
     })
   })
 })

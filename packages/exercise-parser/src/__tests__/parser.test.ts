@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
-  parseExercise,
+  BLANK_END_MARKER,
+  BLANK_START_MARKER,
   extractBlanks,
   generateStarterCode,
-  validateExercise,
+  parseExercise,
   stripBlankMarkers,
-  BLANK_START_MARKER,
-  BLANK_END_MARKER,
+  validateExercise,
 } from '../index.js'
 
 describe('parseExercise', () => {

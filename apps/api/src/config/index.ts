@@ -4,10 +4,6 @@ export const config = {
   database: {
     url: process.env['DATABASE_URL'] ?? 'postgresql://postgres:postgres@localhost:5432/blankcode',
   },
-  redis: {
-    host: process.env['REDIS_HOST'] ?? 'localhost',
-    port: Number.parseInt(process.env['REDIS_PORT'] ?? '6379', 10),
-  },
   jwt: {
     secret: process.env['JWT_SECRET'] ?? 'development-secret-change-me',
     expiresIn: process.env['JWT_EXPIRES_IN'] ?? '7d',
@@ -22,18 +18,15 @@ export const config = {
     memoryLimitMb: Number.parseInt(process.env['EXECUTION_MEMORY_MB'] ?? '256', 10),
     cpuLimit: Number.parseFloat(process.env['EXECUTION_CPU_LIMIT'] ?? '0.5'),
     dockerEnabled: process.env['DOCKER_ENABLED'] !== 'false',
-    // Pin Docker images to specific versions for reproducible builds.
-    // Using :latest can cause unexpected breakage when images are updated.
-    // Override via environment variables when upgrading to a new version.
     images: {
-      typescript: process.env['DOCKER_IMAGE_TS'] ?? 'blankcode/runner-typescript:1.0',
-      javascript: process.env['DOCKER_IMAGE_JS'] ?? 'blankcode/runner-typescript:1.0',
-      python: process.env['DOCKER_IMAGE_PYTHON'] ?? 'blankcode/runner-python:1.0',
-      go: process.env['DOCKER_IMAGE_GO'] ?? 'blankcode/runner-go:1.0',
-      rust: process.env['DOCKER_IMAGE_RUST'] ?? 'blankcode/runner-rust:1.0',
-      vue: process.env['DOCKER_IMAGE_VUE'] ?? 'blankcode/runner-typescript:1.0',
-      react: process.env['DOCKER_IMAGE_REACT'] ?? 'blankcode/runner-react:1.0',
-      node: process.env['DOCKER_IMAGE_NODE'] ?? 'blankcode/runner-typescript:1.0',
+      typescript: process.env['DOCKER_IMAGE_TS'] ?? 'blankcode/runner-typescript:latest',
+      javascript: process.env['DOCKER_IMAGE_JS'] ?? 'blankcode/runner-typescript:latest',
+      python: process.env['DOCKER_IMAGE_PYTHON'] ?? 'blankcode/runner-python:latest',
+      go: process.env['DOCKER_IMAGE_GO'] ?? 'blankcode/runner-go:latest',
+      rust: process.env['DOCKER_IMAGE_RUST'] ?? 'blankcode/runner-rust:latest',
+      vue: process.env['DOCKER_IMAGE_VUE'] ?? 'blankcode/runner-typescript:latest',
+      react: process.env['DOCKER_IMAGE_REACT'] ?? 'blankcode/runner-react:latest',
+      node: process.env['DOCKER_IMAGE_NODE'] ?? 'blankcode/runner-typescript:latest',
     } as Record<string, string>,
   },
   rateLimit: {
@@ -62,9 +55,7 @@ if (
 }
 
 if (process.env['NODE_ENV'] !== 'production' && KNOWN_DEFAULT_SECRETS.includes(config.jwt.secret)) {
-  console.warn('⚠️  Using default JWT secret. Set JWT_SECRET in environment.')
 }
 
 if (config.admin.emails.length === 0) {
-  console.warn('⚠️  ADMIN_EMAILS is empty. No users will have admin access.')
 }

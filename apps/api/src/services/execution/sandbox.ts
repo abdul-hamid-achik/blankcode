@@ -107,8 +107,8 @@ export async function runInSandbox(
 
 export async function prepareWorkspace(files: Record<string, string>): Promise<string> {
   const workDir = join(getWorkspaceBasePath(), randomUUID())
-  await mkdir(workDir, { recursive: true, mode: 0o777 })
-  await mkdir(join(workDir, 'tmp'), { recursive: true, mode: 0o777 })
+  await mkdir(workDir, { recursive: true, mode: 0o700 })
+  await mkdir(join(workDir, 'tmp'), { recursive: true, mode: 0o700 })
 
   for (const [filename, content] of Object.entries(files)) {
     const filePath = join(workDir, filename)
@@ -118,7 +118,7 @@ export async function prepareWorkspace(files: Record<string, string>): Promise<s
     }
     const dir = join(workDir, ...filename.split('/').slice(0, -1))
     if (dir !== workDir) {
-      await mkdir(dir, { recursive: true, mode: 0o777 })
+      await mkdir(dir, { recursive: true, mode: 0o700 })
     }
     await writeFile(filePath, content, 'utf-8')
     await chmod(filePath, 0o644)

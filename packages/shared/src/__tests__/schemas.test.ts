@@ -1,202 +1,187 @@
-import { describe, it, expect } from 'vitest'
+import { Either, Schema } from 'effect'
+import { describe, expect, it } from 'vitest'
 import {
+  conceptCreateSchema,
+  difficultySchema,
+  exerciseCreateSchema,
+  exerciseFrontmatterSchema,
+  paginationSchema,
+  submissionCreateSchema,
+  trackCreateSchema,
   userCreateSchema,
   userLoginSchema,
   userUpdateSchema,
-  trackCreateSchema,
-  conceptCreateSchema,
-  exerciseCreateSchema,
-  submissionCreateSchema,
-  paginationSchema,
-  exerciseFrontmatterSchema,
-  difficultySchema,
 } from '../schemas/index.js'
+
+function decode<A, I>(schema: Schema.Schema<A, I>) {
+  return (input: unknown) => Schema.decodeUnknownEither(schema)(input)
+}
 
 describe('userCreateSchema', () => {
   it('validates a valid user creation input', () => {
-    const input = {
+    const result = decode(userCreateSchema)({
       email: 'test@example.com',
       username: 'testuser',
       password: 'password123',
       displayName: 'Test User',
-    }
-    const result = userCreateSchema.safeParse(input)
-    expect(result.success).toBe(true)
+    })
+    expect(Either.isRight(result)).toBe(true)
   })
 
   it('rejects invalid email', () => {
-    const input = {
+    const result = decode(userCreateSchema)({
       email: 'invalid-email',
       username: 'testuser',
       password: 'password123',
-    }
-    const result = userCreateSchema.safeParse(input)
-    expect(result.success).toBe(false)
+    })
+    expect(Either.isLeft(result)).toBe(true)
   })
 
   it('rejects username with invalid characters', () => {
-    const input = {
+    const result = decode(userCreateSchema)({
       email: 'test@example.com',
       username: 'test user!',
       password: 'password123',
-    }
-    const result = userCreateSchema.safeParse(input)
-    expect(result.success).toBe(false)
+    })
+    expect(Either.isLeft(result)).toBe(true)
   })
 
   it('rejects short username', () => {
-    const input = {
+    const result = decode(userCreateSchema)({
       email: 'test@example.com',
       username: 'ab',
       password: 'password123',
-    }
-    const result = userCreateSchema.safeParse(input)
-    expect(result.success).toBe(false)
+    })
+    expect(Either.isLeft(result)).toBe(true)
   })
 
   it('rejects short password', () => {
-    const input = {
+    const result = decode(userCreateSchema)({
       email: 'test@example.com',
       username: 'testuser',
       password: 'short',
-    }
-    const result = userCreateSchema.safeParse(input)
-    expect(result.success).toBe(false)
+    })
+    expect(Either.isLeft(result)).toBe(true)
   })
 
   it('allows optional displayName', () => {
-    const input = {
+    const result = decode(userCreateSchema)({
       email: 'test@example.com',
       username: 'testuser',
       password: 'password123',
-    }
-    const result = userCreateSchema.safeParse(input)
-    expect(result.success).toBe(true)
+    })
+    expect(Either.isRight(result)).toBe(true)
   })
 })
 
 describe('userLoginSchema', () => {
   it('validates valid login input', () => {
-    const input = {
+    const result = decode(userLoginSchema)({
       email: 'test@example.com',
       password: 'anypassword',
-    }
-    const result = userLoginSchema.safeParse(input)
-    expect(result.success).toBe(true)
+    })
+    expect(Either.isRight(result)).toBe(true)
   })
 
   it('rejects missing email', () => {
-    const input = {
-      password: 'anypassword',
-    }
-    const result = userLoginSchema.safeParse(input)
-    expect(result.success).toBe(false)
+    const result = decode(userLoginSchema)({ password: 'anypassword' })
+    expect(Either.isLeft(result)).toBe(true)
   })
 
   it('rejects empty password', () => {
-    const input = {
+    const result = decode(userLoginSchema)({
       email: 'test@example.com',
       password: '',
-    }
-    const result = userLoginSchema.safeParse(input)
-    expect(result.success).toBe(false)
+    })
+    expect(Either.isLeft(result)).toBe(true)
   })
 })
 
 describe('userUpdateSchema', () => {
   it('validates displayName update', () => {
-    const input = { displayName: 'New Name' }
-    const result = userUpdateSchema.safeParse(input)
-    expect(result.success).toBe(true)
+    const result = decode(userUpdateSchema)({ displayName: 'New Name' })
+    expect(Either.isRight(result)).toBe(true)
   })
 
   it('validates avatarUrl update', () => {
-    const input = { avatarUrl: 'https://example.com/avatar.png' }
-    const result = userUpdateSchema.safeParse(input)
-    expect(result.success).toBe(true)
+    const result = decode(userUpdateSchema)({ avatarUrl: 'https://example.com/avatar.png' })
+    expect(Either.isRight(result)).toBe(true)
   })
 
   it('rejects invalid URL', () => {
-    const input = { avatarUrl: 'not-a-url' }
-    const result = userUpdateSchema.safeParse(input)
-    expect(result.success).toBe(false)
+    const result = decode(userUpdateSchema)({ avatarUrl: 'not-a-url' })
+    expect(Either.isLeft(result)).toBe(true)
   })
 })
 
 describe('trackCreateSchema', () => {
   it('validates valid track input', () => {
-    const input = {
+    const result = decode(trackCreateSchema)({
       slug: 'typescript',
       name: 'TypeScript',
       description: 'Learn TypeScript',
-    }
-    const result = trackCreateSchema.safeParse(input)
-    expect(result.success).toBe(true)
+    })
+    expect(Either.isRight(result)).toBe(true)
   })
 
   it('rejects invalid slug', () => {
-    const input = {
+    const result = decode(trackCreateSchema)({
       slug: 'invalid-slug',
       name: 'Test',
       description: 'Test',
-    }
-    const result = trackCreateSchema.safeParse(input)
-    expect(result.success).toBe(false)
+    })
+    expect(Either.isLeft(result)).toBe(true)
   })
 
   it('uses default values', () => {
-    const input = {
+    const result = decode(trackCreateSchema)({
       slug: 'typescript',
       name: 'TypeScript',
       description: 'Learn TypeScript',
-    }
-    const result = trackCreateSchema.safeParse(input)
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data.order).toBe(0)
-      expect(result.data.isPublished).toBe(false)
+    })
+    expect(Either.isRight(result)).toBe(true)
+    if (Either.isRight(result)) {
+      expect(result.right.order).toBe(0)
+      expect(result.right.isPublished).toBe(false)
     }
   })
 })
 
 describe('conceptCreateSchema', () => {
   it('validates valid concept input', () => {
-    const input = {
+    const result = decode(conceptCreateSchema)({
       trackId: '550e8400-e29b-41d4-a716-446655440000',
       slug: 'async-patterns',
       name: 'Async Patterns',
       description: 'Learn async patterns',
-    }
-    const result = conceptCreateSchema.safeParse(input)
-    expect(result.success).toBe(true)
+    })
+    expect(Either.isRight(result)).toBe(true)
   })
 
   it('rejects invalid trackId UUID', () => {
-    const input = {
+    const result = decode(conceptCreateSchema)({
       trackId: 'not-a-uuid',
       slug: 'async-patterns',
       name: 'Async Patterns',
       description: 'Learn async patterns',
-    }
-    const result = conceptCreateSchema.safeParse(input)
-    expect(result.success).toBe(false)
+    })
+    expect(Either.isLeft(result)).toBe(true)
   })
 
   it('rejects slug with uppercase', () => {
-    const input = {
+    const result = decode(conceptCreateSchema)({
       trackId: '550e8400-e29b-41d4-a716-446655440000',
       slug: 'Async-Patterns',
       name: 'Async Patterns',
       description: 'Learn async patterns',
-    }
-    const result = conceptCreateSchema.safeParse(input)
-    expect(result.success).toBe(false)
+    })
+    expect(Either.isLeft(result)).toBe(true)
   })
 })
 
 describe('exerciseCreateSchema', () => {
   it('validates valid exercise input', () => {
-    const input = {
+    const result = decode(exerciseCreateSchema)({
       conceptId: '550e8400-e29b-41d4-a716-446655440000',
       slug: 'ts-async-001',
       title: 'Basic Promise',
@@ -205,15 +190,14 @@ describe('exerciseCreateSchema', () => {
       starterCode: 'function foo() {}',
       solutionCode: 'function foo() { return 1 }',
       testCode: 'expect(foo()).toBe(1)',
-    }
-    const result = exerciseCreateSchema.safeParse(input)
-    expect(result.success).toBe(true)
+    })
+    expect(Either.isRight(result)).toBe(true)
   })
 
   it('validates all difficulty levels', () => {
     const difficulties = ['beginner', 'intermediate', 'advanced', 'expert']
     for (const difficulty of difficulties) {
-      const input = {
+      const result = decode(exerciseCreateSchema)({
         conceptId: '550e8400-e29b-41d4-a716-446655440000',
         slug: 'test',
         title: 'Test',
@@ -222,14 +206,13 @@ describe('exerciseCreateSchema', () => {
         starterCode: 'code',
         solutionCode: 'code',
         testCode: 'code',
-      }
-      const result = exerciseCreateSchema.safeParse(input)
-      expect(result.success).toBe(true)
+      })
+      expect(Either.isRight(result)).toBe(true)
     }
   })
 
   it('rejects invalid difficulty', () => {
-    const input = {
+    const result = decode(exerciseCreateSchema)({
       conceptId: '550e8400-e29b-41d4-a716-446655440000',
       slug: 'test',
       title: 'Test',
@@ -238,85 +221,80 @@ describe('exerciseCreateSchema', () => {
       starterCode: 'code',
       solutionCode: 'code',
       testCode: 'code',
-    }
-    const result = exerciseCreateSchema.safeParse(input)
-    expect(result.success).toBe(false)
+    })
+    expect(Either.isLeft(result)).toBe(true)
   })
 })
 
 describe('submissionCreateSchema', () => {
   it('validates valid submission', () => {
-    const input = {
+    const result = decode(submissionCreateSchema)({
       exerciseId: '550e8400-e29b-41d4-a716-446655440000',
       code: 'function solution() { return 42 }',
-    }
-    const result = submissionCreateSchema.safeParse(input)
-    expect(result.success).toBe(true)
+    })
+    expect(Either.isRight(result)).toBe(true)
   })
 
   it('rejects empty code', () => {
-    const input = {
+    const result = decode(submissionCreateSchema)({
       exerciseId: '550e8400-e29b-41d4-a716-446655440000',
       code: '',
-    }
-    const result = submissionCreateSchema.safeParse(input)
-    expect(result.success).toBe(false)
+    })
+    expect(Either.isLeft(result)).toBe(true)
   })
 })
 
 describe('paginationSchema', () => {
   it('uses default values', () => {
-    const result = paginationSchema.safeParse({})
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data.page).toBe(1)
-      expect(result.data.limit).toBe(20)
+    const result = decode(paginationSchema)({})
+    expect(Either.isRight(result)).toBe(true)
+    if (Either.isRight(result)) {
+      expect(result.right.page).toBe(1)
+      expect(result.right.limit).toBe(20)
     }
   })
 
   it('coerces string values', () => {
-    const result = paginationSchema.safeParse({ page: '5', limit: '50' })
-    expect(result.success).toBe(true)
-    if (result.success) {
-      expect(result.data.page).toBe(5)
-      expect(result.data.limit).toBe(50)
+    const result = decode(paginationSchema)({ page: '5', limit: '50' })
+    expect(Either.isRight(result)).toBe(true)
+    if (Either.isRight(result)) {
+      expect(result.right.page).toBe(5)
+      expect(result.right.limit).toBe(50)
     }
   })
 
   it('rejects limit over 100', () => {
-    const result = paginationSchema.safeParse({ limit: 150 })
-    expect(result.success).toBe(false)
+    const result = decode(paginationSchema)({ page: '1', limit: '150' })
+    expect(Either.isLeft(result)).toBe(true)
   })
 
   it('rejects non-positive page', () => {
-    const result = paginationSchema.safeParse({ page: 0 })
-    expect(result.success).toBe(false)
+    const result = decode(paginationSchema)({ page: '0', limit: '20' })
+    expect(Either.isLeft(result)).toBe(true)
   })
 })
 
 describe('exerciseFrontmatterSchema', () => {
   it('validates valid frontmatter', () => {
-    const input = {
+    const result = decode(exerciseFrontmatterSchema)({
       slug: 'ts-async-001',
       title: 'Basic Promise',
       description: 'Learn promises',
       difficulty: 'beginner',
       hints: ['Hint 1', 'Hint 2'],
       tags: ['async', 'promises'],
-    }
-    const result = exerciseFrontmatterSchema.safeParse(input)
-    expect(result.success).toBe(true)
+    })
+    expect(Either.isRight(result)).toBe(true)
   })
 
   it('allows optional hints and tags', () => {
-    const input = {
+    const result = decode(exerciseFrontmatterSchema)({
       slug: 'ts-async-001',
       title: 'Basic Promise',
       description: 'Learn promises',
       difficulty: 'beginner',
-    }
-    const result = exerciseFrontmatterSchema.safeParse(input)
-    expect(result.success).toBe(true)
+    })
+    expect(Either.isRight(result)).toBe(true)
   })
 })
 
@@ -324,13 +302,13 @@ describe('difficultySchema', () => {
   it('validates all difficulty levels', () => {
     const levels = ['beginner', 'intermediate', 'advanced', 'expert']
     for (const level of levels) {
-      const result = difficultySchema.safeParse(level)
-      expect(result.success).toBe(true)
+      const result = decode(difficultySchema)(level)
+      expect(Either.isRight(result)).toBe(true)
     }
   })
 
   it('rejects invalid levels', () => {
-    const result = difficultySchema.safeParse('easy')
-    expect(result.success).toBe(false)
+    const result = decode(difficultySchema)('easy')
+    expect(Either.isLeft(result)).toBe(true)
   })
 })

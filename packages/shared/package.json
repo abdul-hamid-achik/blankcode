@@ -33,11 +33,11 @@
     "test:watch": "vitest",
     "clean": "rm -rf dist"
   },
+  "dependencies": {
+    "effect": "^3.0.0"
+  },
   "devDependencies": {
     "typescript": "5.9.3",
     "vitest": "4.0.18"
-  },
-  "peerDependencies": {
-    "zod": ">=4.0.0"
   }
 }
