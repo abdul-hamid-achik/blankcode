@@ -18,18 +18,18 @@ const currentYear = new Date().getFullYear()
           >
             GitHub
           </a>
-          <a
-            href="#"
+          <NuxtLink
+            to="/privacy"
             class="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             Privacy
-          </a>
-          <a
-            href="#"
+          </NuxtLink>
+          <NuxtLink
+            to="/terms"
             class="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             Terms
-          </a>
+          </NuxtLink>
         </nav>
       </div>
     </div>
