@@ -52,6 +52,7 @@ export interface Exercise {
   solutionCode: string
   testCode: string
   hints: string[]
+  blanks: BlankRegionInStarter[]
   order: number
   isPublished: boolean
   createdAt: Date
@@ -68,10 +69,19 @@ export interface BlankRegion {
   solution: string
 }
 
+export interface BlankRegionInStarter {
+  id: string
+  from: number // char offset in starterCode
+  to: number // char offset in starterCode
+  placeholder: string
+  solution: string
+}
+
 export interface ParsedExercise {
   frontmatter: ExerciseFrontmatter
   content: string
   blanks: BlankRegion[]
+  blanksInStarter: BlankRegionInStarter[]
   starterCode: string
   solutionCode: string
 }

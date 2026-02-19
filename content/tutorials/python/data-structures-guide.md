@@ -1,7 +1,7 @@
 ---
 title: "Python Data Structures Guide"
 slug: "python-data-structures-guide"
-description: "Master lists, dictionaries, sets, tuples, and comprehensions in Python"
+description: "Master lists, dictionaries, sets, tuples, and comprehensions in Python."
 track: "python"
 order: 2
 difficulty: "beginner"

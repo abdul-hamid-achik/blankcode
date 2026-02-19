@@ -2,7 +2,7 @@ import tailwindcss from '@tailwindcss/vite'
 import type { PluginOption } from 'vite'
 
 export default defineNuxtConfig({
-  modules: ['@nuxt/content', '@pinia/nuxt'],
+  modules: ['@nuxt/content', '@pinia/nuxt', 'nuxt-studio'],
 
   css: ['~/assets/css/main.css'],
 

@@ -1,7 +1,7 @@
 ---
 title: "Traits and Generics"
 slug: "rust-traits-and-generics"
-description: "Write flexible, reusable Rust code with traits, generics, and trait bounds"
+description: "Write flexible, reusable Rust code with traits, generics, and trait bounds."
 track: "rust"
 order: 3
 difficulty: "intermediate"

@@ -16,7 +16,7 @@ Go is a statically typed, compiled language designed for simplicity and performa
 
 To get started, initialize a module and run your code:
 
-```
+```bash
 go mod init myproject
 go run main.go
 ```

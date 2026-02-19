@@ -1,11 +1,26 @@
+import { readFileSync } from 'node:fs'
+
+/** Reads a Docker Swarm secret file if the _FILE env var is set, otherwise falls back to the direct env var. */
+function resolveSecret(envVar: string, fallback: string): string {
+  const filePath = process.env[`${envVar}_FILE`]
+  if (filePath) {
+    try {
+      return readFileSync(filePath, 'utf-8').trim()
+    } catch {
+      // Fall through to direct env var
+    }
+  }
+  return process.env[envVar] ?? fallback
+}
+
 const KNOWN_DEFAULT_SECRETS = ['development-secret-change-me']
 
 export const config = {
   database: {
-    url: process.env['DATABASE_URL'] ?? 'postgresql://postgres:postgres@localhost:5432/blankcode',
+    url: resolveSecret('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/blankcode'),
   },
   jwt: {
-    secret: process.env['JWT_SECRET'] ?? 'development-secret-change-me',
+    secret: resolveSecret('JWT_SECRET', 'development-secret-change-me'),
     expiresIn: process.env['JWT_EXPIRES_IN'] ?? '7d',
   },
   api: {
@@ -45,10 +60,7 @@ export const config = {
   },
 }
 
-if (
-  process.env['NODE_ENV'] === 'production' &&
-  (!process.env['JWT_SECRET'] || KNOWN_DEFAULT_SECRETS.includes(config.jwt.secret))
-) {
+if (process.env['NODE_ENV'] === 'production' && KNOWN_DEFAULT_SECRETS.includes(config.jwt.secret)) {
   throw new Error(
     'JWT_SECRET must be set to a secure value in production. The default secret is not allowed.'
   )

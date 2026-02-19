@@ -1,3 +1,4 @@
+import type { BlankRegionInStarter } from '@blankcode/shared/types'
 import { DIFFICULTIES, SUBMISSION_STATUSES, TRACK_SLUGS } from '@blankcode/shared/types'
 import { relations } from 'drizzle-orm'
 import {
@@ -117,6 +118,7 @@ export const exercises = pgTable(
     solutionCode: text('solution_code').notNull(),
     testCode: text('test_code').notNull(),
     hints: jsonb('hints').$type<string[]>().notNull().default([]),
+    blanks: jsonb('blanks').$type<BlankRegionInStarter[]>().notNull().default([]),
     order: integer('order').notNull().default(0),
     isPublished: boolean('is_published').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

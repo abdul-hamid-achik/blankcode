@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { BlankRegionInStarter } from '@blankcode/shared'
 import { closeBrackets } from '@codemirror/autocomplete'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { go } from '@codemirror/lang-go'
@@ -12,7 +13,7 @@ import {
   indentUnit,
   syntaxHighlighting,
 } from '@codemirror/language'
-import { Compartment, EditorState } from '@codemirror/state'
+import { Compartment, EditorState, type StateField } from '@codemirror/state'
 import { oneDark } from '@codemirror/theme-one-dark'
 import {
   EditorView,
@@ -22,28 +23,46 @@ import {
   lineNumbers,
 } from '@codemirror/view'
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import {
+  clearBlankFeedbackOnView,
+  createBlankExtensions,
+  setBlankFeedbackOnView,
+} from '~/composables/useBlankEditor'
 import { usePreferencesStore } from '~/stores/preferences'
 
 interface Props {
   code: string
   readonly?: boolean
   language?: string
+  blanks?: BlankRegionInStarter[]
+  blankValues?: Map<string, string>
+  blankFeedback?: Map<string, 'correct' | 'incorrect'>
 }
 
 const props = withDefaults(defineProps<Props>(), {
   readonly: false,
   language: 'typescript',
+  blanks: () => [],
+  blankValues: () => new Map(),
+  blankFeedback: undefined,
 })
 
 const emit = defineEmits<{
   'update:code': [value: string]
+  'update:blankValues': [values: Map<string, string>]
   submit: []
 }>()
 
 const editorContainer = ref<HTMLElement | null>(null)
 const editorView = shallowRef<EditorView | null>(null)
+let blankStateField: StateField<{
+  values: Map<string, string>
+  feedback: Map<string, 'correct' | 'incorrect'>
+}> | null = null
 
 const preferencesStore = usePreferencesStore()
+
+const isBlankMode = computed(() => props.blanks.length > 0)
 
 // Compartments for reconfigurable extensions
 const fontSizeCompartment = new Compartment()
@@ -114,12 +133,30 @@ function createEditor() {
     }
   })
 
+  // Build blank extensions if in blank mode
+  let blankExtensions: ReturnType<typeof createBlankExtensions> | null = null
+  if (isBlankMode.value) {
+    blankExtensions = createBlankExtensions({
+      blanks: props.blanks,
+      initialValues: props.blankValues,
+      onValuesChange: (values) => {
+        emit('update:blankValues', values)
+      },
+      onSubmit: () => {
+        emit('submit')
+      },
+    })
+    blankStateField = blankExtensions.stateField
+  } else {
+    blankStateField = null
+  }
+
   const state = EditorState.create({
     doc: props.code,
     extensions: [
       lineNumbers(),
-      highlightActiveLine(),
-      highlightActiveLineGutter(),
+      // Only show active line highlighting in non-blank mode
+      ...(isBlankMode.value ? [] : [highlightActiveLine(), highlightActiveLineGutter()]),
       bracketMatching(),
       closeBrackets(),
       history(),
@@ -128,8 +165,10 @@ function createEditor() {
       getLanguageExtension(props.language),
       oneDark,
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-      updateListener,
-      EditorState.readOnly.of(props.readonly),
+      // In blank mode: read-only + blank extensions; otherwise: normal editing
+      ...(isBlankMode.value && blankExtensions
+        ? [EditorState.readOnly.of(true), ...blankExtensions.extensions]
+        : [updateListener, EditorState.readOnly.of(props.readonly)]),
       // Compartments for reconfigurable settings
       fontSizeCompartment.of(getFontSizeExtension(fontSize.value)),
       tabSizeCompartment.of(getTabSizeExtension(tabSize.value)),
@@ -198,6 +237,27 @@ watch(
   }
 )
 
+// Rebuild editor when blanks change (e.g., exercise loaded asynchronously)
+watch(
+  () => props.blanks,
+  () => {
+    destroyEditor()
+    createEditor()
+  }
+)
+
+// Watch for feedback changes and dispatch effects
+watch(
+  () => props.blankFeedback,
+  (feedback) => {
+    if (editorView.value && blankStateField && feedback) {
+      setBlankFeedbackOnView(editorView.value, feedback, blankStateField)
+    } else if (editorView.value && blankStateField && !feedback) {
+      clearBlankFeedbackOnView(editorView.value, blankStateField)
+    }
+  }
+)
+
 // Watch for preference changes and reconfigure editor
 watch(fontSize, (newSize) => {
   if (editorView.value) {
@@ -236,7 +296,7 @@ onUnmounted(() => {
   <div class="relative rounded-lg border border-border overflow-hidden h-full min-h-[300px]">
     <div ref="editorContainer" class="h-full" />
     <div class="absolute bottom-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">
-      {{ language }} | Ctrl+Enter to submit
+      {{ language }}{{ isBlankMode ? ' | Tab to navigate' : '' }} | Ctrl+Enter to submit
     </div>
   </div>
 </template>

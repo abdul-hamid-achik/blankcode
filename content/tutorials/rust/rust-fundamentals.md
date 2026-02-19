@@ -1,7 +1,7 @@
 ---
 title: "Rust Fundamentals"
 slug: "rust-fundamentals"
-description: "Learn the core building blocks of Rust: variables, ownership, borrowing, and basic types"
+description: "Learn the core building blocks of Rust: variables, ownership, borrowing, and basic types."
 track: "rust"
 order: 1
 difficulty: "beginner"

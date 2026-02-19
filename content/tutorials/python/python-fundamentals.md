@@ -1,7 +1,7 @@
 ---
 title: "Python Fundamentals"
 slug: "python-fundamentals"
-description: "Learn the core building blocks of Python: variables, functions, control flow, and more"
+description: "Learn the core building blocks of Python: variables, functions, control flow, and more."
 track: "python"
 order: 1
 difficulty: "beginner"

@@ -1,7 +1,7 @@
 ---
 title: "Advanced Patterns"
 slug: "react-advanced-patterns"
-description: "Master performance optimization, compound components, custom hooks, and code splitting in React"
+description: "Master performance optimization, compound components, custom hooks, and code splitting in React."
 track: "react"
 order: 4
 difficulty: "advanced"

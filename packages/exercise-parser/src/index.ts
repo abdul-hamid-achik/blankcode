@@ -1,4 +1,9 @@
-import type { BlankRegion, ExerciseFrontmatter, ParsedExercise } from '@blankcode/shared'
+import type {
+  BlankRegion,
+  BlankRegionInStarter,
+  ExerciseFrontmatter,
+  ParsedExercise,
+} from '@blankcode/shared'
 import { exerciseFrontmatterSchema } from '@blankcode/shared'
 import { Either, Schema } from 'effect'
 import matter from 'gray-matter'
@@ -53,7 +58,7 @@ export function parseExercise(markdown: string, options: ParseOptions = {}): Par
 
     const solutionCode = codeBlockMatch[1]?.trim() ?? ''
     const blanks = extractBlanks(solutionCode, generateIds)
-    const starterCode = generateStarterCode(solutionCode, blanks)
+    const { starterCode, blanksInStarter } = generateStarterCode(solutionCode, blanks)
 
     return {
       success: true,
@@ -61,6 +66,7 @@ export function parseExercise(markdown: string, options: ParseOptions = {}): Par
         frontmatter,
         content: content.trim(),
         blanks,
+        blanksInStarter,
         starterCode,
         solutionCode,
       },
@@ -79,7 +85,8 @@ export function extractBlanks(code: string, generateIds = true): BlankRegion[] {
   let blankCounter = 0
 
   let inBlank = false
-  let currentBlank: Partial<BlankRegion> | null = null
+  let currentBlank: (Partial<BlankRegion> & Pick<BlankRegion, 'startLine' | 'startColumn'>) | null =
+    null
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
     const line = lines[lineIndex] ?? ''
@@ -112,8 +119,8 @@ export function extractBlanks(code: string, generateIds = true): BlankRegion[] {
 
             const solutionText = extractSolutionText(
               code,
-              currentBlank.startLine!,
-              currentBlank.startColumn! + BLANK_START_MARKER.length,
+              currentBlank.startLine,
+              currentBlank.startColumn + BLANK_START_MARKER.length,
               lineIndex,
               columnOffset + endIndex
             )
@@ -181,7 +188,12 @@ function generatePlaceholder(solution: string): string {
   return `${'_'.repeat(10)}...`
 }
 
-export function generateStarterCode(code: string, blanks: BlankRegion[]): string {
+export interface StarterCodeResult {
+  starterCode: string
+  blanksInStarter: BlankRegionInStarter[]
+}
+
+export function generateStarterCode(code: string, blanks: BlankRegion[]): StarterCodeResult {
   let result = code
   const sortedBlanks = [...blanks].sort((a, b) => {
     if (a.startLine !== b.startLine) {
@@ -222,6 +234,42 @@ export function generateStarterCode(code: string, blanks: BlankRegion[]): string
         return true
       })
       .join('\n')
+  }
+
+  // Now compute character offsets for each blank placeholder in the final starter code.
+  // We search for each placeholder by scanning forward through the starter code,
+  // matching the fixed text segments between blanks.
+  const blanksInStarter = computeBlanksInStarter(result, blanks)
+
+  return { starterCode: result, blanksInStarter }
+}
+
+function computeBlanksInStarter(
+  starterCode: string,
+  blanks: BlankRegion[]
+): BlankRegionInStarter[] {
+  // Sort blanks by their original order (top-to-bottom, left-to-right)
+  const orderedBlanks = [...blanks].sort((a, b) => {
+    if (a.startLine !== b.startLine) return a.startLine - b.startLine
+    return a.startColumn - b.startColumn
+  })
+
+  const result: BlankRegionInStarter[] = []
+  let searchFrom = 0
+
+  for (const blank of orderedBlanks) {
+    const idx = starterCode.indexOf(blank.placeholder, searchFrom)
+    if (idx === -1) continue
+
+    result.push({
+      id: blank.id,
+      from: idx,
+      to: idx + blank.placeholder.length,
+      placeholder: blank.placeholder,
+      solution: blank.solution,
+    })
+
+    searchFrom = idx + blank.placeholder.length
   }
 
   return result

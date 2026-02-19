@@ -1,7 +1,7 @@
 ---
 title: "Advanced Python"
 slug: "python-advanced"
-description: "Explore decorators, generators, context managers, type hints, and modern Python features"
+description: "Explore decorators, generators, context managers, type hints, and modern Python features."
 track: "python"
 order: 4
 difficulty: "advanced"

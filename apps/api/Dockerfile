@@ -71,7 +71,11 @@ COPY --from=builder /app/apps/api/package.json ./apps/api/
 COPY --from=builder /app/packages/db/package.json ./packages/db/
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/
 
-# Use existing bun user
+# Copy source for worker (worker runs from source with bun, not dist)
+COPY --from=builder /app/apps/api/src ./apps/api/src
+COPY --from=builder /app/tsconfig.base.json ./
+
+# Use existing bun user (override with root for worker in stack file if needed)
 USER bun
 
 ENV NODE_ENV=production
@@ -80,4 +84,5 @@ ENV API_HOST=0.0.0.0
 
 EXPOSE 3000
 
+# Default: run the API server. Override via `command:` in stack for worker.
 CMD ["bun", "run", "apps/api/dist/main.js"]

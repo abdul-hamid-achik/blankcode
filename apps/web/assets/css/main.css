@@ -21,6 +21,8 @@
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
   --radius-sm: calc(var(--radius) - 4px);
+  --color-code-bg: hsl(var(--code-bg));
+  --color-code-selection: hsl(var(--code-selection));
 }
 
 @layer base {
@@ -43,6 +45,16 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 221.2 83.2% 53.3%;
     --radius: 0.5rem;
+
+    --code-bg: 220 13% 18%;
+    --code-selection: 220 13% 28%;
+    --code-blank-bg: 220 13% 22%;
+    --code-blank-border: 220 13% 40%;
+    --code-blank-text: 220 13% 60%;
+    --code-blank-empty-bg: 220 13% 20%;
+    --code-blank-empty-border: 220 13% 35%;
+    --code-blank-correct: 142 71% 45%;
+    --code-blank-incorrect: 0 84% 60%;
   }
 
   .dark {
@@ -64,6 +76,16 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 224.3 76.3% 48%;
     --radius: 0.5rem;
+
+    --code-bg: 222 47% 8%;
+    --code-selection: 222 47% 16%;
+    --code-blank-bg: 222 47% 12%;
+    --code-blank-border: 222 30% 35%;
+    --code-blank-text: 222 20% 65%;
+    --code-blank-empty-bg: 222 47% 10%;
+    --code-blank-empty-border: 222 30% 28%;
+    --code-blank-correct: 142 71% 45%;
+    --code-blank-incorrect: 0 84% 60%;
   }
 
   * {
@@ -201,5 +223,79 @@
     animation: none;
     opacity: 1;
     transform: none;
+  }
+}
+
+/* CodeMirror blank widget styles */
+.cm-blank-widget {
+  display: inline;
+}
+
+.cm-blank-input {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  padding: 1px 6px;
+  border-radius: 4px;
+  outline: none;
+  vertical-align: baseline;
+  box-sizing: content-box;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+
+/* Empty state — dashed border, subtle pulse */
+.cm-blank-input[data-state="empty"] {
+  border: 1.5px dashed hsl(var(--code-blank-empty-border));
+  background: hsl(var(--code-blank-empty-bg));
+  color: hsl(var(--code-blank-text));
+  animation: pulse-blank 2s ease-in-out infinite;
+}
+
+/* Focused state */
+.cm-blank-input[data-state="focused"],
+.cm-blank-input[data-state="empty"]:focus {
+  border: 1.5px solid hsl(var(--primary));
+  background: hsl(var(--primary) / 0.15);
+  color: hsl(var(--foreground));
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2);
+  animation: none;
+}
+
+/* Filled state */
+.cm-blank-input[data-state="filled"] {
+  border: 1.5px solid hsl(var(--primary) / 0.4);
+  background: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+  animation: none;
+}
+
+/* Correct state (after submission) */
+.cm-blank-input[data-state="correct"] {
+  border: 1.5px solid hsl(var(--code-blank-correct) / 0.5);
+  background: hsl(var(--code-blank-correct) / 0.15);
+  color: hsl(var(--code-blank-correct));
+  animation: none;
+}
+
+/* Incorrect state (after submission) */
+.cm-blank-input[data-state="incorrect"] {
+  border: 1.5px solid hsl(var(--code-blank-incorrect) / 0.5);
+  background: hsl(var(--code-blank-incorrect) / 0.15);
+  color: hsl(var(--code-blank-incorrect));
+  animation: none;
+}
+
+/* Hide the cursor in the read-only editor when in blank mode */
+.cm-editor.cm-blank-mode .cm-cursor {
+  display: none !important;
+}
+
+.cm-editor.cm-blank-mode .cm-selectionBackground {
+  display: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cm-blank-input[data-state="empty"] {
+    animation: none;
   }
 }

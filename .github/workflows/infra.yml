@@ -1,0 +1,50 @@
+name: Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths: ["infra/terraform/**"]
+  pull_request:
+    paths: ["infra/terraform/**"]
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9"
+
+      - name: Terraform Init
+        working-directory: infra/terraform
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: infra/terraform
+        run: terraform plan -var="do_token=${{ secrets.DO_TOKEN }}" -var="ssh_public_key_path=/dev/null" -input=false
+        env:
+          DIGITALOCEAN_TOKEN: ${{ secrets.DO_TOKEN }}
+
+  apply:
+    needs: plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9"
+
+      - name: Terraform Apply
+        working-directory: infra/terraform
+        run: |
+          terraform init
+          terraform apply -auto-approve \
+            -var="do_token=${{ secrets.DO_TOKEN }}" \
+            -var="ssh_public_key_path=/dev/null"
+        env:
+          DIGITALOCEAN_TOKEN: ${{ secrets.DO_TOKEN }}

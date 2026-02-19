@@ -69,7 +69,11 @@ useKeyboard([
 ])
 
 async function handleSubmit() {
-  await exerciseStore.submitCode(exerciseStore.currentCode)
+  if (exerciseStore.isBlankMode) {
+    await exerciseStore.submitCode()
+  } else {
+    await exerciseStore.submitCode(exerciseStore.currentCode)
+  }
 }
 
 async function handleRetry() {
@@ -80,6 +84,10 @@ async function handleRetry() {
 
 function handleCodeUpdate(code: string) {
   exerciseStore.updateCode(code)
+}
+
+function handleBlankValuesUpdate(values: Map<string, string>) {
+  exerciseStore.updateBlankValues(values)
 }
 </script>
 
@@ -111,7 +119,11 @@ function handleCodeUpdate(code: string) {
             <CodeEditor
               :code="exerciseStore.currentCode"
               :language="language"
+              :blanks="exerciseStore.blanks"
+              :blank-values="exerciseStore.blankValues"
+              :blank-feedback="exerciseStore.blankFeedback"
               @update:code="handleCodeUpdate"
+              @update:blank-values="handleBlankValuesUpdate"
               @submit="handleSubmit"
             />
           </ClientOnly>
@@ -119,9 +131,20 @@ function handleCodeUpdate(code: string) {
 
         <div class="border-t border-border px-6 py-4 flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <span class="text-sm text-muted-foreground">
-              Press <kbd class="px-1.5 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> to submit
-            </span>
+            <template v-if="exerciseStore.isBlankMode">
+              <span class="text-sm text-muted-foreground">
+                {{ exerciseStore.filledBlanksCount }} of {{ exerciseStore.blanks.length }} blanks filled
+              </span>
+              <span class="text-xs text-muted-foreground">
+                <kbd class="px-1.5 py-0.5 bg-muted rounded text-xs">Tab</kbd> to navigate |
+                <kbd class="px-1.5 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> to submit
+              </span>
+            </template>
+            <template v-else>
+              <span class="text-sm text-muted-foreground">
+                Press <kbd class="px-1.5 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> to submit
+              </span>
+            </template>
             <span v-if="exerciseStore.isSaving" class="text-xs text-muted-foreground">
               (Saving...)
             </span>

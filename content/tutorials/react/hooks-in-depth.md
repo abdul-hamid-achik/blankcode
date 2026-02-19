@@ -1,7 +1,7 @@
 ---
 title: "Hooks in Depth"
 slug: "react-hooks-in-depth"
-description: "Master React hooks including useState, useEffect, useRef, useContext, and custom hooks"
+description: "Master React hooks including useState, useEffect, useRef, useContext, and custom hooks."
 track: "react"
 order: 2
 difficulty: "intermediate"

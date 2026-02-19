@@ -1,12 +1,15 @@
-import type { BlankRegion, Exercise, Submission } from '@blankcode/shared'
+import type { BlankRegionInStarter, Exercise, Submission } from '@blankcode/shared'
 import { defineStore } from 'pinia'
+import { extractBlankValues, reconstructCode } from '~/composables/useBlankEditor'
 
 export const useExerciseStore = defineStore('exercise', () => {
   const exercise = ref<Exercise | null>(null)
   const submissions = ref<Submission[]>([])
   const currentCode = ref('')
   const codeSource = ref<'draft' | 'submission' | 'starter'>('starter')
-  const blanks = ref<BlankRegion[]>([])
+  const blanks = ref<BlankRegionInStarter[]>([])
+  const blankValues = ref<Map<string, string>>(new Map())
+  const blankFeedback = ref<Map<string, 'correct' | 'incorrect'> | undefined>(undefined)
   const isSubmitting = ref(false)
   const latestSubmission = ref<Submission | null>(null)
   const isSaving = ref(false)
@@ -19,24 +22,56 @@ export const useExerciseStore = defineStore('exercise', () => {
   const POLL_TIMEOUT_MS = 90000
 
   const hasPassedSubmission = computed(() => submissions.value.some((s) => s.status === 'passed'))
+  const isBlankMode = computed(() => blanks.value.length > 0)
+  const filledBlanksCount = computed(() => {
+    let count = 0
+    for (const [, value] of blankValues.value) {
+      if (value.trim().length > 0) count++
+    }
+    return count
+  })
 
-  async function loadExercise(exerciseId: string) {
+  async function fetchExerciseData(exerciseId: string) {
     const api = useApi()
-    loadError.value = null
     try {
       const progress = await api.exercises.getWithProgress(exerciseId)
       exercise.value = progress.exercise
       currentCode.value = progress.code
       codeSource.value = progress.codeSource
+      return true
     } catch {
-      try {
-        exercise.value = await api.exercises.getById(exerciseId)
-        currentCode.value = exercise.value?.starterCode ?? ''
-      } catch (e) {
-        loadError.value = e instanceof Error ? e.message : 'Failed to load exercise'
-        return
+      // Fall back to basic exercise fetch (unauthenticated)
+    }
+    try {
+      exercise.value = await api.exercises.getById(exerciseId)
+      currentCode.value = exercise.value?.starterCode ?? ''
+      return true
+    } catch (e) {
+      loadError.value = e instanceof Error ? e.message : 'Failed to load exercise'
+      return false
+    }
+  }
+
+  async function loadExercise(exerciseId: string) {
+    loadError.value = null
+    if (!(await fetchExerciseData(exerciseId))) return
+
+    // Populate blank state from exercise data
+    if (exercise.value?.blanks?.length) {
+      blanks.value = exercise.value.blanks
+
+      // If we have a draft or submission, extract blank values from the saved code
+      if (codeSource.value !== 'starter' && currentCode.value !== exercise.value.starterCode) {
+        blankValues.value = extractBlankValues(
+          currentCode.value,
+          exercise.value.starterCode,
+          blanks.value
+        )
+      } else {
+        blankValues.value = new Map()
       }
     }
+
     await loadSubmissions(exerciseId)
   }
 
@@ -46,6 +81,21 @@ export const useExerciseStore = defineStore('exercise', () => {
     latestSubmission.value = submissions.value[0] ?? null
   }
 
+  function handlePollTimeout() {
+    timedOut.value = true
+    stopPolling()
+    isSubmitting.value = false
+  }
+
+  function handleSubmissionComplete() {
+    timedOut.value = false
+    stopPolling()
+    isSubmitting.value = false
+    if (isBlankMode.value) {
+      computeBlankFeedback()
+    }
+  }
+
   async function pollSubmissionStatus(submissionId: string) {
     stopPolling()
     timedOut.value = false
@@ -53,11 +103,10 @@ export const useExerciseStore = defineStore('exercise', () => {
 
     pollInterval = setInterval(async () => {
       const api = useApi()
+      const isTimedOut = Date.now() - pollStartTime >= POLL_TIMEOUT_MS
       try {
-        if (Date.now() - pollStartTime >= POLL_TIMEOUT_MS) {
-          timedOut.value = true
-          stopPolling()
-          isSubmitting.value = false
+        if (isTimedOut) {
+          handlePollTimeout()
           return
         }
 
@@ -70,16 +119,12 @@ export const useExerciseStore = defineStore('exercise', () => {
         }
 
         if (updated.status !== 'pending' && updated.status !== 'running') {
-          timedOut.value = false
-          stopPolling()
-          isSubmitting.value = false
+          handleSubmissionComplete()
         }
       } catch {
         // Don't give up on transient errors (429, network blips) — just skip this tick
-        if (Date.now() - pollStartTime >= POLL_TIMEOUT_MS) {
-          timedOut.value = true
-          stopPolling()
-          isSubmitting.value = false
+        if (isTimedOut) {
+          handlePollTimeout()
         }
       }
     }, 2000)
@@ -119,9 +164,36 @@ export const useExerciseStore = defineStore('exercise', () => {
     autosaveTimer = setTimeout(() => saveDraft(code), 10000)
   }
 
-  async function submitCode(code: string) {
+  function updateBlankValues(values: Map<string, string>) {
+    blankValues.value = values
+    blankFeedback.value = undefined
+
+    // Reconstruct full code from blank values for autosave
+    if (exercise.value && blanks.value.length > 0) {
+      const code = reconstructCode(exercise.value.starterCode, blanks.value, values)
+      currentCode.value = code
+      stopAutosave()
+      autosaveTimer = setTimeout(() => saveDraft(code), 10000)
+    }
+  }
+
+  function computeBlankFeedback() {
+    const feedback = new Map<string, 'correct' | 'incorrect'>()
+    for (const blank of blanks.value) {
+      const value = blankValues.value.get(blank.id) ?? ''
+      feedback.set(blank.id, value.trim() === blank.solution.trim() ? 'correct' : 'incorrect')
+    }
+    blankFeedback.value = feedback
+  }
+
+  async function submitCode(code?: string) {
     if (!exercise.value) return
     if (isSubmitting.value) return
+
+    // In blank mode, reconstruct the code from blank values
+    const submitCode = isBlankMode.value
+      ? reconstructCode(exercise.value.starterCode, blanks.value, blankValues.value)
+      : (code ?? currentCode.value)
 
     const api = useApi()
     submissionError.value = null
@@ -130,7 +202,7 @@ export const useExerciseStore = defineStore('exercise', () => {
     try {
       const submission = await api.submissions.create({
         exerciseId: exercise.value.id,
-        code,
+        code: submitCode,
       })
       latestSubmission.value = submission
       submissions.value = [submission, ...submissions.value]
@@ -161,6 +233,8 @@ export const useExerciseStore = defineStore('exercise', () => {
     submissions.value = []
     currentCode.value = ''
     blanks.value = []
+    blankValues.value = new Map()
+    blankFeedback.value = undefined
     codeSource.value = 'starter'
     isSubmitting.value = false
     isSaving.value = false
@@ -176,6 +250,10 @@ export const useExerciseStore = defineStore('exercise', () => {
     currentCode,
     codeSource,
     blanks,
+    blankValues,
+    blankFeedback,
+    isBlankMode,
+    filledBlanksCount,
     isSubmitting,
     isSaving,
     latestSubmission,
@@ -188,6 +266,8 @@ export const useExerciseStore = defineStore('exercise', () => {
     submitCode,
     retrySubmission,
     updateCode,
+    updateBlankValues,
+    computeBlankFeedback,
     reset,
     stopPolling,
     stopAutosave,

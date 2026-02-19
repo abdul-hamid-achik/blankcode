@@ -1,7 +1,7 @@
 ---
 title: "State Management"
 slug: "react-state-management"
-description: "Learn patterns for managing complex state with useReducer, Context API, and composition"
+description: "Learn patterns for managing complex state with useReducer, Context API, and composition."
 track: "react"
 order: 3
 difficulty: "intermediate"

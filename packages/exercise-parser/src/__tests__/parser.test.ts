@@ -150,11 +150,11 @@ describe('generateStarterCode', () => {
   it('replaces blanks with placeholders', () => {
     const code = `const x = ${BLANK_START_MARKER}42${BLANK_END_MARKER};`
     const blanks = extractBlanks(code)
-    const starter = generateStarterCode(code, blanks)
-    expect(starter).not.toContain(BLANK_START_MARKER)
-    expect(starter).not.toContain(BLANK_END_MARKER)
-    expect(starter).not.toContain('42')
-    expect(starter).toContain('___')
+    const { starterCode } = generateStarterCode(code, blanks)
+    expect(starterCode).not.toContain(BLANK_START_MARKER)
+    expect(starterCode).not.toContain(BLANK_END_MARKER)
+    expect(starterCode).not.toContain('42')
+    expect(starterCode).toContain('___')
   })
 
   it('preserves non-blank code', () => {
@@ -162,18 +162,42 @@ describe('generateStarterCode', () => {
 const x = ${BLANK_START_MARKER}42${BLANK_END_MARKER};
 console.log(x);`
     const blanks = extractBlanks(code)
-    const starter = generateStarterCode(code, blanks)
-    expect(starter).toContain('const greeting = "hello"')
-    expect(starter).toContain('console.log(x)')
+    const { starterCode } = generateStarterCode(code, blanks)
+    expect(starterCode).toContain('const greeting = "hello"')
+    expect(starterCode).toContain('console.log(x)')
   })
 
   it('handles multiple blanks', () => {
     const code = `const a = ${BLANK_START_MARKER}1${BLANK_END_MARKER};
 const b = ${BLANK_START_MARKER}2${BLANK_END_MARKER};`
     const blanks = extractBlanks(code)
-    const starter = generateStarterCode(code, blanks)
-    expect(starter).not.toContain('1')
-    expect(starter).not.toContain('2')
+    const { starterCode } = generateStarterCode(code, blanks)
+    expect(starterCode).not.toContain('1')
+    expect(starterCode).not.toContain('2')
+  })
+
+  it('returns blanksInStarter with correct character offsets', () => {
+    const code = `const x = ${BLANK_START_MARKER}42${BLANK_END_MARKER};`
+    const blanks = extractBlanks(code)
+    const { starterCode, blanksInStarter } = generateStarterCode(code, blanks)
+    expect(blanksInStarter).toHaveLength(1)
+    const b = blanksInStarter[0]!
+    expect(b.id).toBe('blank-1')
+    expect(b.solution).toBe('42')
+    expect(starterCode.slice(b.from, b.to)).toBe(b.placeholder)
+  })
+
+  it('returns correct offsets for multiple blanks', () => {
+    const code = `const a = ${BLANK_START_MARKER}1${BLANK_END_MARKER};
+const b = ${BLANK_START_MARKER}2${BLANK_END_MARKER};`
+    const blanks = extractBlanks(code)
+    const { starterCode, blanksInStarter } = generateStarterCode(code, blanks)
+    expect(blanksInStarter).toHaveLength(2)
+    for (const b of blanksInStarter) {
+      expect(starterCode.slice(b.from, b.to)).toBe(b.placeholder)
+    }
+    expect(blanksInStarter[0]!.solution).toBe('1')
+    expect(blanksInStarter[1]!.solution).toBe('2')
   })
 })
 

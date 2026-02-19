@@ -1,0 +1,144 @@
+version: "3.8"
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /opt/blankcode/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - frontend
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      update_config:
+        order: start-first
+        failure_action: rollback
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
+  api:
+    image: ${REGISTRY:-ghcr.io/your-org}/blankcode-api:${VERSION:-latest}
+    networks:
+      - frontend
+      - backend
+    secrets:
+      - source: database_url
+        target: database_url
+        mode: 0400
+      - source: jwt_secret
+        target: jwt_secret
+        mode: 0400
+    environment:
+      NODE_ENV: production
+      DATABASE_URL_FILE: /run/secrets/database_url
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://blankcode.dev}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      API_PORT: "3000"
+      API_HOST: "0.0.0.0"
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 15s
+        order: start-first
+        failure_action: rollback
+        monitor: 30s
+      rollback_config:
+        parallelism: 1
+        order: start-first
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  worker:
+    image: ${REGISTRY:-ghcr.io/your-org}/blankcode-api:${VERSION:-latest}
+    command: ["bun", "run", "apps/api/src/workers/index.ts"]
+    user: "root"
+    networks:
+      - backend
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/blankcode-workspaces:/tmp/blankcode-workspaces
+    secrets:
+      - source: database_url
+        target: database_url
+        mode: 0400
+      - source: jwt_secret
+        target: jwt_secret
+        mode: 0400
+    environment:
+      NODE_ENV: production
+      DATABASE_URL_FILE: /run/secrets/database_url
+      JWT_SECRET_FILE: /run/secrets/jwt_secret
+      DOCKER_ENABLED: "true"
+      EXECUTION_TIMEOUT_MS: "30000"
+      EXECUTION_MEMORY_MB: "256"
+      EXECUTION_CPU_LIMIT: "0.5"
+      EXECUTION_WORKSPACE_PATH: /tmp/blankcode-workspaces
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      # Runner images from GHCR (pulled on host via Docker socket)
+      DOCKER_IMAGE_TS: ${REGISTRY:-ghcr.io/your-org}/blankcode-runner-typescript:latest
+      DOCKER_IMAGE_JS: ${REGISTRY:-ghcr.io/your-org}/blankcode-runner-typescript:latest
+      DOCKER_IMAGE_PYTHON: ${REGISTRY:-ghcr.io/your-org}/blankcode-runner-python:latest
+      DOCKER_IMAGE_GO: ${REGISTRY:-ghcr.io/your-org}/blankcode-runner-go:latest
+      DOCKER_IMAGE_RUST: ${REGISTRY:-ghcr.io/your-org}/blankcode-runner-rust:latest
+      DOCKER_IMAGE_REACT: ${REGISTRY:-ghcr.io/your-org}/blankcode-runner-react:latest
+      DOCKER_IMAGE_VUE: ${REGISTRY:-ghcr.io/your-org}/blankcode-runner-typescript:latest
+      DOCKER_IMAGE_NODE: ${REGISTRY:-ghcr.io/your-org}/blankcode-runner-typescript:latest
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      update_config:
+        parallelism: 1
+        order: stop-first
+        failure_action: rollback
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    stop_grace_period: 120s
+
+networks:
+  frontend:
+    driver: overlay
+  backend:
+    driver: overlay
+    internal: true
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+secrets:
+  database_url:
+    external: true
+  jwt_secret:
+    external: true

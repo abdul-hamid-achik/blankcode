@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { make as makeDrizzle } from '@effect/sql-drizzle/Pg'
 import { PgClient } from '@effect/sql-pg'
 import { drizzle } from 'drizzle-orm/node-postgres'
@@ -5,6 +6,28 @@ import type { PgRemoteDatabase } from 'drizzle-orm/pg-proxy'
 import { Context, Layer, Redacted } from 'effect'
 import pg from 'pg'
 import * as schema from './schema/index.js'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Reads a Docker Swarm secret file if the _FILE env var is set, otherwise falls back to the direct env var. */
+function resolveSecret(envVar: string, fallback: string): string {
+  const filePath = process.env[`${envVar}_FILE`]
+  if (filePath) {
+    try {
+      return readFileSync(filePath, 'utf-8').trim()
+    } catch {
+      // Fall through to direct env var
+    }
+  }
+  return process.env[envVar] ?? fallback
+}
+
+const DATABASE_URL = resolveSecret(
+  'DATABASE_URL',
+  'postgresql://postgres:postgres@localhost:5432/blankcode'
+)
 
 // ---------------------------------------------------------------------------
 // Effect Layers — used by the API server and worker
@@ -15,9 +38,7 @@ export class Drizzle extends Context.Tag('Drizzle')<Drizzle, PgRemoteDatabase<ty
 
 /** Postgres connection pool with lifecycle management */
 export const PgLive = PgClient.layer({
-  url: Redacted.make(
-    process.env['DATABASE_URL'] ?? 'postgresql://postgres:postgres@localhost:5432/blankcode'
-  ),
+  url: Redacted.make(DATABASE_URL),
   maxConnections: 10,
   idleTimeout: 20_000,
   connectTimeout: 10_000,
@@ -52,9 +73,5 @@ export function createDatabase(config: {
 }
 
 export function createDatabaseFromEnv() {
-  const connectionString = process.env['DATABASE_URL']
-  if (!connectionString) {
-    throw new Error('DATABASE_URL environment variable is not set')
-  }
-  return createDatabase({ connectionString })
+  return createDatabase({ connectionString: DATABASE_URL })
 }

@@ -1,7 +1,7 @@
 ---
 title: "React Fundamentals"
 slug: "react-fundamentals"
-description: "Learn the core building blocks of React including JSX, components, props, and event handling"
+description: "Learn the core building blocks of React including JSX, components, props, and event handling."
 track: "react"
 order: 1
 difficulty: "beginner"

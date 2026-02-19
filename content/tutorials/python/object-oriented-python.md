@@ -1,7 +1,7 @@
 ---
 title: "Object-Oriented Python"
 slug: "python-object-oriented-python"
-description: "Learn classes, inheritance, properties, dunder methods, and dataclasses in Python"
+description: "Learn classes, inheritance, properties, dunder methods, and dataclasses in Python."
 track: "python"
 order: 3
 difficulty: "intermediate"

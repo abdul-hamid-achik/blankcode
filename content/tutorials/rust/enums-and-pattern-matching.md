@@ -1,7 +1,7 @@
 ---
 title: "Enums and Pattern Matching"
 slug: "rust-enums-and-pattern-matching"
-description: "Master Rust enums, Option, Result, and the powerful match expression"
+description: "Master Rust enums, Option, Result, and the powerful match expression."
 track: "rust"
 order: 2
 difficulty: "intermediate"

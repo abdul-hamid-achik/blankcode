@@ -1,7 +1,7 @@
 ---
 title: "Fearless Concurrency"
 slug: "rust-fearless-concurrency"
-description: "Write safe concurrent Rust programs with threads, channels, shared state, and async/await"
+description: "Write safe concurrent Rust programs with threads, channels, shared state, and async/await."
 track: "rust"
 order: 4
 difficulty: "advanced"
