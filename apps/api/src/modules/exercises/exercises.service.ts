@@ -5,6 +5,7 @@ import { Context, Effect, Layer } from 'effect'
 import { BadRequestError, NotFoundError } from '../../api/errors.js'
 
 interface ExercisesServiceShape {
+  readonly findAll: () => Effect.Effect<any[]>
   readonly findByConceptSlug: (
     trackSlug: string,
     conceptSlug: string
@@ -41,6 +42,23 @@ export const ExercisesServiceLive = Layer.effect(
     const db = yield* Drizzle
 
     return ExercisesService.of({
+      findAll: () =>
+        Effect.tryPromise({
+          try: () =>
+            db.query.exercises.findMany({
+              where: eq(exercises.isPublished, true),
+              orderBy: asc(exercises.order),
+              with: {
+                concept: {
+                  with: {
+                    track: true,
+                  },
+                },
+              },
+            }),
+          catch: () => new BadRequestError({ message: 'Failed to fetch exercises' }),
+        }),
+
       findByConceptSlug: (trackSlug, conceptSlug) =>
         Effect.gen(function* () {
           const track = yield* Effect.tryPromise({

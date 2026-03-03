@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AppFooter from '~/components/layout/app-footer.vue'
 import AppHeader from '~/components/layout/app-header.vue'
+import AchievementToast from '~/components/ui/achievement-toast.vue'
 import { useAuthStore } from '~/stores/auth'
 
 const authStore = useAuthStore()
@@ -17,5 +18,6 @@ onMounted(async () => {
       <slot />
     </main>
     <AppFooter />
+    <AchievementToast />
   </div>
 </template>

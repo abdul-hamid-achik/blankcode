@@ -72,7 +72,7 @@ async function importExercise(db: Db, exercisePath: string, conceptId: string): 
     return false
   }
 
-  const { frontmatter, starterCode, solutionCode, blanksInStarter } = parseResult.exercise
+  const { frontmatter, starterCode, solutionCode, blanksInStarter, type } = parseResult.exercise
   const codeBlockMatch = markdown.match(/## Tests\s*```[\w]*\n([\s\S]*?)```/)
   const testCode = codeBlockMatch?.[1]?.trim() ?? ''
 
@@ -84,6 +84,7 @@ async function importExercise(db: Db, exercisePath: string, conceptId: string): 
       title: frontmatter.title,
       description: frontmatter.description,
       difficulty: frontmatter.difficulty,
+      type: type ?? 'blank',
       starterCode,
       solutionCode: stripBlankMarkers(solutionCode),
       testCode,
@@ -98,6 +99,7 @@ async function importExercise(db: Db, exercisePath: string, conceptId: string): 
         title: frontmatter.title,
         description: frontmatter.description,
         difficulty: frontmatter.difficulty,
+        type: type ?? 'blank',
         starterCode,
         solutionCode: stripBlankMarkers(solutionCode),
         testCode,
@@ -107,7 +109,7 @@ async function importExercise(db: Db, exercisePath: string, conceptId: string): 
       },
     })
 
-  console.log(`    Imported exercise: ${frontmatter.title}`)
+  console.log(`    Imported exercise: ${frontmatter.title} (${type ?? 'blank'})`)
   return true
 }
 

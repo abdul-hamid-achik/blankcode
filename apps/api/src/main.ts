@@ -7,12 +7,13 @@ import { NodeHttpServer, NodeRuntime } from '@effect/platform-node'
 import { Layer } from 'effect'
 import { BlankCodeApi } from './api/index.js'
 import { config } from './config/index.js'
-
+import { AchievementsHandlers } from './handlers/achievements.handlers.js'
 // Handlers
 import { AuthHandlers } from './handlers/auth.handlers.js'
 import { ExercisesHandlers } from './handlers/exercises.handlers.js'
 import { GenerationHandlers } from './handlers/generation.handlers.js'
 import { HealthHandlers } from './handlers/health.handlers.js'
+import { PathsHandlers } from './handlers/paths.handlers.js'
 import { ProgressHandlers } from './handlers/progress.handlers.js'
 import { SubmissionsHandlers } from './handlers/submissions.handlers.js'
 import { TracksHandlers } from './handlers/tracks.handlers.js'
@@ -21,6 +22,7 @@ import { AdminAuthorizationLive } from './middleware/admin.middleware.js'
 // Middleware
 import { AuthorizationLive } from './middleware/auth.middleware.js'
 import { AuthRateLimitLive, SubmissionRateLimitLive } from './middleware/rate-limit.middleware.js'
+import { AchievementsServiceLive } from './modules/achievements/achievements.service.js'
 import { AuthServiceLive } from './modules/auth/auth.service.js'
 import { ExercisesServiceLive } from './modules/exercises/exercises.service.js'
 import { GenerationServiceLive } from './modules/generation/generation.service.js'
@@ -42,7 +44,8 @@ const ServicesLive = Layer.mergeAll(
   ExercisesServiceLive,
   SubmissionsServiceLive,
   ProgressServiceLive,
-  GenerationServiceLive
+  GenerationServiceLive,
+  AchievementsServiceLive
 )
 
 // Middleware layer
@@ -62,7 +65,9 @@ const HandlersLive = Layer.mergeAll(
   SubmissionsHandlers,
   ProgressHandlers,
   GenerationHandlers,
-  HealthHandlers
+  HealthHandlers,
+  PathsHandlers,
+  AchievementsHandlers
 )
 
 // Workflow engine — SQL-backed via SingleRunner, shared with worker process

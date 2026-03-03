@@ -7,6 +7,21 @@ export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number]
 export const TRACK_SLUGS = ['typescript', 'vue', 'react', 'node', 'go', 'rust', 'python'] as const
 export type TrackSlug = (typeof TRACK_SLUGS)[number]
 
+export const EXERCISE_TYPES = ['blank', 'challenge'] as const
+export type ExerciseType = (typeof EXERCISE_TYPES)[number]
+
+export const ACHIEVEMENT_TYPES = [
+  'first_challenge',
+  'challenge_master',
+  'polyglot',
+  'expert',
+  'speed_demon',
+  'perfectionist',
+  'marathon',
+  'language_specialist',
+] as const
+export type AchievementType = (typeof ACHIEVEMENT_TYPES)[number]
+
 export interface User {
   id: string
   email: string
@@ -48,6 +63,7 @@ export interface Exercise {
   title: string
   description: string
   difficulty: Difficulty
+  type: ExerciseType
   starterCode: string
   solutionCode: string
   testCode: string
@@ -84,6 +100,7 @@ export interface ParsedExercise {
   blanksInStarter: BlankRegionInStarter[]
   starterCode: string
   solutionCode: string
+  type: ExerciseType
 }
 
 export interface ExerciseFrontmatter {
@@ -91,6 +108,7 @@ export interface ExerciseFrontmatter {
   title: string
   description: string
   difficulty: Difficulty
+  type?: ExerciseType
   hints?: string[] | undefined
   tags?: string[] | undefined
 }
@@ -172,4 +190,43 @@ export interface ConceptWithExercises extends Concept {
 
 export interface ExerciseWithProgress extends Exercise {
   progress: UserProgress | null
+}
+
+export interface LearningPath {
+  id: string
+  slug: string
+  name: string
+  description: string
+  icon: string
+  color: string
+  order: number
+  challengeIds: string[]
+  isPublished: boolean
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface UserAchievement {
+  id: string
+  userId: string
+  achievementType: AchievementType
+  title: string
+  description: string
+  icon: string
+  earnedAt: Date
+  metadata?: Record<string, unknown>
+}
+
+export interface AchievementDefinition {
+  type: AchievementType
+  title: string
+  description: string
+  icon: string
+  color: string
+  requirement: {
+    type: 'challenges_completed' | 'languages_completed' | 'streak' | 'perfect_score' | 'time_limit'
+    count?: number
+    languages?: string[]
+    timeMs?: number
+  }
 }

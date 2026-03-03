@@ -9,6 +9,7 @@ const SaveDraftPayload = Schema.Struct({
 
 export class ExercisesApi extends HttpApiGroup.make('exercises')
   // Public endpoints (no auth)
+  .add(HttpApiEndpoint.get('getAll')`/exercises`.addSuccess(Schema.Array(Schema.Unknown)))
   .add(
     HttpApiEndpoint.get('getById')`/exercises/${HttpApiSchema.param('id', Schema.String)}`
       .addSuccess(Schema.Unknown)

@@ -1,0 +1,5 @@
+slug: challenges
+name: Challenges
+description: Open-ended coding challenges to test your React skills. Build components from scratch without any starter code blanks.
+order: 100
+isPublished: true

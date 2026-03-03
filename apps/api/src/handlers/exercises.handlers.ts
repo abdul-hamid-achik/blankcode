@@ -6,6 +6,12 @@ import { ExercisesService } from '../modules/exercises/exercises.service.js'
 
 export const ExercisesHandlers = HttpApiBuilder.group(BlankCodeApi, 'exercises', (handlers) =>
   handlers
+    .handle('getAll', () =>
+      Effect.gen(function* () {
+        const svc = yield* ExercisesService
+        return yield* svc.findAll()
+      })
+    )
     .handle('getById', ({ path }) =>
       Effect.gen(function* () {
         const svc = yield* ExercisesService

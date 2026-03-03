@@ -23,6 +23,11 @@ const difficultyColors: Record<string, string> = {
   advanced: 'bg-orange-500/10 text-orange-500',
   expert: 'bg-red-500/10 text-red-500',
 }
+
+const exerciseTypeBadges: Record<string, { label: string; icon: string; color: string }> = {
+  blank: { label: 'Fill-in-Blank', icon: '📝', color: 'bg-blue-500/10 text-blue-500' },
+  challenge: { label: 'Challenge', icon: '🏆', color: 'bg-purple-500/10 text-purple-500' },
+}
 </script>
 
 <template>
@@ -61,6 +66,15 @@ const difficultyColors: Record<string, string> = {
                     ]"
                   >
                     {{ exercise.difficulty }}
+                  </span>
+                  <span
+                    :class="[
+                      'text-xs px-2 py-0.5 rounded-full',
+                      exerciseTypeBadges[exercise.type || 'blank']?.color,
+                    ]"
+                    :title="exerciseTypeBadges[exercise.type || 'blank']?.label"
+                  >
+                    {{ exerciseTypeBadges[exercise.type || 'blank']?.icon }}
                   </span>
                 </div>
                 <p class="text-sm text-muted-foreground line-clamp-2">

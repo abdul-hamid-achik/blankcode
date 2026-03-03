@@ -17,9 +17,12 @@ function toggleDarkMode() {
 const navLinks = computed(() => {
   const links = [
     { to: '/tracks', label: 'Tracks' },
+    { to: '/challenges', label: 'Challenges' },
+    { to: '/paths', label: 'Paths' },
     { to: '/tutorials', label: 'Tutorials' },
   ]
   if (authStore.isAuthenticated) {
+    links.push({ to: '/achievements', label: 'Achievements' })
     links.push({ to: '/progress', label: 'Progress' })
   }
   return links

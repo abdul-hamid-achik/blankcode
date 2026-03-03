@@ -55,8 +55,8 @@ function getNextExerciseNumber(conceptDir: string, prefix: string): string {
     return '001'
   }
 
-  const files = readdirSync(conceptDir).filter(f => f.endsWith('.md') && f.startsWith(prefix))
-  const numbers = files.map(f => {
+  const files = readdirSync(conceptDir).filter((f) => f.endsWith('.md') && f.startsWith(prefix))
+  const numbers = files.map((f) => {
     const match = f.match(/-(\d{3})\.md$/)
     return match?.[1] ? Number.parseInt(match[1], 10) : 0
   })
@@ -95,7 +95,9 @@ async function initTrack(trackSlug: string, trackName?: string) {
     console.log(`\nTrack initialized successfully!`)
     console.log(`\nNext steps:`)
     console.log(`  1. Review and edit the YAML files in content/tracks/${trackSlug}/`)
-    console.log(`  2. Generate exercises: bun run content:generate ${trackSlug} <concept> <difficulty>`)
+    console.log(
+      `  2. Generate exercises: bun run content:generate ${trackSlug} <concept> <difficulty>`
+    )
     console.log(`  3. Import to database: bun run content:import`)
   } catch (error) {
     console.error('Track initialization failed:', error)
@@ -143,7 +145,10 @@ async function generateAndSave(
       const conceptYamlPath = join(conceptDir, '_concept.yaml')
       if (!existsSync(conceptYamlPath)) {
         const conceptYaml = `slug: ${concept}
-name: ${concept.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+name: ${concept
+          .split('-')
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ')}
 description: Exercises for ${concept}.
 order: 1
 isPublished: true
@@ -196,7 +201,7 @@ async function main() {
     process.exit(1)
   }
 
-  const [track, concept, difficulty, topic] = args.filter(a => !a.startsWith('--'))
+  const [track, concept, difficulty, topic] = args.filter((a) => !a.startsWith('--'))
   const dryRun = args.includes('--dry-run')
 
   if (!['beginner', 'intermediate', 'advanced', 'expert'].includes(difficulty!)) {

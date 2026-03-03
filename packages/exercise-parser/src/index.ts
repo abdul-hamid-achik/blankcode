@@ -57,8 +57,17 @@ export function parseExercise(markdown: string, options: ParseOptions = {}): Par
     }
 
     const solutionCode = codeBlockMatch[1]?.trim() ?? ''
-    const blanks = extractBlanks(solutionCode, generateIds)
-    const { starterCode, blanksInStarter } = generateStarterCode(solutionCode, blanks)
+
+    // Determine exercise type based on frontmatter or presence of blank markers
+    const exerciseType =
+      frontmatter.type ?? (solutionCode.includes(BLANK_START_MARKER) ? 'blank' : 'challenge')
+
+    // For challenge exercises, no blanks are extracted
+    const blanks = exerciseType === 'challenge' ? [] : extractBlanks(solutionCode, generateIds)
+    const { starterCode, blanksInStarter } =
+      exerciseType === 'challenge'
+        ? { starterCode: solutionCode, blanksInStarter: [] }
+        : generateStarterCode(solutionCode, blanks)
 
     return {
       success: true,
@@ -69,6 +78,7 @@ export function parseExercise(markdown: string, options: ParseOptions = {}): Par
         blanksInStarter,
         starterCode,
         solutionCode,
+        type: exerciseType,
       },
     }
   } catch (error) {
@@ -286,8 +296,9 @@ export function validateExercise(exercise: ParsedExercise): string[] {
     errors.push('Exercise title is required')
   }
 
-  if (exercise.blanks.length === 0) {
-    errors.push('Exercise must have at least one blank region')
+  // Only blank exercises require blanks
+  if (exercise.type === 'blank' && exercise.blanks.length === 0) {
+    errors.push('Blank exercise must have at least one blank region')
   }
 
   if (!exercise.solutionCode) {
@@ -298,9 +309,11 @@ export function validateExercise(exercise: ParsedExercise): string[] {
     errors.push('Exercise must have starter code')
   }
 
-  for (const blank of exercise.blanks) {
-    if (!blank.solution) {
-      errors.push(`Blank ${blank.id} has empty solution`)
+  if (exercise.type === 'blank') {
+    for (const blank of exercise.blanks) {
+      if (!blank.solution) {
+        errors.push(`Blank ${blank.id} has empty solution`)
+      }
     }
   }
 

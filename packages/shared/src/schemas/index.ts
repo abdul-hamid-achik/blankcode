@@ -1,11 +1,13 @@
 import { Schema } from 'effect'
-import { DIFFICULTIES, SUBMISSION_STATUSES, TRACK_SLUGS } from '../types/index.js'
+import { DIFFICULTIES, EXERCISE_TYPES, SUBMISSION_STATUSES, TRACK_SLUGS } from '../types/index.js'
 
 export const difficultySchema = Schema.Literal(...DIFFICULTIES)
 
 export const submissionStatusSchema = Schema.Literal(...SUBMISSION_STATUSES)
 
 export const trackSlugSchema = Schema.Literal(...TRACK_SLUGS)
+
+export const exerciseTypeSchema = Schema.Literal(...EXERCISE_TYPES)
 
 export const paginationSchema = Schema.Struct({
   page: Schema.optionalWith(Schema.NumberFromString.pipe(Schema.int(), Schema.positive()), {
@@ -72,6 +74,7 @@ export const exerciseCreateSchema = Schema.Struct({
   title: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(200)),
   description: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(5000)),
   difficulty: difficultySchema,
+  type: Schema.optionalWith(exerciseTypeSchema, { default: () => 'blank' }),
   starterCode: Schema.String.pipe(Schema.minLength(1)),
   solutionCode: Schema.String.pipe(Schema.minLength(1)),
   testCode: Schema.String.pipe(Schema.minLength(1)),
@@ -100,6 +103,7 @@ export const exerciseFrontmatterSchema = Schema.Struct({
   title: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(200)),
   description: Schema.String.pipe(Schema.minLength(1), Schema.maxLength(5000)),
   difficulty: difficultySchema,
+  type: Schema.optionalWith(exerciseTypeSchema, { default: () => 'blank' }),
   hints: Schema.optional(Schema.Array(Schema.String)),
   tags: Schema.optional(Schema.Array(Schema.String)),
 })

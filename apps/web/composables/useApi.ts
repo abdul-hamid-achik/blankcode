@@ -152,6 +152,7 @@ export function useApi() {
       getBySlug: (slug: string) => request<Track & { concepts: Concept[] }>(`/tracks/${slug}`),
     },
     exercises: {
+      getAll: () => request<Exercise[]>('/exercises'),
       getByConcept: (trackSlug: string, conceptSlug: string) =>
         request<Exercise[]>(`/tracks/${trackSlug}/concepts/${conceptSlug}/exercises`),
       getBySlug: (trackSlug: string, conceptSlug: string, exerciseSlug: string) =>
@@ -202,6 +203,14 @@ export function useApi() {
           totalSubmissions: number
           lastActivityDate: string | null
         }>('/progress/stats'),
+    },
+    paths: {
+      getAll: () => request('/paths'),
+      getBySlug: (slug: string) => request(`/paths/${slug}`),
+    },
+    achievements: {
+      getMine: () => request('/achievements'),
+      getAll: () => request('/achievements/definitions'),
     },
   }
 }

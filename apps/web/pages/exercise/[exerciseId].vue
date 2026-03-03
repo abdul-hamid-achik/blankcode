@@ -140,6 +140,14 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
                 <kbd class="px-1.5 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> to submit
               </span>
             </template>
+            <template v-else-if="exerciseStore.isChallengeMode">
+              <span class="text-sm text-info">
+                🏆 Challenge Mode: Implement from scratch
+              </span>
+              <span class="text-xs text-muted-foreground">
+                <kbd class="px-1.5 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> to submit
+              </span>
+            </template>
             <template v-else>
               <span class="text-sm text-muted-foreground">
                 Press <kbd class="px-1.5 py-0.5 bg-muted rounded text-xs">Ctrl+Enter</kbd> to submit

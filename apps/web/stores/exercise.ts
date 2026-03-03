@@ -22,7 +22,8 @@ export const useExerciseStore = defineStore('exercise', () => {
   const POLL_TIMEOUT_MS = 90000
 
   const hasPassedSubmission = computed(() => submissions.value.some((s) => s.status === 'passed'))
-  const isBlankMode = computed(() => blanks.value.length > 0)
+  const isBlankMode = computed(() => exercise.value?.type === 'blank' && blanks.value.length > 0)
+  const isChallengeMode = computed(() => exercise.value?.type === 'challenge')
   const filledBlanksCount = computed(() => {
     let count = 0
     for (const [, value] of blankValues.value) {
@@ -253,6 +254,7 @@ export const useExerciseStore = defineStore('exercise', () => {
     blankValues,
     blankFeedback,
     isBlankMode,
+    isChallengeMode,
     filledBlanksCount,
     isSubmitting,
     isSaving,

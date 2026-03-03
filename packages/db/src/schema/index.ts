@@ -1,5 +1,11 @@
 import type { BlankRegionInStarter } from '@blankcode/shared/types'
-import { DIFFICULTIES, SUBMISSION_STATUSES, TRACK_SLUGS } from '@blankcode/shared/types'
+import {
+  ACHIEVEMENT_TYPES,
+  DIFFICULTIES,
+  EXERCISE_TYPES,
+  SUBMISSION_STATUSES,
+  TRACK_SLUGS,
+} from '@blankcode/shared/types'
 import { relations } from 'drizzle-orm'
 import {
   bigint,
@@ -26,6 +32,16 @@ export const submissionStatusEnum = pgEnum('submission_status', [...SUBMISSION_S
 ])
 
 export const trackSlugEnum = pgEnum('track_slug', [...TRACK_SLUGS] as [string, ...string[]])
+
+export const exerciseTypeEnum = pgEnum('exercise_type', [...EXERCISE_TYPES] as [
+  string,
+  ...string[],
+])
+
+export const achievementTypeEnum = pgEnum('achievement_type', [...ACHIEVEMENT_TYPES] as [
+  string,
+  ...string[],
+])
 
 export const users = pgTable(
   'users',
@@ -114,6 +130,7 @@ export const exercises = pgTable(
     title: varchar('title', { length: 200 }).notNull(),
     description: text('description').notNull(),
     difficulty: difficultyEnum('difficulty').notNull(),
+    type: exerciseTypeEnum('type').notNull().default('blank'),
     starterCode: text('starter_code').notNull(),
     solutionCode: text('solution_code').notNull(),
     testCode: text('test_code').notNull(),
@@ -128,6 +145,7 @@ export const exercises = pgTable(
     uniqueIndex('exercises_concept_slug_idx').on(table.conceptId, table.slug),
     index('exercises_concept_id_idx').on(table.conceptId),
     index('exercises_difficulty_idx').on(table.difficulty),
+    index('exercises_type_idx').on(table.type),
   ]
 )
 
@@ -369,4 +387,31 @@ export const clusterReplies = pgTable('cluster_replies', {
   requestId: text('request_id').notNull(),
   payload: jsonb('payload'),
   sequence: bigint('sequence', { mode: 'number' }),
+})
+
+export const learningPaths = pgTable('learning_paths', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: varchar('slug', { length: 100 }).notNull().unique(),
+  name: varchar('name', { length: 200 }).notNull(),
+  description: text('description').notNull(),
+  icon: varchar('icon', { length: 50 }).notNull(),
+  color: varchar('color', { length: 20 }).notNull(),
+  order: integer('order').notNull().default(0),
+  challengeIds: jsonb('challenge_ids').$type<string[]>().notNull().default([]),
+  isPublished: boolean('is_published').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const userAchievements = pgTable('user_achievements', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  achievementType: achievementTypeEnum('achievement_type').notNull(),
+  title: varchar('title', { length: 200 }).notNull(),
+  description: text('description').notNull(),
+  icon: varchar('icon', { length: 50 }).notNull(),
+  earnedAt: timestamp('earned_at', { withTimezone: true }).notNull().defaultNow(),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
 })
