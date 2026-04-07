@@ -57,9 +57,7 @@ function formatInterval(days: number): string {
             <div class="flex items-center justify-between">
               <div>
                 <div class="font-medium">{{ exercise.title }}</div>
-                <div class="text-sm text-muted-foreground">
-                  {{ exercise.concept?.track?.name }} / {{ exercise.concept?.name }}
-                </div>
+
                 <div class="text-sm text-muted-foreground mt-1">
                   <span v-if="exercise.schedule?.lastReviewedAt">
                     Last reviewed: {{ new Date(exercise.schedule.lastReviewedAt).toLocaleDateString() }}

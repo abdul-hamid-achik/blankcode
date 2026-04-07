@@ -57,7 +57,7 @@ export const ExercisesServiceLive = Layer.effect(
               },
             }),
           catch: () => new BadRequestError({ message: 'Failed to fetch exercises' }),
-        }),
+        }).pipe(Effect.catchAll(() => Effect.succeed([]))),
 
       findByConceptSlug: (trackSlug, conceptSlug) =>
         Effect.gen(function* () {

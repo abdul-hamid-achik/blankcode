@@ -22,7 +22,7 @@ export const AchievementsHandlers = HttpApiBuilder.group(BlankCodeApi, 'achievem
         // Add isNew flag to newly awarded
         return allAchievements.map((a) => ({
           ...a,
-          isNew: newlyAwarded.some((na) => na.type === a.achievementType),
+          isNew: newlyAwarded.some((na) => na.type === a.type),
         }))
       })
     )

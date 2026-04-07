@@ -1,19 +1,13 @@
 import { Drizzle } from '@blankcode/db/client'
-import {
-  exercises,
-  learningPaths,
-  submissions,
-  userAchievements,
-  userProgress,
-} from '@blankcode/db/schema'
+import { exercises, submissions, userAchievements, userProgress } from '@blankcode/db/schema'
 import { ACHIEVEMENTS } from '@blankcode/shared'
-import { and, count, eq, gte, sql } from 'drizzle-orm'
+import { and, count, eq, sql } from 'drizzle-orm'
 import { Context, Effect, Layer } from 'effect'
 
 interface AchievementsServiceShape {
-  readonly checkAndAward: (userId: string) => Effect.Effect<AwardedAchievement[]>
-  readonly getMine: (userId: string) => Effect.Effect<any[]>
-  readonly getProgress: (userId: string) => Effect.Effect<UserAchievementProgress>
+  readonly checkAndAward: (userId: string) => Effect.Effect<AwardedAchievement[], never, never>
+  readonly getMine: (userId: string) => Effect.Effect<AwardedAchievement[], never, never>
+  readonly getProgress: (userId: string) => Effect.Effect<UserAchievementProgress, never, never>
 }
 
 export interface AwardedAchievement {
@@ -45,84 +39,95 @@ export const AchievementsServiceLive = Layer.effect(
 
     return AchievementsService.of({
       checkAndAward: (userId) =>
-        Effect.gen(function* () {
-          const progress = yield* Effect.tryPromise({
-            try: () => getUserProgress(db, userId),
-            catch: () => new Error('Failed to get user progress'),
-          })
+        Effect.tryPromise({
+          try: async () => {
+            const progress = await getUserProgress(db, userId)
 
-          const existingAchievements = yield* Effect.tryPromise({
-            try: () =>
-              db.query.userAchievements.findMany({
-                where: eq(userAchievements.userId, userId),
-              }),
-            catch: () => [],
-          })
+            const existingAchievements = await db.query.userAchievements.findMany({
+              where: eq(userAchievements.userId, userId),
+            })
 
-          const existingTypes = new Set(existingAchievements.map((a) => a.achievementType))
-          const awarded: AwardedAchievement[] = []
+            const existingTypes = new Set(existingAchievements.map((a) => a.achievementType))
+            const awarded: AwardedAchievement[] = []
 
-          // Check each achievement
-          for (const [type, definition] of Object.entries(ACHIEVEMENTS)) {
-            if (existingTypes.has(type as any)) continue
+            for (const [type, definition] of Object.entries(ACHIEVEMENTS)) {
+              if (existingTypes.has(type)) continue
 
-            const shouldAward = yield* checkAchievement(db, userId, definition, progress)
+              const shouldAward = await checkAchievement(db, userId, definition, progress)
 
-            if (shouldAward) {
-              yield* Effect.tryPromise({
-                try: () =>
-                  db.insert(userAchievements).values({
-                    userId,
-                    achievementType: type as any,
-                    title: definition.title,
-                    description: definition.description,
-                    icon: definition.icon,
-                    metadata: { progress },
-                  }),
-                catch: () => new Error('Failed to award achievement'),
-              })
+              if (shouldAward) {
+                await db.insert(userAchievements).values({
+                  userId,
+                  achievementType: type,
+                  title: definition.title,
+                  description: definition.description,
+                  icon: definition.icon,
+                  metadata: { progress },
+                })
 
-              awarded.push({
-                type,
-                title: definition.title,
-                description: definition.description,
-                icon: definition.icon,
-                color: definition.color,
-                isNew: true,
-              })
+                awarded.push({
+                  type,
+                  title: definition.title,
+                  description: definition.description,
+                  icon: definition.icon,
+                  color: definition.color,
+                  isNew: true,
+                })
+              }
             }
-          }
 
-          return awarded
-        }),
+            return awarded
+          },
+          catch: () => new Error('Failed to check and award achievements'),
+        }).pipe(Effect.catchAll(() => Effect.succeed([] as AwardedAchievement[]))),
 
       getMine: (userId) =>
         Effect.tryPromise({
           try: () =>
-            db.query.userAchievements.findMany({
-              where: eq(userAchievements.userId, userId),
-              orderBy: (achievements, { desc }) => [desc(achievements.earnedAt)],
-            }),
-          catch: () => [],
-        }),
+            db.query.userAchievements
+              .findMany({
+                where: eq(userAchievements.userId, userId),
+                orderBy: (achievements, { desc }) => [desc(achievements.earnedAt)],
+              })
+              .then((rows: (typeof userAchievements.$inferSelect)[]) =>
+                rows.map((row) => ({
+                  type: row.achievementType,
+                  title: row.title,
+                  description: row.description,
+                  icon: row.icon,
+                  color: (row.metadata as { color?: string } | null)?.color ?? '',
+                  isNew: false,
+                }))
+              ),
+          catch: () => new Error('Failed to fetch achievements'),
+        }).pipe(Effect.catchAll(() => Effect.succeed([] as AwardedAchievement[]))),
 
       getProgress: (userId) =>
         Effect.tryPromise({
           try: () => getUserProgress(db, userId),
           catch: () => ({
             totalChallenges: 0,
-            challengesByLanguage: {},
+            challengesByLanguage: {} as Record<string, number>,
             currentStreak: 0,
             perfectScores: 0,
             pathsCompleted: 0,
           }),
-        }),
+        }).pipe(
+          Effect.catchAll(() =>
+            Effect.succeed({
+              totalChallenges: 0,
+              challengesByLanguage: {} as Record<string, number>,
+              currentStreak: 0,
+              perfectScores: 0,
+              pathsCompleted: 0,
+            })
+          )
+        ),
     })
   })
 )
 
 async function getUserProgress(db: any, userId: string): Promise<UserAchievementProgress> {
-  // Get all user's completed challenges with exercise info
   const completions = await db
     .select({
       exerciseId: userProgress.exerciseId,
@@ -134,7 +139,6 @@ async function getUserProgress(db: any, userId: string): Promise<UserAchievement
     .leftJoin(exercises, eq(userProgress.exerciseId, exercises.id))
     .where(and(eq(userProgress.userId, userId), eq(userProgress.isCompleted, true)))
 
-  // Count by language (extracted from exercise slug)
   const challengesByLanguage: Record<string, number> = {}
   for (const completion of completions) {
     const lang = extractLanguageFromSlug(completion.exerciseSlug)
@@ -143,18 +147,17 @@ async function getUserProgress(db: any, userId: string): Promise<UserAchievement
     }
   }
 
-  // Calculate streak
   const streak = await calculateStreak(db, userId)
-
-  // Count perfect scores (first attempt)
-  const perfectScores = completions.filter((c) => c.attempts === 1).length
+  const perfectScores = completions.filter(
+    (c: typeof userProgress.$inferSelect) => c.attempts === 1
+  ).length
 
   return {
     totalChallenges: completions.length,
     challengesByLanguage,
     currentStreak: streak,
     perfectScores,
-    pathsCompleted: 0, // Will be implemented later
+    pathsCompleted: 0,
   }
 }
 
@@ -176,13 +179,11 @@ async function calculateStreak(db: any, userId: string): Promise<number> {
   const today = new Date().toISOString().split('T')[0]
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
 
-  // Check if user has activity today or yesterday (streak is still active)
-  const dates = result.map((r) => r.date)
+  const dates = result.map((r: { date: string }) => r.date)
   if (!dates.includes(today) && !dates.includes(yesterday)) {
     return 0
   }
 
-  // Count consecutive days
   for (let i = 0; i < result.length; i++) {
     const expectedDate = new Date(Date.now() - i * 86400000).toISOString().split('T')[0]
     if (dates.includes(expectedDate)) {
@@ -208,13 +209,16 @@ function extractLanguageFromSlug(slug: string | null): string | null {
     re: 'react',
     vue: 'vue',
   }
-  return langMap[match[1]] || null
+  const langKey = match[1]
+  return langKey ? (langMap[langKey] ?? null) : null
 }
 
 async function checkAchievement(
   db: any,
   userId: string,
-  definition: any,
+  definition: {
+    requirement: { type: string; count?: number; languages?: string[]; timeMs?: number }
+  },
   progress: UserAchievementProgress
 ): Promise<boolean> {
   const req = definition.requirement
@@ -225,11 +229,11 @@ async function checkAchievement(
 
     case 'languages_completed': {
       if (req.languages) {
-        // Check specific languages
         return req.languages.every((lang: string) => (progress.challengesByLanguage[lang] || 0) > 0)
       }
-      // Count languages with at least 1 challenge
-      const langCount = Object.values(progress.challengesByLanguage).filter((c) => c > 0).length
+      const langCount = Object.values(progress.challengesByLanguage).filter(
+        (c: number) => c > 0
+      ).length
       return langCount >= (req.count || 0)
     }
 
@@ -240,14 +244,13 @@ async function checkAchievement(
       return progress.perfectScores >= (req.count || 0)
 
     case 'time_limit': {
-      // Check recent submissions for fast completion
       const recentSubmissions = await db.query.submissions.findMany({
         where: and(eq(submissions.userId, userId), eq(submissions.status, 'passed')),
-        orderBy: (submissions, { desc }) => [desc(submissions.createdAt)],
+        orderBy: (submissions: any, { desc }: { desc: any }) => [desc(submissions.createdAt)],
         limit: 10,
       })
 
-      return recentSubmissions.some((s) => {
+      return recentSubmissions.some((s: { createdAt: Date | null }) => {
         if (!s.createdAt) return false
         const duration = Date.now() - new Date(s.createdAt).getTime()
         return duration <= (req.timeMs || 0)

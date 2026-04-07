@@ -234,6 +234,7 @@ const MockTracksService = Layer.succeed(TracksService, {
 })
 
 const MockExercisesService = Layer.succeed(ExercisesService, {
+  findAll: () => Effect.succeed([]),
   findByConceptSlug: (trackSlug, conceptSlug) => {
     if (trackSlug !== 'typescript' || conceptSlug !== 'basics') {
       return Effect.fail(new NotFoundError({ resource: 'Concept', id: conceptSlug }))
