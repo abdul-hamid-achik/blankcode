@@ -5,6 +5,7 @@ import Card from '~/components/ui/card.vue'
 import { useAsync } from '~/composables/useAsync'
 import { useAuthStore } from '~/stores/auth'
 import { useProgressStore } from '~/stores/progress'
+import { useReviewStore } from '~/stores/review'
 import { getStatusClasses, getStatusLabel } from '~/utils/submission-status'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
@@ -15,6 +16,7 @@ interface SubmissionWithExercise extends Submission {
 
 const authStore = useAuthStore()
 const progressStore = useProgressStore()
+const reviewStore = useReviewStore()
 
 const api = useApi()
 const { data: submissions, execute: loadSubmissions } = useAsync(
@@ -24,6 +26,7 @@ const { data: submissions, execute: loadSubmissions } = useAsync(
 onMounted(() => {
   loadSubmissions()
   progressStore.loadStats()
+  reviewStore.loadDueCount()
 })
 </script>
 
@@ -37,7 +40,7 @@ onMounted(() => {
         <p class="text-muted-foreground">Continue your learning journey.</p>
       </div>
 
-      <div class="grid md:grid-cols-3 gap-6 mb-8">
+      <div class="grid md:grid-cols-4 gap-6 mb-8">
         <Card>
           <div class="text-sm text-muted-foreground">Exercises Completed</div>
           <div class="text-3xl font-bold mt-1">{{ progressStore.totalCompleted }}</div>
@@ -49,6 +52,18 @@ onMounted(() => {
         <Card>
           <div class="text-sm text-muted-foreground">Total Submissions</div>
           <div class="text-3xl font-bold mt-1">{{ progressStore.userStats?.totalSubmissions ?? submissions?.length ?? 0 }}</div>
+        </Card>
+        <NuxtLink v-if="reviewStore.dueCount > 0" to="/review">
+          <Card class="hover:border-primary/50 transition-colors cursor-pointer h-full">
+            <div class="text-sm text-muted-foreground">Review Due</div>
+            <div class="text-3xl font-bold mt-1">{{ reviewStore.dueCount }}</div>
+            <div class="text-xs text-muted-foreground mt-1">exercises ready</div>
+          </Card>
+        </NuxtLink>
+        <Card v-else>
+          <div class="text-sm text-muted-foreground">Review Due</div>
+          <div class="text-3xl font-bold mt-1">0</div>
+          <div class="text-xs text-muted-foreground mt-1">all caught up!</div>
         </Card>
       </div>
 

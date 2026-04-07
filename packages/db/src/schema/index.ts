@@ -67,6 +67,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   conceptMastery: many(conceptMastery),
   refreshTokens: many(refreshTokens),
   codeDrafts: many(codeDrafts),
+  reviewSchedules: many(reviewSchedules),
 }))
 
 export const tracks = pgTable(
@@ -157,6 +158,7 @@ export const exercisesRelations = relations(exercises, ({ one, many }) => ({
   submissions: many(submissions),
   userProgress: many(userProgress),
   codeDrafts: many(codeDrafts),
+  reviewSchedules: many(reviewSchedules),
 }))
 
 export const submissions = pgTable(
@@ -337,6 +339,42 @@ export const codeDraftsRelations = relations(codeDrafts, ({ one }) => ({
   }),
   exercise: one(exercises, {
     fields: [codeDrafts.exerciseId],
+    references: [exercises.id],
+  }),
+}))
+
+export const reviewSchedules = pgTable(
+  'review_schedules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    exerciseId: uuid('exercise_id')
+      .notNull()
+      .references(() => exercises.id, { onDelete: 'cascade' }),
+    intervalDays: integer('interval_days').notNull().default(1),
+    repetitions: integer('repetitions').notNull().default(0),
+    easeFactor: real('ease_factor').notNull().default(2.5),
+    nextReviewAt: timestamp('next_review_at', { withTimezone: true }).notNull(),
+    lastReviewedAt: timestamp('last_reviewed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('review_schedules_user_exercise_idx').on(table.userId, table.exerciseId),
+    index('review_schedules_next_review_idx').on(table.nextReviewAt),
+    index('review_schedules_user_id_idx').on(table.userId),
+  ]
+)
+
+export const reviewSchedulesRelations = relations(reviewSchedules, ({ one }) => ({
+  user: one(users, {
+    fields: [reviewSchedules.userId],
+    references: [users.id],
+  }),
+  exercise: one(exercises, {
+    fields: [reviewSchedules.exerciseId],
     references: [exercises.id],
   }),
 }))

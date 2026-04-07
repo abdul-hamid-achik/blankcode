@@ -236,7 +236,7 @@ const x = 1;
     const result = parseExercise(markdown)
     if (result.success) {
       const errors = validateExercise(result.exercise)
-      expect(errors).toContain('Exercise must have at least one blank region')
+      expect(errors).toContain('Blank exercise must have at least one blank region')
     }
   })
 })

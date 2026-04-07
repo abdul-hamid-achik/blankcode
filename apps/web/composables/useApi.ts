@@ -1,6 +1,7 @@
 import type {
   Concept,
   Exercise,
+  ReviewExercise,
   Submission,
   SubmissionCreateInput,
   Track,
@@ -211,6 +212,15 @@ export function useApi() {
     achievements: {
       getMine: () => request('/achievements'),
       getAll: () => request('/achievements/definitions'),
+    },
+    reviews: {
+      getDue: () => request<ReviewExercise[]>('/reviews/due'),
+      getDueCount: () => request<{ count: number }>('/reviews/due/count'),
+      complete: (exerciseId: string, passed: boolean) =>
+        request<void>(`/reviews/${exerciseId}/complete`, {
+          method: 'POST',
+          body: JSON.stringify({ passed }),
+        }),
     },
   }
 }

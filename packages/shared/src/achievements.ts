@@ -22,7 +22,7 @@ export const ACHIEVEMENTS: Record<string, import('@blankcode/shared').Achievemen
     },
   },
   challenge_legend: {
-    type: 'challenge_master',
+    type: 'challenge_legend',
     title: 'Challenge Legend',
     description: 'Complete 20 challenges',
     icon: '👑',

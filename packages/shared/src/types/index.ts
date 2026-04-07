@@ -13,6 +13,7 @@ export type ExerciseType = (typeof EXERCISE_TYPES)[number]
 export const ACHIEVEMENT_TYPES = [
   'first_challenge',
   'challenge_master',
+  'challenge_legend',
   'polyglot',
   'expert',
   'speed_demon',
@@ -229,4 +230,21 @@ export interface AchievementDefinition {
     languages?: string[]
     timeMs?: number
   }
+}
+
+export interface ReviewSchedule {
+  id: string
+  userId: string
+  exerciseId: string
+  intervalDays: number
+  repetitions: number
+  easeFactor: number
+  nextReviewAt: string // ISO timestamp
+  lastReviewedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ReviewExercise extends Exercise {
+  schedule: ReviewSchedule | null
 }

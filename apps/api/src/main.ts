@@ -15,6 +15,7 @@ import { GenerationHandlers } from './handlers/generation.handlers.js'
 import { HealthHandlers } from './handlers/health.handlers.js'
 import { PathsHandlers } from './handlers/paths.handlers.js'
 import { ProgressHandlers } from './handlers/progress.handlers.js'
+import { ReviewsHandlers } from './handlers/reviews.handlers.js'
 import { SubmissionsHandlers } from './handlers/submissions.handlers.js'
 import { TracksHandlers } from './handlers/tracks.handlers.js'
 import { UsersHandlers } from './handlers/users.handlers.js'
@@ -27,6 +28,7 @@ import { AuthServiceLive } from './modules/auth/auth.service.js'
 import { ExercisesServiceLive } from './modules/exercises/exercises.service.js'
 import { GenerationServiceLive } from './modules/generation/generation.service.js'
 import { ProgressServiceLive } from './modules/progress/progress.service.js'
+import { ReviewsServiceLive } from './modules/reviews/reviews.service.js'
 import { SubmissionsServiceLive } from './modules/submissions/submissions.service.js'
 import { TracksServiceLive } from './modules/tracks/tracks.service.js'
 import { UsersServiceLive } from './modules/users/users.service.js'
@@ -45,7 +47,8 @@ const ServicesLive = Layer.mergeAll(
   SubmissionsServiceLive,
   ProgressServiceLive,
   GenerationServiceLive,
-  AchievementsServiceLive
+  AchievementsServiceLive,
+  ReviewsServiceLive
 )
 
 // Middleware layer
@@ -67,7 +70,8 @@ const HandlersLive = Layer.mergeAll(
   GenerationHandlers,
   HealthHandlers,
   PathsHandlers,
-  AchievementsHandlers
+  AchievementsHandlers,
+  ReviewsHandlers
 )
 
 // Workflow engine — SQL-backed via SingleRunner, shared with worker process
