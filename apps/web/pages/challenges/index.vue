@@ -21,7 +21,7 @@ const challenges = computed(() => {
   let filtered = allExercises.value.filter((ex) => ex.type === 'challenge')
 
   if (selectedTrack.value !== 'all') {
-    filtered = filtered.filter((ex) => ex.concept?.track?.slug === selectedTrack.value)
+    filtered = filtered.filter((ex) => ex.conceptId.startsWith(selectedTrack.value))
   }
 
   if (selectedDifficulty.value !== 'all') {
@@ -44,7 +44,7 @@ const trackOptions = computed(() => {
       label: track.name,
       count:
         allExercises.value?.filter(
-          (e) => e.type === 'challenge' && e.concept?.track?.slug === track.slug
+          (e) => e.type === 'challenge' && e.conceptId.startsWith(track.slug)
         ).length || 0,
     })),
   ]
@@ -174,7 +174,7 @@ const trackIcons: Record<string, string> = {
             <div class="p-6">
               <div class="flex items-start justify-between mb-3">
                 <div class="text-2xl">
-                  {{ trackIcons[exercise.concept?.track?.slug || ''] || '📚' }}
+                  {{ trackIcons[exercise.conceptId.split('-')[0]] || '📚' }}
                 </div>
                 <span
                   :class="[
@@ -201,7 +201,7 @@ const trackIcons: Record<string, string> = {
                     Challenge
                   </span>
                   <span>•</span>
-                  <span>{{ exercise.concept?.name || 'Unknown' }}</span>
+                  <span>{{ exercise.conceptId.split('-').slice(0, -1).join(' ') || 'Challenge' }}</span>
                 </div>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

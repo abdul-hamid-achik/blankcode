@@ -37,6 +37,7 @@ export function useAchievementNotifications() {
     color: string
   }) => {
     showNotification({
+      id: Math.random().toString(36).substring(7),
       type: 'achievement',
       title: 'Achievement Unlocked!',
       description: achievement.title,

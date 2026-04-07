@@ -1,11 +1,13 @@
 import type {
   Concept,
   Exercise,
+  LearningPath,
   ReviewExercise,
   Submission,
   SubmissionCreateInput,
   Track,
   User,
+  UserAchievement,
   UserCreateInput,
   UserLoginInput,
 } from '@blankcode/shared'
@@ -206,11 +208,11 @@ export function useApi() {
         }>('/progress/stats'),
     },
     paths: {
-      getAll: () => request('/paths'),
-      getBySlug: (slug: string) => request(`/paths/${slug}`),
+      getAll: () => request<LearningPath[]>('/paths'),
+      getBySlug: (slug: string) => request<LearningPath>(`/paths/${slug}`),
     },
     achievements: {
-      getMine: () => request('/achievements'),
+      getMine: () => request<UserAchievement[]>('/achievements'),
       getAll: () => request('/achievements/definitions'),
     },
     reviews: {

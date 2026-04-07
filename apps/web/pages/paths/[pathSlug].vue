@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Exercise } from '@blankcode/shared'
 import { computed, ref } from 'vue'
 import Button from '~/components/ui/button.vue'
 import Card from '~/components/ui/card.vue'
@@ -14,7 +15,7 @@ const api = useApi()
 const { data: path, isLoading: pathLoading } = useAsync(() => api.paths.getBySlug(pathSlug.value))
 
 const { data: exercises, isLoading: exercisesLoading } = useAsync(() => {
-  if (!path.value) return []
+  if (!path.value) return Promise.resolve([] as (Exercise | null)[])
   return Promise.all(
     path.value.challengeIds.map((id) => api.exercises.getById(id).catch(() => null))
   )
@@ -140,7 +141,7 @@ const difficultyColors: Record<string, string> = {
                         Challenge
                       </span>
                       <span>•</span>
-                      <span>{{ exercise.concept?.name || 'Unknown' }}</span>
+                      <span>{{ exercise.conceptId.split('-').slice(0, -1).join(' ') || 'Challenge' }}</span>
                     </div>
                   </div>
 
