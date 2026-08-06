@@ -25,14 +25,14 @@ bun install
 cp .env.example .env
 echo "JWT_SECRET=$(openssl rand -base64 48)" >> .env
 
-# Postgres + API + web + worker + runner images
+# Postgres + the app (Nuxt with the API mounted inside it) + runner images
 docker compose up -d
 
 # Load the exercise content into the database
 bun run content:import
 ```
 
-Web app: <http://localhost:3001> · API: <http://localhost:3000>
+Everything is on <http://localhost:3001>; the API lives under `/api`.
 
 ### Running without Docker
 
@@ -44,8 +44,7 @@ sandbox isolation**, so only do it with content you trust.
 docker compose up -d postgres
 bun run db:push
 bun run content:import
-bun run dev        # API on :3000, web on :3001
-bun run worker     # separate terminal
+bun run dev        # app on :3001, API mounted at /api
 ```
 
 ## Prerequisites
@@ -59,7 +58,7 @@ bun run worker     # separate terminal
 ```
 blankcode/
 ├── apps/
-│   ├── api/          # Effect.ts HttpApi server + submission worker
+│   ├── api/          # Effect.ts HttpApi — mounted into the web app's Nitro server
 │   └── web/          # Nuxt 4 frontend
 ├── packages/
 │   ├── db/           # Drizzle ORM schema and migrations
@@ -75,8 +74,7 @@ blankcode/
 ## Development
 
 ```bash
-bun run dev          # API (:3000) + web (:3001)
-bun run worker       # submission processor
+bun run dev          # app on :3001, with the API mounted at /api
 bun run story        # Histoire component workshop (:6006)
 bun run verify       # lint + typecheck + test + knip
 ```
@@ -133,10 +131,10 @@ The API is built with `@effect/platform` (`HttpApiBuilder`) on Node's HTTP serve
 
 - **Auth**: JWT access tokens + rotating refresh tokens, bcrypt password hashing
 - **Tracks / Concepts / Exercises**: hierarchical learning content
-- **Submissions**: queued for async execution via a worker process
+- **Submissions**: executed inline in the request that creates them
 - **Progress / Mastery / Reviews**: completion tracking + SM-2 spaced repetition
 - **Achievements / Paths / Challenges**: gamification layer
-- `@effect/cluster` is wired for workflow execution; the current production path is the SQL-polling worker in `apps/api/src/workers/`
+- The same layer (`apps/api/src/app.ts`) is served two ways: as a Node process for local work, and as a web handler mounted in Nitro (`apps/web/server/routes/api/[...].ts`) in production
 
 ### Frontend (Nuxt 4)
 
@@ -148,15 +146,19 @@ The API is built with `@effect/platform` (`HttpApiBuilder`) on Node's HTTP serve
 
 ### Code Execution
 
-Submissions are processed asynchronously by a dedicated worker process:
+Submissions run inline, in the request that creates them:
 
-1. User submits code via the API; a row is inserted with `status='pending'`
-2. The worker polls Postgres for pending rows and dispatches by language
-3. Code runs in a hardened Docker sandbox (network=none, read-only fs, dropped caps, pid/memory/cpu/file limits)
-4. Test output is parsed per language and stored back on the submission row
-5. Progress, mastery, and the SM-2 review schedule are updated from the result
+1. `POST /api/submissions` inserts the row and executes it before responding
+2. Code runs in a sandbox — a Vercel Sandbox microVM (`EXECUTION_BACKEND=vercel-sandbox`)
+   or a hardened Docker container locally (network=none, read-only fs, dropped
+   caps, pid/memory/cpu/file limits)
+3. Test output is parsed per language and stored back on the submission row
+4. Progress, mastery, and the SM-2 review schedule are updated from the result
+5. The finished submission — verdict and all — is what the request returns
 
-There is no Redis or external queue — Postgres is the only datastore.
+Execution takes 2-12s, which fits inside a request. There is no queue, no
+worker, and no polling: those existed only because a separate process had to
+find the work. Postgres is the only datastore.
 
 ## AI Exercise Generation
 
@@ -286,15 +288,14 @@ bun run runners:build         # rebuild sandbox images only
 ```
 
 The `runner-images` one-shot service builds every per-language sandbox image
-before the worker starts. The worker fails fast at boot if an image is missing,
-pointing at `docker compose up runner-images`.
+before the app starts. Execution fails fast if an image is missing, pointing at
+`docker compose up runner-images`.
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `web` | 3001 | Nuxt dev server |
-| `api` | 3000 | Effect.ts API |
-| `worker` | — | Submission processor (needs the Docker socket) |
+| `web` | 3001 | Nuxt dev server, with the Effect API mounted at `/api` (needs the Docker socket to sandbox submissions) |
 | `postgres` | 5432 | PostgreSQL 17 |
+| `runner-images` | — | One-shot: builds the per-language sandbox images |
 
 ## Toolchain notes
 

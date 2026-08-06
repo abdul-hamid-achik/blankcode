@@ -6,6 +6,7 @@ import { type BlankRegionInStarter, gradeBlanks } from '@blankcode/shared'
 import { Context, Effect, Layer } from 'effect'
 import { BadRequestError, InvalidTransitionError, NotFoundError } from '../../api/errors.js'
 import { redactExercise } from '../exercises/redact.js'
+import { runSubmission } from './run-submission.js'
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ['running', 'error'],
@@ -131,10 +132,23 @@ export const SubmissionsServiceLive = Layer.effect(
           return submission
         }),
 
+      /*
+       * Creates the submission AND runs it, in the same request.
+       *
+       * The name used to be a lie: it only inserted a `pending` row and a
+       * separate worker process polled for it. Execution takes 2-12s, which
+       * fits inside a request everywhere this runs, so the queue bought
+       * nothing but a poll loop, a lease reaper, and a class of bug where a
+       * crashed worker stranded rows in `running`.
+       */
       createAndExecute: (userId, input) =>
         Effect.gen(function* () {
           const exercise = yield* Effect.tryPromise({
-            try: () => db.query.exercises.findFirst({ where: eq(exercises.id, input.exerciseId) }),
+            try: () =>
+              db.query.exercises.findFirst({
+                where: eq(exercises.id, input.exerciseId),
+                with: { concept: { with: { track: true } } },
+              }),
             catch: () => new NotFoundError({ resource: 'Exercise', id: input.exerciseId }),
           })
 
@@ -166,7 +180,29 @@ export const SubmissionsServiceLive = Layer.effect(
             )
           }
 
-          return submission
+          // `runSubmission` records its own failures on the row, so the request
+          // still returns a submission the client can render.
+          yield* Effect.promise(() =>
+            runSubmission(db, {
+              submissionId: submission.id,
+              userId,
+              exerciseId: exercise.id,
+              code: input.code,
+              testCode: exercise.testCode,
+              language: exercise.concept.track.slug,
+            })
+          )
+
+          const finished = yield* Effect.tryPromise({
+            try: () =>
+              db.query.submissions.findFirst({
+                where: eq(submissions.id, submission.id),
+                with: { exercise: true },
+              }),
+            catch: () => new BadRequestError({ message: 'Failed to read submission' }),
+          })
+
+          return finished ? withBlankFeedback(finished) : submission
         }),
 
       findById: (id, userId?) =>

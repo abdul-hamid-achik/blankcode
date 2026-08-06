@@ -15,17 +15,6 @@ x-dev-build: &dev-build
           rm -rf /var/lib/apt/lists/*
       WORKDIR /app
 
-x-dev-volumes: &dev-volumes
-  - .:/app
-  - node_modules:/app/node_modules
-  - api_node_modules:/app/apps/api/node_modules
-  - web_node_modules:/app/apps/web/node_modules
-  - db_node_modules:/app/packages/db/node_modules
-  - shared_node_modules:/app/packages/shared/node_modules
-  - parser_node_modules:/app/packages/exercise-parser/node_modules
-  - importer_node_modules:/app/tools/content-importer/node_modules
-  - generator_node_modules:/app/tools/exercise-generator/node_modules
-
 services:
   postgres:
     image: postgres:17-alpine
@@ -50,57 +39,56 @@ services:
         limits:
           memory: 512M
 
-  api:
-    <<: *dev-build
-    container_name: blankcode-api
-    restart: unless-stopped
-    command: >
-      sh -c "bun install &&
-             bunx turbo build --filter=@blankcode/shared --filter=@blankcode/db &&
-             cd packages/db && bunx drizzle-kit push --force && cd /app &&
-             bun --watch apps/api/src/main.ts"
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-blankcode}
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env (copy from .env.example and change it)}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
-      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
-      NODE_ENV: development
-    ports:
-      - "${API_PORT:-3000}:3000"
-    volumes: *dev-volumes
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 120s
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '1'
-
+  # The whole app: Nuxt, with the Effect API mounted at /api inside Nitro.
+  # This is the same shape that deploys to Vercel, so dev and production do not
+  # disagree about how a request reaches a handler.
+  #
+  # SECURITY NOTE: submissions execute inline in the request that creates them,
+  # so this container needs Docker socket access to sandbox them. That is
+  # host-level Docker access, and it is for local development only — in
+  # production EXECUTION_BACKEND=vercel-sandbox runs them in microVMs instead.
   web:
     <<: *dev-build
     container_name: blankcode-web
     restart: unless-stopped
+    user: root
     command: >
       sh -c "bun install &&
+             bunx turbo build --filter=@blankcode/shared --filter=@blankcode/db --filter=@blankcode/api &&
+             cd packages/db && bunx drizzle-kit push --force && cd /app &&
              cd apps/web && bunx nuxi dev --host 0.0.0.0"
     environment:
       NODE_ENV: development
-      NUXT_PUBLIC_API_URL: http://api:3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-blankcode}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env (copy from .env.example and change it)}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      AI_GATEWAY_API_KEY: ${AI_GATEWAY_API_KEY:-}
+      EXECUTION_BACKEND: ${EXECUTION_BACKEND:-docker}
+      DOCKER_ENABLED: ${DOCKER_ENABLED:-true}
+      EXECUTION_TIMEOUT_MS: ${EXECUTION_TIMEOUT_MS:-60000}
+      EXECUTION_MEMORY_MB: ${EXECUTION_MEMORY_MB:-256}
+      EXECUTION_WORKSPACE_PATH: /tmp/blankcode-workspaces
     ports:
       - "3001:3000"
-    volumes: *dev-volumes
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/blankcode-workspaces:/tmp/blankcode-workspaces
+      - .:/app
+      - node_modules:/app/node_modules
+      - api_node_modules:/app/apps/api/node_modules
+      - web_node_modules:/app/apps/web/node_modules
+      - db_node_modules:/app/packages/db/node_modules
+      - shared_node_modules:/app/packages/shared/node_modules
+      - parser_node_modules:/app/packages/exercise-parser/node_modules
+      - importer_node_modules:/app/tools/content-importer/node_modules
+      - generator_node_modules:/app/tools/exercise-generator/node_modules
     depends_on:
-      api:
+      postgres:
         condition: service_healthy
+      runner-images:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:3000 || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -108,10 +96,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 2G
 
   # One-shot: builds all per-language runner images on the host Docker daemon
-  # via the mounted socket, then exits 0. The worker's depends_on gates boot
+  # via the mounted socket, then exits 0. The API's depends_on gates boot
   # on this completing, so `docker compose up` "just works" — no profiles, no
   # surprise --pull=never failures the first time someone clones the repo.
   runner-images:
@@ -122,60 +110,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./docker/runners:/runners:ro
     entrypoint: ["/bin/sh", "/runners/build-all.sh"]
-
-  # SECURITY NOTE: Worker requires Docker socket access for sandboxed code execution.
-  # The 'user: root' and Docker socket mount grant host-level Docker access.
-  worker:
-    <<: *dev-build
-    container_name: blankcode-worker
-    restart: unless-stopped
-    user: root
-    stop_grace_period: 30s
-    command: >
-      sh -c "bun install &&
-             bunx turbo build --filter=@blankcode/shared --filter=@blankcode/db &&
-             bun --watch apps/api/src/workers/index.ts"
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-blankcode}
-      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env (copy from .env.example and change it)}
-      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
-      NODE_ENV: development
-      DOCKER_ENABLED: ${DOCKER_ENABLED:-true}
-      EXECUTION_TIMEOUT_MS: ${EXECUTION_TIMEOUT_MS:-60000}
-      EXECUTION_MEMORY_MB: ${EXECUTION_MEMORY_MB:-256}
-      EXECUTION_WORKSPACE_PATH: /tmp/blankcode-workspaces
-      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
-    volumes:
-      - .:/app
-      - node_modules:/app/node_modules
-      - api_node_modules:/app/apps/api/node_modules
-      - web_node_modules:/app/apps/web/node_modules
-      - db_node_modules:/app/packages/db/node_modules
-      - shared_node_modules:/app/packages/shared/node_modules
-      - parser_node_modules:/app/packages/exercise-parser/node_modules
-      - importer_node_modules:/app/tools/content-importer/node_modules
-      - generator_node_modules:/app/tools/exercise-generator/node_modules
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /tmp/blankcode-workspaces:/tmp/blankcode-workspaces
-    depends_on:
-      postgres:
-        condition: service_healthy
-      api:
-        condition: service_healthy
-      runner-images:
-        condition: service_completed_successfully
-    healthcheck:
-      # Worker touches /tmp/worker-healthy each poll cycle; fail if mtime is stale.
-      test: ["CMD-SHELL", "test $(($(date +%s) - $(stat -c %Y /tmp/worker-healthy 2>/dev/null || echo 0))) -lt 30"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 120s
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '2'
 
 volumes:
   postgres_data:

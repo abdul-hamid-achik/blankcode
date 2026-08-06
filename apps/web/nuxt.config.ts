@@ -16,6 +16,19 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  app: {
+    head: {
+      link: [
+        // SVG first for anything modern; .ico is the fallback Safari and
+        // Windows still ask for, and a 404 there is visible in every tab.
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico', sizes: '32x32' },
+        { rel: 'apple-touch-icon', href: '/favicon.svg' },
+      ],
+      meta: [{ name: 'theme-color', content: '#0d1017' }],
+    },
+  },
+
   vite: {
     plugins: [tailwindcss() as PluginOption],
   },
@@ -27,10 +40,15 @@ export default defineNuxtConfig({
   },
 
   nitro: {
-    devProxy: {
-      '/api': {
-        target: 'http://localhost:3000',
-        changeOrigin: true,
+    // The Effect API is mounted at server/routes/api/[...].ts, so there is no
+    // separate API process to proxy to — dev and production take the same path
+    // through the same handler.
+    vercel: {
+      functions: {
+        // Submissions execute inline in the request that creates them: 2-12s
+        // for a warm sandbox, more when a snapshot is cold. The Vercel default
+        // would cut a slow Rust run off mid-compile.
+        maxDuration: 300,
       },
     },
   },

@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nuxtjs",
+  "installCommand": "cd ../.. && bun install --frozen-lockfile",
+  "buildCommand": "cd ../.. && bunx turbo build --filter=@blankcode/web"
+}

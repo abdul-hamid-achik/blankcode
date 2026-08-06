@@ -3,11 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./app": {
+      "types": "./dist/app.d.ts",
+      "import": "./dist/app.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "dev": "bun --watch src/main.ts",
     "start": "bun src/main.ts",
-    "start:worker": "bun src/workers/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -17,13 +22,9 @@
   "dependencies": {
     "@blankcode/db": "workspace:*",
     "@blankcode/shared": "workspace:*",
-    "@effect/cluster": "^0.60.2",
     "@effect/experimental": "^0.61.1",
     "@effect/platform": "^0.97.1",
     "@effect/platform-node": "^0.108.1",
-    "@effect/rpc": "^0.76.2",
-    "@effect/sql": "^0.52.1",
-    "@effect/workflow": "^0.19.1",
     "@vercel/sandbox": "^2.9.2",
     "bcrypt": "^6.0.0",
     "effect": "^3.22.1",

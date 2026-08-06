@@ -2,7 +2,6 @@
 import { Drizzle } from '@blankcode/db/client'
 import { HttpApiBuilder, HttpBody, HttpClient } from '@effect/platform'
 import { NodeHttpServer } from '@effect/platform-node'
-import { WorkflowEngine } from '@effect/workflow/WorkflowEngine'
 import { Effect, Layer } from 'effect'
 import { describe, expect, it } from 'vitest'
 // Errors
@@ -12,7 +11,6 @@ import { BlankCodeApi } from '../api/index.js'
 // Handlers
 import { AuthHandlers } from '../handlers/auth.handlers.js'
 import { ExercisesHandlers } from '../handlers/exercises.handlers.js'
-import { GenerationHandlers } from '../handlers/generation.handlers.js'
 import { HealthHandlers } from '../handlers/health.handlers.js'
 import { ProgressHandlers } from '../handlers/progress.handlers.js'
 import { SubmissionsHandlers } from '../handlers/submissions.handlers.js'
@@ -24,7 +22,6 @@ import { AuthorizationLive } from '../middleware/auth.middleware.js'
 import { AuthRateLimitLive, SubmissionRateLimitLive } from '../middleware/rate-limit.middleware.js'
 import { AuthService } from '../modules/auth/auth.service.js'
 import { ExercisesService } from '../modules/exercises/exercises.service.js'
-import { GenerationServiceLive } from '../modules/generation/generation.service.js'
 import { ProgressService } from '../modules/progress/progress.service.js'
 import { SubmissionsService } from '../modules/submissions/submissions.service.js'
 import { TracksService } from '../modules/tracks/tracks.service.js'
@@ -371,23 +368,6 @@ const mockDrizzleDb = {
 
 const MockDrizzle = Layer.succeed(Drizzle, mockDrizzleDb as any)
 
-// Mock WorkflowEngine — provides a no-op engine so submission handlers
-// can call SubmissionWorkflow.execute({ discard: true }) without error.
-const MockWorkflowEngine = Layer.succeed(
-  WorkflowEngine,
-  WorkflowEngine.of({
-    register: () => Effect.void as any,
-    execute: () => Effect.succeed('mock-execution-id') as any,
-    poll: () => Effect.succeed(undefined) as any,
-    interrupt: () => Effect.void,
-    resume: () => Effect.void,
-    activityExecute: () => Effect.succeed(undefined) as any,
-    deferredResult: () => Effect.succeed(undefined) as any,
-    deferredDone: () => Effect.void as any,
-    scheduleClock: () => Effect.void,
-  })
-)
-
 // ---------------------------------------------------------------------------
 // Compose the full API layer with mock services
 // ---------------------------------------------------------------------------
@@ -398,9 +378,7 @@ const MockServicesLive = Layer.mergeAll(
   MockTracksService,
   MockExercisesService,
   MockSubmissionsService,
-  MockProgressService,
-  GenerationServiceLive,
-  MockWorkflowEngine
+  MockProgressService
 )
 
 const HandlersLive = Layer.mergeAll(
@@ -410,7 +388,6 @@ const HandlersLive = Layer.mergeAll(
   ExercisesHandlers,
   SubmissionsHandlers,
   ProgressHandlers,
-  GenerationHandlers,
   HealthHandlers
 )
 
