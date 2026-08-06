@@ -148,7 +148,13 @@ describe('ProgressService', () => {
         testLayer
       )
 
-      expect(result).toEqual(mockMastery)
+      // getConceptMastery now applies time-based decay on read and exposes
+      // the underlying stored value alongside the effective one. With a
+      // lastPracticedAt of "now", the effective level equals the stored level.
+      expect(result).toMatchObject({
+        ...mockMastery,
+        storedMasteryLevel: 0.75,
+      })
       expect(result.masteryLevel).toBe(0.75)
     })
 
@@ -206,6 +212,9 @@ describe('ProgressService', () => {
       )
 
       expect(result).toHaveLength(2)
+      // The mastery row now includes storedMasteryLevel alongside the (decay-
+      // applied) masteryLevel — for a row with no lastPracticedAt, decay is a
+      // no-op so masteryLevel equals storedMasteryLevel.
       expect(result[0]).toEqual({
         conceptId: 'concept-1',
         conceptSlug: 'variables',
@@ -213,6 +222,7 @@ describe('ProgressService', () => {
         mastery: {
           conceptId: 'concept-1',
           masteryLevel: 0.5,
+          storedMasteryLevel: 0.5,
           exercisesCompleted: 1,
           exercisesTotal: 2,
         },

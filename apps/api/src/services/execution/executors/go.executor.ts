@@ -259,6 +259,22 @@ go 1.22
         }
       }
 
+      // `[].every(...)` is true, so a run that produced no parseable results
+      // would report "passed" with 0/0 tests — a false green that still marked
+      // the exercise complete and advanced the SM-2 schedule. No tests is not a
+      // pass; it means the suite never ran or its output could not be parsed.
+      if (testResults.length === 0) {
+        return {
+          success: false,
+          status: 'error',
+          testResults: [],
+          executionTimeMs,
+          errorMessage:
+            output.trim().slice(-2000) ||
+            'The test suite produced no results. The code may not compile, or the tests did not run.',
+        }
+      }
+
       const allPassed = testResults.every((r) => r.passed)
 
       return {

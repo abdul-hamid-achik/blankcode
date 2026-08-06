@@ -5,6 +5,9 @@ import { NotFoundError } from './errors.js'
 
 const CompleteReviewPayload = Schema.Struct({
   passed: Schema.Boolean,
+  // Self-rating after a passed submission. 3=hard, 4=good, 5=easy.
+  // Ignored when passed=false (treated as 1=fail).
+  quality: Schema.optional(Schema.Literal(3, 4, 5)),
 })
 
 export class ReviewsApi extends HttpApiGroup.make('reviews')

@@ -13,14 +13,24 @@ function resolveSecret(envVar: string, fallback: string): string {
   return process.env[envVar] ?? fallback
 }
 
-const KNOWN_DEFAULT_SECRETS = ['development-secret-change-me']
+const KNOWN_DEFAULT_SECRETS = [
+  'development-secret-change-me',
+  'your-super-secret-jwt-key-change-in-production',
+]
+
+const jwtSecret = resolveSecret('JWT_SECRET', '')
+if (!jwtSecret || KNOWN_DEFAULT_SECRETS.includes(jwtSecret)) {
+  throw new Error(
+    'JWT_SECRET is missing or set to a known default. Set a unique secret in .env before starting (see .env.example).'
+  )
+}
 
 export const config = {
   database: {
     url: resolveSecret('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/blankcode'),
   },
   jwt: {
-    secret: resolveSecret('JWT_SECRET', 'development-secret-change-me'),
+    secret: jwtSecret,
     expiresIn: process.env['JWT_EXPIRES_IN'] ?? '7d',
   },
   api: {
@@ -39,7 +49,7 @@ export const config = {
       python: process.env['DOCKER_IMAGE_PYTHON'] ?? 'blankcode/runner-python:latest',
       go: process.env['DOCKER_IMAGE_GO'] ?? 'blankcode/runner-go:latest',
       rust: process.env['DOCKER_IMAGE_RUST'] ?? 'blankcode/runner-rust:latest',
-      vue: process.env['DOCKER_IMAGE_VUE'] ?? 'blankcode/runner-typescript:latest',
+      vue: process.env['DOCKER_IMAGE_VUE'] ?? 'blankcode/runner-vue:latest',
       react: process.env['DOCKER_IMAGE_REACT'] ?? 'blankcode/runner-react:latest',
       node: process.env['DOCKER_IMAGE_NODE'] ?? 'blankcode/runner-typescript:latest',
     } as Record<string, string>,
@@ -58,16 +68,4 @@ export const config = {
       .map((e) => e.trim())
       .filter(Boolean),
   },
-}
-
-if (process.env['NODE_ENV'] === 'production' && KNOWN_DEFAULT_SECRETS.includes(config.jwt.secret)) {
-  throw new Error(
-    'JWT_SECRET must be set to a secure value in production. The default secret is not allowed.'
-  )
-}
-
-if (process.env['NODE_ENV'] !== 'production' && KNOWN_DEFAULT_SECRETS.includes(config.jwt.secret)) {
-}
-
-if (config.admin.emails.length === 0) {
 }

@@ -25,7 +25,7 @@ export const ReviewsHandlers = HttpApiBuilder.group(BlankCodeApi, 'reviews', (ha
       Effect.gen(function* () {
         const user = yield* CurrentUser
         const svc = yield* ReviewsService
-        yield* svc.recordReview(user.id, path.exerciseId, payload.passed)
+        yield* svc.recordReview(user.id, path.exerciseId, payload.passed, payload.quality)
       })
     )
 )

@@ -8,7 +8,6 @@ import {
 } from '@blankcode/shared/types'
 import { relations } from 'drizzle-orm'
 import {
-  bigint,
   boolean,
   index,
   integer,
@@ -16,7 +15,6 @@ import {
   pgEnum,
   pgTable,
   real,
-  serial,
   text,
   timestamp,
   uniqueIndex,
@@ -173,17 +171,20 @@ export const submissions = pgTable(
       .references(() => exercises.id, { onDelete: 'cascade' }),
     code: text('code').notNull(),
     status: submissionStatusEnum('status').notNull().default('pending'),
-    testResults:
-      jsonb('test_results').$type<
-        Array<{
-          name: string
-          passed: boolean
-          message: string | null
-          duration: number
-        }>
-      >(),
+    testResults: jsonb('test_results').$type<
+      Array<{
+        name: string
+        passed: boolean
+        message: string | null
+        duration: number
+      }>
+    >(),
     errorMessage: text('error_message'),
     executionTimeMs: integer('execution_time_ms'),
+    // Bumped by the reaper when a 'running' lease expires. Bounded retries
+    // distinguish worker crashes (retryable) from legitimate test failures
+    // (which never enter the reaper path).
+    attemptCount: integer('attempt_count').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -291,14 +292,14 @@ export const refreshTokens = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     token: text('token').notNull(),
-    tokenHash: text('token_hash').notNull().unique(),
+    tokenHash: text('token_hash').notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
+    uniqueIndex('refresh_tokens_token_idx').on(table.token),
     index('refresh_tokens_user_id_idx').on(table.userId),
-    index('refresh_tokens_token_hash_idx').on(table.tokenHash),
     index('refresh_tokens_expires_at_idx').on(table.expiresAt),
   ]
 )
@@ -379,53 +380,14 @@ export const reviewSchedulesRelations = relations(reviewSchedules, ({ one }) => 
   }),
 }))
 
-export const clusterRunners = pgTable('cluster_runners', {
-  machineId: serial('machine_id').primaryKey(),
-  address: varchar('address', { length: 255 }).notNull(),
-  runner: text('runner').notNull(),
-  healthy: boolean('healthy').notNull().default(true),
-  lastHeartbeat: timestamp('last_heartbeat', { withTimezone: true }).notNull().defaultNow(),
-})
-
-export const clusterLocks = pgTable('cluster_locks', {
-  shardId: varchar('shard_id', { length: 50 }).primaryKey(),
-  address: varchar('address', { length: 255 }).notNull(),
-  acquiredAt: timestamp('acquired_at', { withTimezone: true }).notNull(),
-})
-
-export const clusterMigrations = pgTable('cluster_migrations', {
-  id: varchar('id', { length: 255 }).primaryKey(),
-  name: varchar('name', { length: 255 }).notNull(),
-  timestamp: bigint('timestamp', { mode: 'number' }).notNull(),
-  done: boolean('done').notNull().default(false),
-})
-
-export const clusterMessages = pgTable('cluster_messages', {
-  id: text('id').primaryKey(),
-  messageId: text('message_id').notNull(),
-  shardId: text('shard_id'),
-  entityType: text('entity_type').notNull(),
-  entityId: text('entity_id').notNull(),
-  kind: text('kind').notNull(),
-  tag: text('tag'),
-  payload: jsonb('payload'),
-  headers: jsonb('headers'),
-  traceId: text('trace_id'),
-  spanId: text('span_id'),
-  sampled: integer('sampled'),
-  requestId: text('request_id').notNull(),
-  replyId: text('reply_id'),
-  deliverAt: timestamp('deliver_at', { withTimezone: true }).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
-
-export const clusterReplies = pgTable('cluster_replies', {
-  id: text('id').primaryKey(),
-  kind: text('kind').notNull(),
-  requestId: text('request_id').notNull(),
-  payload: jsonb('payload'),
-  sequence: bigint('sequence', { mode: 'number' }),
-})
+/*
+ * The `cluster_*` tables are owned and migrated by `@effect/cluster` itself.
+ *
+ * They used to be mirrored here so `drizzle-kit push` would create them, but
+ * that made the schema drift on every cluster upgrade — 0.60 renamed the
+ * migrations table's `id` column to `migration_id`, and the stale Drizzle-made
+ * table stopped the API from booting. Let the library create its own tables.
+ */
 
 export const learningPaths = pgTable('learning_paths', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -441,15 +403,22 @@ export const learningPaths = pgTable('learning_paths', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-export const userAchievements = pgTable('user_achievements', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  achievementType: achievementTypeEnum('achievement_type').notNull(),
-  title: varchar('title', { length: 200 }).notNull(),
-  description: text('description').notNull(),
-  icon: varchar('icon', { length: 50 }).notNull(),
-  earnedAt: timestamp('earned_at', { withTimezone: true }).notNull().defaultNow(),
-  metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
-})
+export const userAchievements = pgTable(
+  'user_achievements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    achievementType: achievementTypeEnum('achievement_type').notNull(),
+    title: varchar('title', { length: 200 }).notNull(),
+    description: text('description').notNull(),
+    icon: varchar('icon', { length: 50 }).notNull(),
+    earnedAt: timestamp('earned_at', { withTimezone: true }).notNull().defaultNow(),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
+  },
+  (table) => [
+    index('user_achievements_user_id_idx').on(table.userId),
+    index('user_achievements_user_type_idx').on(table.userId, table.achievementType),
+  ]
+)

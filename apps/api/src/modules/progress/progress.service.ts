@@ -47,6 +47,23 @@ export class ProgressService extends Context.Tag('ProgressService')<
   ProgressServiceShape
 >() {}
 
+// Mastery decay: skill rusts over time. We model retention with an exponential
+// half-life: after `MASTERY_HALF_LIFE_DAYS` of no practice, mastery shown to
+// the user halves. Stored mastery is never mutated; we apply decay only on read
+// so the dashboard reflects current ability rather than peak ability.
+const MASTERY_HALF_LIFE_DAYS = 14
+const MASTERY_DECAY_FLOOR = 0.05
+
+function applyMasteryDecay(level: number, lastPracticedAt: Date | null | undefined): number {
+  if (level <= 0 || !lastPracticedAt) return level
+  const days = (Date.now() - new Date(lastPracticedAt).getTime()) / (24 * 60 * 60 * 1000)
+  // Same-day practice — no decay yet. Avoids floating-point drift on freshly
+  // updated rows and matches user intuition that today's progress shouldn't rust.
+  if (days < 1) return level
+  const decayed = level * 2 ** (-days / MASTERY_HALF_LIFE_DAYS)
+  return Math.max(MASTERY_DECAY_FLOOR * level, decayed)
+}
+
 export const ProgressServiceLive = Layer.effect(
   ProgressService,
   Effect.gen(function* () {
@@ -195,7 +212,17 @@ export const ProgressServiceLive = Layer.effect(
               ),
             }),
           catch: () => new NotFoundError({ resource: 'ConceptMastery', id: conceptId }),
-        }).pipe(Effect.map((mastery) => mastery ?? null)),
+        }).pipe(
+          Effect.map((mastery) => {
+            if (!mastery) return null
+            const effectiveLevel = applyMasteryDecay(mastery.masteryLevel, mastery.lastPracticedAt)
+            return {
+              ...mastery,
+              storedMasteryLevel: mastery.masteryLevel,
+              masteryLevel: effectiveLevel,
+            }
+          })
+        ),
 
       getTrackProgress: (userId, trackSlug) =>
         Effect.gen(function* () {
@@ -228,13 +255,23 @@ export const ProgressServiceLive = Layer.effect(
 
           const masteryMap = new Map(masteryRecords.map((m) => [m.conceptId, m]))
 
-          return trackConcepts.map((concept) => ({
-            conceptId: concept.id,
-            conceptSlug: concept.slug,
-            conceptName: concept.name,
-            mastery: masteryMap.get(concept.id) ?? null,
-            totalExercises: concept.exercises.length,
-          }))
+          return trackConcepts.map((concept) => {
+            const mastery = masteryMap.get(concept.id) ?? null
+            const decayedMastery = mastery
+              ? {
+                  ...mastery,
+                  storedMasteryLevel: mastery.masteryLevel,
+                  masteryLevel: applyMasteryDecay(mastery.masteryLevel, mastery.lastPracticedAt),
+                }
+              : null
+            return {
+              conceptId: concept.id,
+              conceptSlug: concept.slug,
+              conceptName: concept.name,
+              mastery: decayedMastery,
+              totalExercises: concept.exercises.length,
+            }
+          })
         }),
 
       markExerciseCompleted: (userId, exerciseId, submissionId) =>

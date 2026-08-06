@@ -3,8 +3,26 @@ import { Effect, HashMap, Layer, Option, Ref } from 'effect'
 import { RateLimitError } from '../api/errors.js'
 import { config } from '../config/index.js'
 
+const TRUST_FORWARDED_FOR = process.env['TRUST_FORWARDED_FOR'] === 'true'
+const MAX_RATE_LIMIT_KEYS = 10_000
+
 function getClientIp(req: HttpServerRequest.HttpServerRequest): string {
+  if (TRUST_FORWARDED_FOR) {
+    const xff = req.headers['x-forwarded-for']
+    if (typeof xff === 'string' && xff.length > 0) {
+      const first = xff.split(',')[0]?.trim()
+      if (first) return first
+    }
+  }
   return Option.getOrElse(req.remoteAddress, () => 'unknown')
+}
+
+function pruneIfOversized(
+  map: HashMap.HashMap<string, number[]>
+): HashMap.HashMap<string, number[]> {
+  if (HashMap.size(map) <= MAX_RATE_LIMIT_KEYS) return map
+  // Clear when oversized — safer than letting it grow unbounded under burst.
+  return HashMap.empty()
 }
 
 function getTimestamps(map: HashMap.HashMap<string, number[]>, key: string): number[] {
@@ -37,10 +55,9 @@ export const AuthRateLimitLive = Layer.effect(
         }
 
         yield* Ref.update(store, (map) => {
-          // Set current IP's timestamps
           const updated = HashMap.set(map, ip, [...valid, now])
-          // Prune stale entries where all timestamps have expired
-          return HashMap.filter(updated, (ts) => ts.some((t) => t > windowStart))
+          const pruned = HashMap.filter(updated, (ts) => ts.some((t) => t > windowStart))
+          return pruneIfOversized(pruned)
         })
       })
     )
@@ -74,10 +91,9 @@ export const SubmissionRateLimitLive = Layer.effect(
         }
 
         yield* Ref.update(store, (map) => {
-          // Set current IP's timestamps
           const updated = HashMap.set(map, ip, [...valid, now])
-          // Prune stale entries where all timestamps have expired
-          return HashMap.filter(updated, (ts) => ts.some((t) => t > windowStart))
+          const pruned = HashMap.filter(updated, (ts) => ts.some((t) => t > windowStart))
+          return pruneIfOversized(pruned)
         })
       })
     )
