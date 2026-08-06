@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 
 interface Props {
   modelValue?: string
@@ -7,6 +7,10 @@ interface Props {
   placeholder?: string
   disabled?: boolean
   error?: string
+  id?: string
+  label?: string
+  /** When true, the label is rendered visually-hidden but still announced. */
+  srOnlyLabel?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -14,11 +18,16 @@ const props = withDefaults(defineProps<Props>(), {
   type: 'text',
   placeholder: '',
   disabled: false,
+  srOnlyLabel: false,
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
+
+const autoId = useId()
+const inputId = computed(() => props.id ?? `input-${autoId}`)
+const errorId = computed(() => `${inputId.value}-error`)
 
 const classes = computed(() => {
   const base =
@@ -37,16 +46,31 @@ function onInput(event: Event) {
 }
 </script>
 
+<script lang="ts">
+export default { inheritAttrs: false }
+</script>
+
 <template>
   <div class="space-y-1">
+    <label
+      v-if="label"
+      :for="inputId"
+      :class="srOnlyLabel ? 'sr-only' : 'text-sm font-medium block'"
+    >
+      {{ label }}
+    </label>
     <input
+      :id="inputId"
       :type="type"
       :value="modelValue"
       :placeholder="placeholder"
       :disabled="disabled"
       :class="classes"
+      :aria-invalid="error ? 'true' : undefined"
+      :aria-describedby="error ? errorId : undefined"
+      v-bind="$attrs"
       @input="onInput"
     />
-    <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
+    <p v-if="error" :id="errorId" class="text-sm text-destructive" role="alert">{{ error }}</p>
   </div>
 </template>

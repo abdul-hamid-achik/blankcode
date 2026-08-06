@@ -22,13 +22,21 @@ const difficultyColor: Record<string, string> = {
 <template>
   <div class="container py-12">
     <div v-if="tutorial" class="max-w-3xl mx-auto">
-      <NuxtLink to="/tutorials" class="text-sm text-muted-foreground hover:text-foreground mb-6 inline-block">
+      <NuxtLink
+        to="/tutorials"
+        class="text-sm text-muted-foreground hover:text-foreground mb-6 inline-block"
+      >
         &#8592; Back to Tutorials
       </NuxtLink>
 
       <div class="mb-8">
         <div class="flex flex-wrap items-center gap-2 mb-3">
-          <span :class="['px-2 py-0.5 text-xs rounded-full capitalize', difficultyColor[(tutorial as any).difficulty]]">
+          <span
+            :class="[
+              'px-2 py-0.5 text-xs rounded-full capitalize',
+              difficultyColor[(tutorial as any).difficulty],
+            ]"
+          >
             {{ (tutorial as any).difficulty }}
           </span>
           <NuxtLink
@@ -47,11 +55,13 @@ const difficultyColor: Record<string, string> = {
           </span>
         </div>
 
-        <h1 class="text-3xl font-bold mb-2">{{ (tutorial as any).title }}</h1>
+        <h1 class="display text-2xl md:text-3xl mb-2">{{ (tutorial as any).title }}</h1>
         <p class="text-muted-foreground">{{ (tutorial as any).description }}</p>
       </div>
 
-      <div class="prose prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary hover:prose-a:text-primary/80 prose-code:text-primary prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:border prose-pre:border-border prose-li:text-muted-foreground prose-ul:text-muted-foreground prose-ol:text-muted-foreground">
+      <div
+        class="prose prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary hover:prose-a:text-primary/80 prose-code:text-primary prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:border prose-pre:border-rule prose-li:text-muted-foreground prose-ul:text-muted-foreground prose-ol:text-muted-foreground"
+      >
         <ContentRenderer :value="tutorial" />
       </div>
     </div>
@@ -63,7 +73,9 @@ const difficultyColor: Record<string, string> = {
         The tutorial you're looking for doesn't exist or has been moved.
       </p>
       <NuxtLink to="/tutorials" class="inline-block mt-8">
-        <button class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+        <button
+          class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
           Back to Tutorials
         </button>
       </NuxtLink>

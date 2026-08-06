@@ -40,7 +40,7 @@ defineExpose({ reset })
       <div
         v-for="(hint, index) in visibleHints"
         :key="index"
-        class="p-3 rounded-lg bg-muted/50 border border-border text-sm animate-in fade-in slide-in-from-top-2"
+        class="p-3 rounded-lg bg-muted/50 border border-rule text-sm animate-in fade-in slide-in-from-top-2"
       >
         <span class="text-muted-foreground mr-2">{{ index + 1 }}.</span>
         {{ hint }}
@@ -51,17 +51,9 @@ defineExpose({ reset })
       Need help? Reveal a hint below.
     </div>
 
-    <div v-else class="text-sm text-muted-foreground">
-      No hints available for this exercise.
-    </div>
+    <div v-else class="text-sm text-muted-foreground">No hints available for this exercise.</div>
 
-    <Button
-      v-if="hasMoreHints"
-      variant="outline"
-      size="sm"
-      class="w-full"
-      @click="revealNext"
-    >
+    <Button v-if="hasMoreHints" variant="outline" size="sm" class="w-full" @click="revealNext">
       Reveal Hint ({{ remainingHints }} remaining)
     </Button>
   </div>

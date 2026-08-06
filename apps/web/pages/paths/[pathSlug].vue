@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { Exercise } from '@blankcode/shared'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Button from '~/components/ui/button.vue'
 import Card from '~/components/ui/card.vue'
+import DifficultyTag from '~/components/ui/difficulty-tag.vue'
 import { useAsync } from '~/composables/useAsync'
 
 definePageMeta({ requiresAuth: false })
@@ -12,13 +13,28 @@ const router = useRouter()
 const pathSlug = computed(() => route.params['pathSlug'] as string)
 
 const api = useApi()
-const { data: path, isLoading: pathLoading } = useAsync(() => api.paths.getBySlug(pathSlug.value))
+const {
+  data: path,
+  isLoading: pathLoading,
+  execute: loadPath,
+} = useAsync(() => api.paths.getBySlug(pathSlug.value))
 
-const { data: exercises, isLoading: exercisesLoading } = useAsync(() => {
+const {
+  data: exercises,
+  isLoading: exercisesLoading,
+  execute: loadExercises,
+} = useAsync(() => {
   if (!path.value) return Promise.resolve([] as (Exercise | null)[])
   return Promise.all(
     path.value.challengeIds.map((id) => api.exercises.getById(id).catch(() => null))
   )
+})
+
+// The exercise fetch reads `path.value`, so it has to run after the path
+// resolves — `useAsync` never fires either of these on its own.
+onMounted(async () => {
+  await loadPath()
+  await loadExercises()
 })
 
 const isLoading = computed(() => pathLoading.value || exercisesLoading.value)
@@ -33,27 +49,23 @@ const progress = ref({
 })
 
 const startChallenge = () => {
-  if (validExercises.value.length > 0) {
-    router.push(`/exercise/${validExercises.value[0].id}`)
+  const first = validExercises.value[0]
+  if (first) {
+    router.push(`/exercise/${first.id}`)
   }
-}
-
-const difficultyColors: Record<string, string> = {
-  beginner: 'bg-green-500/10 text-green-500 border-green-500/20',
-  intermediate: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-  advanced: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
-  expert: 'bg-red-500/10 text-red-500 border-red-500/20',
 }
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-b from-background to-muted/20">
+  <div class="min-h-screen">
     <div v-if="isLoading" class="flex items-center justify-center py-12">
-      <div class="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+      <div
+        class="animate-spin h-6 w-6 border-2 border-rule-strong border-t-signal rounded-full"
+      ></div>
     </div>
 
     <div v-else-if="!path" class="container py-12 text-center">
-      <h1 class="text-2xl font-bold mb-4">Path not found</h1>
+      <h1 class="display text-xl md:text-2xl mb-4">Path not found</h1>
       <NuxtLink to="/paths">
         <Button>Browse All Paths</Button>
       </NuxtLink>
@@ -61,17 +73,20 @@ const difficultyColors: Record<string, string> = {
 
     <div v-else>
       <!-- Hero Section -->
-      <div class="border-b border-border" :style="{ backgroundColor: `${path.color}15` }">
+      <div class="border-b border-rule">
         <div class="container py-12">
           <div class="max-w-4xl">
-            <NuxtLink to="/paths" class="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block">
+            <NuxtLink
+              to="/paths"
+              class="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block"
+            >
               &larr; Back to Paths
             </NuxtLink>
-            
+
             <div class="flex items-start gap-4 mb-6">
               <div class="text-6xl">{{ path.icon }}</div>
               <div>
-                <h1 class="text-4xl font-bold mb-2">{{ path.name }}</h1>
+                <h1 class="display text-2xl md:text-3xl mb-2">{{ path.name }}</h1>
                 <p class="text-lg text-muted-foreground mb-4">{{ path.description }}</p>
                 <div class="flex items-center gap-4 text-sm text-muted-foreground">
                   <span class="flex items-center gap-1">
@@ -86,16 +101,14 @@ const difficultyColors: Record<string, string> = {
               </div>
             </div>
 
-            <Button size="lg" @click="startChallenge">
-              Start Path
-            </Button>
+            <Button size="lg" @click="startChallenge"> Start Path </Button>
           </div>
         </div>
       </div>
 
       <!-- Challenges List -->
       <div class="container py-8">
-        <h2 class="text-2xl font-bold mb-6">Challenges in this Path</h2>
+        <h2 class="display text-xl md:text-2xl mb-6">Challenges in this Path</h2>
 
         <div class="space-y-4">
           <NuxtLink
@@ -103,7 +116,7 @@ const difficultyColors: Record<string, string> = {
             :key="exercise.id"
             :to="`/exercise/${exercise.id}`"
           >
-            <Card class="hover:border-primary/50 hover:shadow-lg transition-all cursor-pointer">
+            <Card class="hover:border-rule-strong hover:shadow-lg transition-all cursor-pointer">
               <div class="p-6">
                 <div class="flex items-start gap-4">
                   <!-- Step Number -->
@@ -120,15 +133,8 @@ const difficultyColors: Record<string, string> = {
                   <!-- Content -->
                   <div class="flex-1">
                     <div class="flex items-center gap-3 mb-2">
-                      <h3 class="font-semibold text-lg">{{ exercise.title }}</h3>
-                      <span
-                        :class="[
-                          'text-xs px-2.5 py-1 rounded-full border font-medium',
-                          difficultyColors[exercise.difficulty],
-                        ]"
-                      >
-                        {{ exercise.difficulty }}
-                      </span>
+                      <h3 class="display text-base">{{ exercise.title }}</h3>
+                      <DifficultyTag :difficulty="exercise.difficulty" show-rank />
                     </div>
 
                     <p class="text-sm text-muted-foreground mb-3">
@@ -141,7 +147,9 @@ const difficultyColors: Record<string, string> = {
                         Challenge
                       </span>
                       <span>•</span>
-                      <span>{{ exercise.conceptId.split('-').slice(0, -1).join(' ') || 'Challenge' }}</span>
+                      <span>{{
+                        exercise.conceptId.split('-').slice(0, -1).join(' ') || 'Challenge'
+                      }}</span>
                     </div>
                   </div>
 

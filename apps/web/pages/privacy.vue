@@ -1,6 +1,8 @@
 <template>
   <div class="container py-12">
-    <div class="max-w-3xl mx-auto prose prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary prose-li:text-muted-foreground">
+    <div
+      class="max-w-3xl mx-auto prose prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary prose-li:text-muted-foreground"
+    >
       <h1>Privacy Policy</h1>
       <p class="text-sm text-muted-foreground">Last updated: February 2026</p>
 
@@ -66,7 +68,8 @@
       <h2>Contact</h2>
       <p>
         For privacy-related questions, please open an issue on the
-        <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub repository</a>.
+        <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub repository</a
+        >.
       </p>
     </div>
   </div>

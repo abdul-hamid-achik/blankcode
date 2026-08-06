@@ -31,11 +31,7 @@ const center = computed(() => props.size / 2)
 
 <template>
   <div class="relative inline-flex items-center justify-center">
-    <svg
-      :width="svgSize"
-      :height="svgSize"
-      class="transform -rotate-90"
-    >
+    <svg :width="svgSize" :height="svgSize" class="transform -rotate-90">
       <!-- Background circle -->
       <circle
         :cx="center"

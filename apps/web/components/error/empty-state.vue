@@ -1,20 +1,27 @@
 <script setup lang="ts">
+/**
+ * An empty screen is an invitation to act, so `action` is the point of this
+ * component — the title and description only set it up.
+ */
 defineProps<{
+  /** Short mono label, e.g. "no submissions yet". */
+  eyebrow?: string
   title: string
   description?: string
-  icon?: string
 }>()
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center py-12 text-center">
-    <div v-if="icon" class="text-5xl mb-4 opacity-50">{{ icon }}</div>
-    <h3 class="text-lg font-medium text-foreground mb-2">{{ title }}</h3>
-    <p v-if="description" class="text-sm text-muted-foreground max-w-sm">
-      {{ description }}
-    </p>
-    <div v-if="$slots['action']" class="mt-4">
-      <slot name="action" />
+  <div class="border border-dashed border-rule-strong px-6 py-12">
+    <div class="mx-auto max-w-sm">
+      <p v-if="eyebrow" class="eyebrow mb-3">{{ eyebrow }}</p>
+      <p class="display text-lg mb-2">{{ title }}</p>
+      <p v-if="description" class="text-sm leading-relaxed text-muted-foreground">
+        {{ description }}
+      </p>
+      <div v-if="$slots['action']" class="mt-5">
+        <slot name="action" />
+      </div>
     </div>
   </div>
 </template>

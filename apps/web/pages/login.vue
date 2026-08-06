@@ -35,48 +35,51 @@ async function handleSubmit() {
 <template>
   <div class="auth-container">
     <div class="auth-card">
-      <div class="text-center mb-8">
-        <h1 class="text-2xl font-bold">Welcome back</h1>
-        <p class="text-muted-foreground mt-1">Sign in to continue learning</p>
+      <div class="mb-8">
+        <p class="eyebrow mb-2">sign in</p>
+        <h1 class="display text-2xl">Back to it.</h1>
+        <p class="mt-2 text-sm text-muted-foreground">
+          Your progress and review schedule live in your own database.
+        </p>
       </div>
 
       <Card>
         <form @submit.prevent="handleSubmit" class="w-full space-y-4">
-          <div v-if="error" class="text-sm text-destructive bg-destructive/10 px-4 py-2 rounded">
+          <div
+            v-if="error"
+            class="border-l-2 border-fail bg-fail/5 px-4 py-2 text-sm text-fail"
+            role="alert"
+          >
             {{ error }}
           </div>
 
-          <div class="space-y-2">
-            <label class="text-sm font-medium block">Email</label>
-            <Input
-              v-model="email"
-              type="email"
-              placeholder="you@example.com"
-              required
-            />
-          </div>
+          <Input
+            id="login-email"
+            v-model="email"
+            label="Email"
+            type="email"
+            placeholder="you@example.com"
+            autocomplete="email"
+            required
+          />
 
-          <div class="space-y-2">
-            <label class="text-sm font-medium block">Password</label>
-            <Input
-              v-model="password"
-              type="password"
-              placeholder="••••••••"
-              required
-            />
-          </div>
+          <Input
+            id="login-password"
+            v-model="password"
+            label="Password"
+            type="password"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            required
+          />
 
-          <Button type="submit" :loading="isLoading" class="w-full">
-            Sign in
-          </Button>
+          <Button type="submit" :loading="isLoading" class="w-full"> Sign in </Button>
         </form>
       </Card>
 
       <p class="text-center text-sm text-muted-foreground mt-4">
         Don't have an account?
-        <NuxtLink to="/register" class="text-primary hover:underline">
-          Sign up
-        </NuxtLink>
+        <NuxtLink to="/register" class="text-primary hover:underline"> Sign up </NuxtLink>
       </p>
     </div>
   </div>

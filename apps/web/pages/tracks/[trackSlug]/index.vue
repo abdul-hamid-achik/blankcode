@@ -16,7 +16,9 @@ onMounted(() => {
 <template>
   <div class="container py-12">
     <div v-if="isLoading" class="flex items-center justify-center py-12">
-      <div class="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+      <div
+        class="animate-spin h-6 w-6 border-2 border-rule-strong border-t-signal rounded-full"
+      ></div>
     </div>
 
     <div v-else-if="track" class="max-w-4xl mx-auto">
@@ -27,11 +29,11 @@ onMounted(() => {
         >
           &larr; Back to Tracks
         </NuxtLink>
-        <h1 class="text-3xl font-bold mb-2">{{ track.name }}</h1>
+        <h1 class="display text-2xl md:text-3xl mb-2">{{ track.name }}</h1>
         <p class="text-muted-foreground">{{ track.description }}</p>
       </div>
 
-      <h2 class="text-xl font-semibold mb-4">Concepts</h2>
+      <h2 class="display text-lg mb-4">Concepts</h2>
 
       <div v-if="track.concepts?.length" class="grid gap-4">
         <NuxtLink
@@ -39,7 +41,7 @@ onMounted(() => {
           :key="concept.id"
           :to="`/tracks/${trackSlug}/${concept.slug}`"
         >
-          <Card class="hover:border-primary/50 transition-colors cursor-pointer">
+          <Card class="hover:border-rule-strong transition-colors cursor-pointer">
             <div class="flex items-center justify-between">
               <div>
                 <h3 class="font-semibold">{{ concept.name }}</h3>
@@ -64,13 +66,9 @@ onMounted(() => {
         </NuxtLink>
       </div>
 
-      <div v-else class="text-center py-12 text-muted-foreground">
-        No concepts available yet.
-      </div>
+      <div v-else class="text-center py-12 text-muted-foreground">No concepts available yet.</div>
     </div>
 
-    <div v-else class="text-center py-12 text-muted-foreground">
-      Track not found.
-    </div>
+    <div v-else class="text-center py-12 text-muted-foreground">Track not found.</div>
   </div>
 </template>

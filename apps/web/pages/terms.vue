@@ -1,6 +1,8 @@
 <template>
   <div class="container py-12">
-    <div class="max-w-3xl mx-auto prose prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary prose-li:text-muted-foreground">
+    <div
+      class="max-w-3xl mx-auto prose prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary prose-li:text-muted-foreground"
+    >
       <h1>Terms of Service</h1>
       <p class="text-sm text-muted-foreground">Last updated: February 2026</p>
 
@@ -42,9 +44,7 @@
 
       <h2>Intellectual Property</h2>
       <ul>
-        <li>
-          BlankCode is open-source software. See the project repository for license details.
-        </li>
+        <li>BlankCode is open-source software. See the project repository for license details.</li>
         <li>Exercise content and tutorials are provided for educational purposes.</li>
         <li>Code you submit remains yours. We do not claim ownership of your submissions.</li>
       </ul>
@@ -71,7 +71,8 @@
       <h2>Contact</h2>
       <p>
         For questions about these terms, please open an issue on the
-        <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub repository</a>.
+        <a href="https://github.com" target="_blank" rel="noopener noreferrer">GitHub repository</a
+        >.
       </p>
     </div>
   </div>

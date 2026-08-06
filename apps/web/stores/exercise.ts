@@ -24,6 +24,22 @@ export const useExerciseStore = defineStore('exercise', () => {
   const hasPassedSubmission = computed(() => submissions.value.some((s) => s.status === 'passed'))
   const isBlankMode = computed(() => exercise.value?.type === 'blank' && blanks.value.length > 0)
   const isChallengeMode = computed(() => exercise.value?.type === 'challenge')
+
+  /**
+   * What CodeMirror renders.
+   *
+   * In blank mode this must be the untouched starter code: the blank offsets
+   * (`from`/`to`) index into the starter, and the widgets carry the user's
+   * values separately. Feeding the *reconstructed* code in — as happened when
+   * a draft was restored — shifts every offset after the first answer whose
+   * length differs from its placeholder, so widgets land on the wrong
+   * characters and eventually a decoration spans a newline, which CodeMirror
+   * rejects with "Decorations that replace line breaks may not be specified
+   * via plugins" and the editor dies.
+   */
+  const editorCode = computed(() =>
+    isBlankMode.value ? (exercise.value?.starterCode ?? '') : currentCode.value
+  )
   const filledBlanksCount = computed(() => {
     let count = 0
     for (const [, value] of blankValues.value) {
@@ -159,6 +175,43 @@ export const useExerciseStore = defineStore('exercise', () => {
     }
   }
 
+  /**
+   * Synchronously fire the draft save before the page goes away.
+   * sendBeacon survives 'beforeunload'; the regular fetch in saveDraft does not.
+   * The pending debounce timer is cleared so it doesn't fire after navigation.
+   */
+  function flushDraftOnUnload() {
+    if (!autosaveTimer || !exercise.value) return
+    stopAutosave()
+    if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') return
+    const tokenCookie = useCookie<string | null>('token')
+    const token = tokenCookie.value
+    if (!token) return
+    const {
+      public: { apiUrl },
+    } = useRuntimeConfig()
+    const blob = new Blob([JSON.stringify({ code: currentCode.value, _token: token })], {
+      type: 'application/json',
+    })
+    // The API expects a Bearer header; sendBeacon can't set custom headers.
+    // We fall back to a keepalive fetch so auth headers go through.
+    try {
+      navigator.sendBeacon(`${apiUrl}/exercises/${exercise.value.id}/draft`, blob)
+    } catch {
+      // ignore
+    }
+    try {
+      fetch(`${apiUrl}/exercises/${exercise.value.id}/draft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ code: currentCode.value }),
+        keepalive: true,
+      }).catch(() => {})
+    } catch {
+      // ignore
+    }
+  }
+
   function updateCode(code: string) {
     currentCode.value = code
     stopAutosave()
@@ -249,6 +302,7 @@ export const useExerciseStore = defineStore('exercise', () => {
     exercise,
     submissions,
     currentCode,
+    editorCode,
     codeSource,
     blanks,
     blankValues,
@@ -273,5 +327,6 @@ export const useExerciseStore = defineStore('exercise', () => {
     reset,
     stopPolling,
     stopAutosave,
+    flushDraftOnUnload,
   }
 })
