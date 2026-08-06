@@ -10,8 +10,10 @@
     "apps/web": {
       "entry": [
         "content.config.ts",
-        "playwright.config.ts",
-        "e2e/**/*.ts",
+        "__tests__/**/*.ts",
+        "histoire.config.ts",
+        "histoire.setup.ts",
+        "**/*.story.vue",
         "pages/**/*.vue",
         "layouts/**/*.vue",
         "components/**/*.vue",
@@ -32,11 +34,12 @@
   },
   "ignoreDependencies": [
     "@blankcode/shared",
-    "tailwindcss",
-    "@vitest/coverage-v8",
     "drizzle-orm",
-    "vite",
-    "@playwright/test"
+    "vue-tsc",
+    "shiki",
+    "vscode-oniguruma",
+    "vscode-textmate",
+    "flexsearch"
   ],
   "ignoreWorkspaces": ["content"],
   "ignoreExportsUsedInFile": true

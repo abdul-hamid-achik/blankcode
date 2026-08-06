@@ -22,13 +22,12 @@
     "noFallthroughCasesInSwitch": true,
     "useDefineForClassFields": true,
     "composite": true,
-    "baseUrl": ".",
     "paths": {
-      "@blankcode/shared": ["packages/shared/src/index.ts"],
-      "@blankcode/shared/*": ["packages/shared/src/*"],
-      "@blankcode/db": ["packages/db/src/index.ts"],
-      "@blankcode/db/*": ["packages/db/src/*"],
-      "@blankcode/exercise-parser": ["packages/exercise-parser/src/index.ts"]
+      "@blankcode/shared": ["./packages/shared/src/index.ts"],
+      "@blankcode/shared/*": ["./packages/shared/src/*"],
+      "@blankcode/db": ["./packages/db/src/index.ts"],
+      "@blankcode/db/*": ["./packages/db/src/*"],
+      "@blankcode/exercise-parser": ["./packages/exercise-parser/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "dist", "coverage"]

@@ -1,9 +1,13 @@
 pre-commit:
   parallel: true
   commands:
+    format:
+      glob: "*.{js,mjs,cjs,ts,tsx,jsx,vue,json,jsonc}"
+      run: bunx oxfmt {staged_files}
+      stage_fixed: true
     lint:
-      glob: "*.{js,ts,jsx,tsx,vue,json,css}"
-      run: bunx biome check --write --staged {staged_files}
+      glob: "*.{js,mjs,cjs,ts,tsx,jsx,vue}"
+      run: bunx oxlint --fix {staged_files}
       stage_fixed: true
     typecheck:
       run: bun run typecheck

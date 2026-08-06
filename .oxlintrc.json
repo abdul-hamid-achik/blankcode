@@ -1,0 +1,74 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import", "promise", "node", "vitest", "vue"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "env": {
+    "browser": true,
+    "es2024": true,
+    "node": true
+  },
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/.turbo/**",
+    "**/.nuxt/**",
+    "**/.output/**",
+    "**/.histoire/**",
+    "**/.content-collections/**",
+    "**/coverage/**",
+    "**/*.min.js"
+  ],
+  "rules": {
+    "no-unused-vars": [
+      "error",
+      { "args": "none", "argsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }
+    ],
+    "typescript/no-unused-vars": [
+      "error",
+      { "args": "none", "argsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }
+    ],
+    "prefer-const": "error",
+    "no-var": "error",
+    "typescript/no-explicit-any": "warn",
+    "typescript/no-non-null-assertion": "warn",
+    "no-console": "warn",
+    "eqeqeq": ["warn", "smart"],
+
+    "no-underscore-dangle": "off",
+    "no-shadow": "warn",
+
+    "no-await-in-loop": "off",
+
+    "import/no-unassigned-import": "off",
+
+    "vitest/require-mock-type-parameters": "off",
+    "vitest/no-conditional-expect": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.vue"],
+      "rules": {
+        "no-unused-vars": "off",
+        "typescript/no-unused-vars": "off"
+      }
+    },
+    {
+      "files": ["tools/**", "apps/api/src/workers/**", "apps/api/src/services/execution/**"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["**/__tests__/**", "**/*.test.ts", "**/*.story.vue"],
+      "rules": {
+        "typescript/no-explicit-any": "off",
+        "typescript/no-non-null-assertion": "off",
+        "no-console": "off"
+      }
+    }
+  ]
+}

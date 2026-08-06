@@ -2,20 +2,19 @@
   "name": "blankcode",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "workspaces": [
     "apps/*",
     "packages/*",
     "tools/*"
   ],
+  "type": "module",
   "scripts": {
     "dev": "bunx turbo dev",
     "build": "bunx turbo build",
     "test": "bunx turbo test",
-    "test:e2e": "bunx turbo test:e2e",
-    "lint": "bunx biome check .",
-    "lint:fix": "bunx biome check --write .",
-    "format": "bunx biome format --write .",
+    "lint": "bunx oxlint && bunx oxfmt --check .",
+    "lint:fix": "bunx oxlint --fix && bunx oxfmt .",
+    "format": "bunx oxfmt .",
     "typecheck": "bunx turbo typecheck",
     "clean": "bunx turbo clean && rm -rf node_modules",
     "db:generate": "bun run --filter @blankcode/db db:generate",
@@ -23,23 +22,36 @@
     "db:push": "bun run --filter @blankcode/db db:push",
     "db:studio": "bun run --filter @blankcode/db db:studio",
     "content:import": "bun run --filter @blankcode/content-importer start",
+    "content:validate": "bun run --filter @blankcode/exercise-validator start",
     "content:generate": "bun run --filter @blankcode/exercise-generator start",
     "worker": "bun run --filter @blankcode/api start:worker",
+    "runners:build": "bash docker/runners/build-all.sh",
+    "runners:rebuild": "docker compose up --force-recreate --no-deps runner-images",
     "prepare": "lefthook install || true",
-    "knip": "bunx knip"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.0.0",
-    "knip": "^5.0.0",
-    "lefthook": "^1.10.0",
-    "turbo": "^2.0.0",
-    "typescript": "5.9.3"
+    "knip": "bunx knip",
+    "story": "bun run --filter @blankcode/web story",
+    "story:build": "bun run --filter @blankcode/web story:build",
+    "verify": "bun run lint && bun run typecheck && bun run test && bun run knip && bun run content:validate --strict",
+    "format:check": "bunx oxfmt --check ."
   },
   "dependencies": {
-    "drizzle-orm": "^0.41.0"
+    "drizzle-orm": "^0.45.2"
   },
-  "packageManager": "bun@1.3.7",
+  "devDependencies": {
+    "knip": "^6.32.0",
+    "lefthook": "^2.1.10",
+    "oxfmt": "^0.62.0",
+    "oxlint": "^1.77.0",
+    "turbo": "^2.10.8",
+    "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "@codemirror/language": "6.12.4",
+    "@codemirror/state": "6.7.1",
+    "@codemirror/view": "6.43.8"
+  },
   "engines": {
     "node": ">=22.0.0"
-  }
+  },
+  "packageManager": "bun@1.3.7"
 }

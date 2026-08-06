@@ -9,16 +9,10 @@
     "paths": {
       "@blankcode/shared": ["../../packages/shared/src/index.ts"],
       "@blankcode/shared/*": ["../../packages/shared/src/*"],
-      "@blankcode/db": ["../../packages/db/src/index.ts"],
-      "@blankcode/db/*": ["../../packages/db/src/*"],
       "@blankcode/exercise-parser": ["../../packages/exercise-parser/src/index.ts"]
     }
   },
   "include": ["./src/**/*"],
   "exclude": ["node_modules", "dist"],
-  "references": [
-    { "path": "../../packages/shared" },
-    { "path": "../../packages/db" },
-    { "path": "../../packages/exercise-parser" }
-  ]
+  "references": [{ "path": "../../packages/shared" }, { "path": "../../packages/exercise-parser" }]
 }
