@@ -3,9 +3,27 @@ import 'dotenv-mono/load'
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { generateExercise, generateTrackScaffold } from './index.js'
+import {
+  describeConfig,
+  generateExercise,
+  generateTrackScaffold,
+  isGatewayConfigured,
+  listAvailableModels,
+  resolveConfig,
+} from './index.js'
 
 const args = process.argv.slice(2)
+
+/** Prints the active model so it is obvious what is (or isn't) being billed. */
+function printProvider() {
+  if (!isGatewayConfigured()) {
+    console.log(
+      '  Model: none (offline placeholder) - set AI_GATEWAY_API_KEY in .env for real generation'
+    )
+    return
+  }
+  console.log(`  Model: ${describeConfig(resolveConfig())}`)
+}
 
 function getContentDir(): string {
   // Walk up from this file to find the monorepo root (where turbo.json is)
@@ -42,6 +60,16 @@ Options:
   --init      Initialize a new track
   --name      Human-readable track name (used with --init)
   --dry-run   Print output without saving to file
+  --models    List the model ids the AI Gateway currently exposes
+
+Environment:
+  AI_GATEWAY_API_KEY    Vercel AI Gateway key (the only credential needed)
+  LLM_MODEL             Model slug (default: deepseek/deepseek-v4-flash)
+  LLM_FALLBACK_MODELS   Comma-separated failover models
+  LLM_TEMPERATURE       Sampling temperature (default: 0.6)
+
+  With no gateway key set, the generator emits an offline placeholder exercise
+  instead of failing, so the rest of the pipeline stays testable.
 
 Examples:
   exercise-generator typescript generics advanced "conditional types"
@@ -75,6 +103,7 @@ async function initTrack(trackSlug: string, trackName?: string) {
   }
 
   console.log(`\nInitializing track: ${trackSlug}`)
+  printProvider()
 
   try {
     const scaffold = await generateTrackScaffold(trackSlug, trackName || trackSlug)
@@ -119,6 +148,7 @@ async function generateAndSave(
   if (topic) {
     console.log(`  Topic: ${topic}`)
   }
+  printProvider()
 
   try {
     const result = await generateExercise({
@@ -177,6 +207,17 @@ async function main() {
   if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
     printUsage()
     process.exit(0)
+  }
+
+  if (args.includes('--models')) {
+    if (!isGatewayConfigured()) {
+      console.error('AI_GATEWAY_API_KEY is not set.')
+      process.exit(1)
+    }
+    for (const id of await listAvailableModels()) {
+      console.log(id)
+    }
+    return
   }
 
   // Handle --init command

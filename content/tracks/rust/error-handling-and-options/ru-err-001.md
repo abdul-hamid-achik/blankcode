@@ -2,7 +2,7 @@
 slug: rust-error-handling-and-options-safe-division
 title: Safe Division with Option and Result
 description: Learn to handle potential errors using Option and Result types by implementing a safe division function and parsing user input.
-difficulty: beginner
+difficulty: intermediate
 hints:
   - Option<T> represents a value that might be None - perfect for when division by zero occurs
   - Result<T, E> represents either success (Ok) or failure (Err) - useful for operations that can fail

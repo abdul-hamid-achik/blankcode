@@ -34,6 +34,7 @@ import (
 // Divide performs division and returns an error if the divisor is zero
 func Divide(a, b float64) (float64, error) {
 	if b == 0 {
+		// Return an error with the exact message "division by zero"
 		return 0, ___blank_start___errors.New("division by zero")___blank_end___
 	}
 	return a / b, nil

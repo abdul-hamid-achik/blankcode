@@ -29,18 +29,18 @@ Create a module with utility functions for `Option<T>`:
 - Handle edge cases (empty slices, all Nones, etc.)
 - Don't use unwrap() - handle all cases explicitly
 
+Write your complete implementation below:
+
+```rust
+// Your implementation here
+```
+
 ## Example Usage
 
 ```rust
 is_some_and(Some(5), |x| x > 3)  // Returns true
 zip_options(Some(1), Some(2))     // Returns Some((1, 2))
 count_some(&[Some(1), None, Some(2)]) // Returns 2
-```
-
-Write your complete implementation below:
-
-```rust
-// Your implementation here
 ```
 
 ## Tests

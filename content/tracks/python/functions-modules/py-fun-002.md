@@ -1,12 +1,12 @@
 ---
 slug: python-functions-modules-calculator
 title: Building a Simple Calculator Module
-description: Create a calculator module with functions for basic arithmetic operations and learn how to import and use them.
+description: Write your own arithmetic functions, then bring in real Python standard library functions alongside them with import and from...import.
 difficulty: beginner
 hints:
   - Functions are defined using the 'def' keyword followed by the function name and parameters
-  - Use 'import' to bring in functions from other modules
-  - The 'from' keyword lets you import specific functions from a module
+  - Use 'import module_name' to bring in a whole module, then call its functions as 'module_name.function_name(...)'
+  - The 'from' keyword lets you import a specific name straight into your file, e.g. 'from math import factorial'
   - Function names should be descriptive of what they do
 tags:
   - functions
@@ -15,25 +15,21 @@ tags:
   - arithmetic
 ---
 
-In this exercise, you'll create a calculator module with basic arithmetic functions, then import and use those functions in a main program.
+In this exercise, you'll build a calculator that mixes functions you write yourself with functions imported from Python's standard library. Real modules work exactly this way — you rarely write everything from scratch.
 
 Complete the code by filling in the blanks to:
 1. Define a function for multiplication
-2. Import the math_operations module
-3. Use the imported addition function
-4. Import a specific function using the 'from' keyword
+2. Import the standard library `operator` module
+3. Use the imported module's addition function
+4. Import a specific function using the `from` keyword
 
 ```python
-# File: math_operations.py
+___blank_start___import operator___blank_end___
 
-def add(a, b):
-    return a + b
-
-def subtract(a, b):
-    return a - b
 
 def ___blank_start___multiply___blank_end___(a, b):
     return a * b
+
 
 def divide(a, b):
     if b != 0:
@@ -41,22 +37,21 @@ def divide(a, b):
     return "Cannot divide by zero"
 
 
-# File: main.py
-
-___blank_start___import math_operations___blank_end___
-
-# Using functions from the imported module
-result1 = ___blank_start___math_operations.add___blank_end___(10, 5)
+# Using functions from the imported operator module
+result1 = ___blank_start___operator.add___blank_end___(10, 5)
 print(f"10 + 5 = {result1}")
 
-result2 = math_operations.subtract(10, 5)
+result2 = operator.sub(10, 5)
 print(f"10 - 5 = {result2}")
 
-# Import specific function
-___blank_start___from math_operations import divide___blank_end___
+# Import a specific function using 'from'
+___blank_start___from math import factorial___blank_end___
 
 result3 = divide(10, 2)
 print(f"10 / 2 = {result3}")
+
+result4 = factorial(5)
+print(f"5! = {result4}")
 ```
 
 ## Tests
@@ -66,7 +61,8 @@ print(f"10 / 2 = {result3}")
 
 def test_math_operations():
     assert multiply(10, 5) == 50
-    assert math_operations.add(10, 5) == 15
-    assert math_operations.subtract(10, 5) == 5
+    assert operator.add(10, 5) == 15
+    assert operator.sub(10, 5) == 5
     assert divide(10, 2) == 5
+    assert factorial(5) == 120
 ```

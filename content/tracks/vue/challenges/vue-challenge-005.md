@@ -32,6 +32,20 @@ Create an `InfiniteScroll` Vue component with the following features:
 - Debounce scroll events
 - Memory-efficient (cleanup old cache)
 
+Write your complete implementation below:
+
+```vue
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+
+// Your implementation here
+</script>
+
+<template>
+  <!-- Your template here -->
+</template>
+```
+
 ## Example Usage
 
 ```vue
@@ -45,20 +59,6 @@ Create an `InfiniteScroll` Vue component with the following features:
     <ItemCard :item="item" />
   </template>
 </InfiniteScroll>
-```
-
-Write your complete implementation below:
-
-```vue
-<script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-
-// Your implementation here
-</script>
-
-<template>
-  <!-- Your template here -->
-</template>
 ```
 
 ## Tests
@@ -89,7 +89,7 @@ describe('InfiniteScroll', () => {
         itemHeight: 50,
       },
       slots: {
-        item: '<div :key="item.id">{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div :key="item.id">{{ item.name }}</div></template>',
       },
     })
     
@@ -116,7 +116,7 @@ describe('InfiniteScroll', () => {
         threshold: 100,
       },
       slots: {
-        item: '<div :key="item.id">{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div :key="item.id">{{ item.name }}</div></template>',
       },
     })
     
@@ -142,7 +142,7 @@ describe('InfiniteScroll', () => {
         itemHeight: 50,
       },
       slots: {
-        item: '<div :key="item.id">{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div :key="item.id">{{ item.name }}</div></template>',
       },
     })
     
@@ -169,7 +169,7 @@ describe('InfiniteScroll', () => {
         itemHeight: 50,
       },
       slots: {
-        item: '<div>{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div>{{ item.name }}</div></template>',
       },
     })
     
@@ -189,7 +189,7 @@ describe('InfiniteScroll', () => {
         itemHeight: 50,
       },
       slots: {
-        item: '<div :key="item.id">{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div :key="item.id">{{ item.name }}</div></template>',
       },
     })
     
@@ -216,7 +216,7 @@ describe('InfiniteScroll', () => {
         cacheSize: 2,
       },
       slots: {
-        item: '<div :key="item.id">{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div :key="item.id">{{ item.name }}</div></template>',
       },
     })
     
@@ -244,7 +244,7 @@ describe('InfiniteScroll', () => {
         enablePullToRefresh: true,
       },
       slots: {
-        item: '<div :key="item.id">{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div :key="item.id">{{ item.name }}</div></template>',
       },
     })
     
@@ -271,7 +271,7 @@ describe('InfiniteScroll', () => {
         itemHeight: 50,
       },
       slots: {
-        item: '<div>{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div>{{ item.name }}</div></template>',
       },
     })
     
@@ -291,16 +291,16 @@ describe('InfiniteScroll', () => {
         itemHeight: 50,
       },
       slots: {
-        item: '<div>{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div>{{ item.name }}</div></template>',
       },
     })
     
     wrapper.unmount()
     
-    // Should not throw error when promise resolves after unmount
-    resolvePromise!({ items: [], hasMore: true })
-    
-    // Test passes if no error is thrown
+    // Should not throw when the fetch resolves after the component unmounted
+    expect(() => {
+      resolvePromise!({ items: [], hasMore: true })
+    }).not.toThrow()
   })
 
   it('should emit scroll event', async () => {
@@ -315,7 +315,7 @@ describe('InfiniteScroll', () => {
         itemHeight: 50,
       },
       slots: {
-        item: '<div>{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div>{{ item.name }}</div></template>',
       },
     })
     

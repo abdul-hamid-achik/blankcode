@@ -3,6 +3,7 @@ import { codeDrafts, concepts, exercises, submissions, tracks } from '@blankcode
 import { and, asc, desc, eq } from 'drizzle-orm'
 import { Context, Effect, Layer } from 'effect'
 import { BadRequestError, NotFoundError } from '../../api/errors.js'
+import { redactExercise, redactExercises } from './redact.js'
 
 interface ExercisesServiceShape {
   readonly findAll: () => Effect.Effect<any[]>
@@ -57,7 +58,10 @@ export const ExercisesServiceLive = Layer.effect(
               },
             }),
           catch: () => new BadRequestError({ message: 'Failed to fetch exercises' }),
-        }).pipe(Effect.catchAll(() => Effect.succeed([]))),
+        }).pipe(
+          Effect.map(redactExercises),
+          Effect.catchAll(() => Effect.succeed([]))
+        ),
 
       findByConceptSlug: (trackSlug, conceptSlug) =>
         Effect.gen(function* () {
@@ -92,7 +96,7 @@ export const ExercisesServiceLive = Layer.effect(
             return yield* Effect.fail(new NotFoundError({ resource: 'Concept', id: conceptSlug }))
           }
 
-          return concept.exercises
+          return redactExercises(concept.exercises)
         }),
 
       findBySlug: (trackSlug, conceptSlug, exerciseSlug) =>
@@ -134,7 +138,7 @@ export const ExercisesServiceLive = Layer.effect(
             return yield* Effect.fail(new NotFoundError({ resource: 'Exercise', id: exerciseSlug }))
           }
 
-          return exercise
+          return redactExercise(exercise)
         }),
 
       findById: (id) =>
@@ -156,7 +160,7 @@ export const ExercisesServiceLive = Layer.effect(
             return yield* Effect.fail(new NotFoundError({ resource: 'Exercise', id }))
           }
 
-          return exercise
+          return redactExercise(exercise)
         }),
 
       findWithProgress: (exerciseId, userId) =>
@@ -210,7 +214,7 @@ export const ExercisesServiceLive = Layer.effect(
           }
 
           return {
-            exercise,
+            exercise: redactExercise(exercise),
             code,
             codeSource,
             draft: draft ? { updatedAt: draft.updatedAt } : null,

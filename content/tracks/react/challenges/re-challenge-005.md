@@ -32,6 +32,14 @@ Create an `InfiniteScroll` component with the following features:
 - Debounce scroll events
 - Memory-efficient (cleanup old cache)
 
+Write your complete implementation below:
+
+```tsx
+import { useState, useEffect, useRef, useCallback } from 'react';
+
+// Your implementation here
+```
+
 ## Example Usage
 
 ```tsx
@@ -45,14 +53,6 @@ Create an `InfiniteScroll` component with the following features:
   cacheSize={10}
   renderItem={(item) => <ItemCard {...item} />}
 />
-```
-
-Write your complete implementation below:
-
-```tsx
-import { useState, useEffect, useRef, useCallback } from 'react';
-
-// Your implementation here
 ```
 
 ## Tests

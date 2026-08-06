@@ -2,7 +2,7 @@
 slug: go-advancedpatterns-factory-pattern
 title: Implementing the Factory Pattern in Go
 description: Learn how to implement the Factory design pattern to create objects without specifying their exact types, promoting loose coupling and flexibility.
-difficulty: beginner
+difficulty: intermediate
 hints:
   - The factory function should return an interface type, not a concrete struct
   - Use a switch statement or map to determine which concrete type to create
@@ -33,9 +33,9 @@ import (
 )
 
 // Notifier is an interface for sending notifications
-type ___blank_start___Notifier interface {
-	Send(message string) error
-}___blank_end___
+type ___blank_start___Notifier interface___blank_end___ {
+	___blank_start___Send___blank_end___(message string) error
+}
 
 // EmailNotifier sends notifications via email
 type EmailNotifier struct {
@@ -65,12 +65,13 @@ func NewNotifier(notifierType string, contact string) ___blank_start___(Notifier
 	case "sms":
 		return &SMSNotifier{phoneNumber: contact}, nil
 	default:
+		// Return nil and an error with the exact message "invalid notifier type"
 		___blank_start___return nil, errors.New("invalid notifier type")___blank_end___
 	}
 }
 
 func main() {
-	// Create an SMS notifier using the factory
+	// Create an SMS notifier using the factory, with contact "+1234567890"
 	notifier, err := ___blank_start___NewNotifier("sms", "+1234567890")___blank_end___
 	if err != nil {
 		fmt.Println("Error:", err)

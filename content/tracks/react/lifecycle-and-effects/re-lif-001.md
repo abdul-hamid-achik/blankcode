@@ -2,7 +2,7 @@
 slug: react-lifecycle-and-effects-fetch-on-mount
 title: Fetching Data on Component Mount
 description: Learn how to use the useEffect hook to fetch data when a component first renders and handle cleanup properly.
-difficulty: beginner
+difficulty: intermediate
 hints:
   - useEffect runs after the component renders
   - An empty dependency array means the effect runs only once on mount

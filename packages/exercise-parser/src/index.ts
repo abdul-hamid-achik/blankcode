@@ -326,4 +326,4 @@ export function stripBlankMarkers(code: string): string {
     .replace(new RegExp(BLANK_END_MARKER, 'g'), '')
 }
 
-export { BLANK_START_MARKER, BLANK_END_MARKER }
+export { BLANK_END_MARKER, BLANK_START_MARKER }

@@ -42,16 +42,6 @@ function mockHttpRequest(ip: string): HttpServerRequest.HttpServerRequest {
   } as unknown as HttpServerRequest.HttpServerRequest
 }
 
-function _mockHttpRequestWithForwarded(forwardedIp: string): HttpServerRequest.HttpServerRequest {
-  return {
-    headers: { 'x-forwarded-for': forwardedIp } as any,
-    remoteAddress: Option.some('127.0.0.1'),
-    method: 'POST',
-    url: '/test',
-    originalUrl: '/test',
-  } as unknown as HttpServerRequest.HttpServerRequest
-}
-
 // ===========================================================================
 // 1. JwtService tests
 // ===========================================================================

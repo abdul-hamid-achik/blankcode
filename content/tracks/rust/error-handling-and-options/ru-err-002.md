@@ -1,6 +1,6 @@
 ---
-slug: rust-error-handling-and-options-safe-division
-title: Safe Division with Option and Result
+slug: rust-error-handling-and-options-division-with-defaults
+title: Division with Result, Option, and Default Values
 description: Learn to handle errors and absent values using Rust's Option and Result types by implementing a safe division calculator.
 difficulty: beginner
 hints:

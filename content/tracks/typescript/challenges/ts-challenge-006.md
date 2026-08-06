@@ -33,6 +33,12 @@ Create a `QueryBuilder` class with the following features:
 - Support multiple WHERE conditions (AND/OR)
 - Build valid SQL for PostgreSQL
 
+Write your complete implementation below:
+
+```typescript
+// Your implementation here
+```
+
 ## Example Usage
 
 ```typescript
@@ -53,17 +59,11 @@ const { query, params } = new QueryBuilder()
 // params: [18, 'active', 10, 20]
 ```
 
-Write your complete implementation below:
-
-```typescript
-// Your implementation here
-```
-
 ## Tests
 
 ```typescript
 import { describe, it, expect } from 'vitest'
-import { QueryBuilder } from './QueryBuilder'
+import { QueryBuilder } from './solution'
 
 describe('QueryBuilder', () => {
   it('should build simple SELECT query', () => {

@@ -1,9 +1,20 @@
 FROM node:22-alpine
 
-WORKDIR /app
+# Install dependencies in a temp dir, then move node_modules to root.
+# Node's resolution from /app/ walks up and finds /node_modules/ — and so does
+# TypeScript's `@types` lookup, which is why these are NOT installed with
+# `npm install -g`: globals land in /usr/local/lib/node_modules, which is not on
+# the walk-up path from /app, so `types: ["node"]` in the typecheck config would
+# fail to resolve and the gate would reject every submission.
+RUN mkdir -p /tmp/deps && cd /tmp/deps && npm init -y && \
+    npm install \
+    vitest typescript @types/node && \
+    mv /tmp/deps/node_modules /node_modules && \
+    rm -rf /tmp/deps
 
-# Install npm packages globally for test running
-RUN npm install -g vitest typescript @types/node
+ENV PATH="/node_modules/.bin:$PATH"
+
+WORKDIR /app
 
 # Create non-root user for security
 RUN adduser -D -u 10000 runner

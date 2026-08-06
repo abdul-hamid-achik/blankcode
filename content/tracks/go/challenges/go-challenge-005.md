@@ -23,6 +23,16 @@ Create a `Router` type with the following features:
 5. **Path parameters** - Support :param and *wildcard
 6. **Middleware support** - Chain middleware functions
 
+Write your complete implementation below:
+
+```go
+package main
+
+import "net/http"
+
+// Your implementation here
+```
+
 ## HandlerFunc Signature
 
 ```go
@@ -53,22 +63,13 @@ router.GET("/files/*filepath", filesHandler)
 http.ListenAndServe(":8080", router)
 ```
 
-Write your complete implementation below:
-
-```go
-package main
-
-import "net/http"
-
-// Your implementation here
-```
-
 ## Tests
 
 ```go
 package main
 
 import (
+    "fmt"
     "net/http"
     "net/http/httptest"
     "testing"
@@ -311,7 +312,9 @@ func TestRouterConcurrentRegistration(t *testing.T) {
     
     for i := 0; i < 100; i++ {
         go func(id int) {
-            router.GET(fmt.Sprintf("/route/%d", id), func(w http.ResponseWriter, r *http.Request, params Params) {})
+            router.GET(fmt.Sprintf("/route/%d", id), func(w http.ResponseWriter, r *http.Request, params Params) {
+                w.Write([]byte(fmt.Sprintf("route-%d", id)))
+            })
             done <- true
         }(i)
     }
@@ -320,6 +323,20 @@ func TestRouterConcurrentRegistration(t *testing.T) {
         <-done
     }
     
-    // Should not panic
+    // All 100 concurrently-registered routes must be reachable with the
+    // correct handler wired up — not just "did not panic".
+    for _, id := range []int{0, 42, 99} {
+        req := httptest.NewRequest("GET", fmt.Sprintf("/route/%d", id), nil)
+        w := httptest.NewRecorder()
+        router.ServeHTTP(w, req)
+        
+        if w.Code != 200 {
+            t.Errorf("route %d: expected 200, got %d", id, w.Code)
+        }
+        want := fmt.Sprintf("route-%d", id)
+        if w.Body.String() != want {
+            t.Errorf("route %d: expected body %q, got %q", id, want, w.Body.String())
+        }
+    }
 }
 ```

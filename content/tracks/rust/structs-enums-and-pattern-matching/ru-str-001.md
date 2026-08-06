@@ -2,12 +2,12 @@
 slug: rust-structs-enums-and-pattern-matching-traffic-light
 title: Traffic Light State Machine
 description: Create a traffic light system using enums and pattern matching to handle different light states and transitions.
-difficulty: beginner
+difficulty: intermediate
 hints:
   - Use an enum to represent the three possible traffic light colors
   - Pattern matching with 'match' allows you to handle each enum variant
   - Methods on enums are defined using 'impl' blocks
-  - The next state follows the cycle: Green -> Yellow -> Red -> Green
+  - "The next state follows the cycle: Green -> Yellow -> Red -> Green"
 tags:
   - rust
   - enums
@@ -25,38 +25,38 @@ Your tasks:
 
 ```rust
 // Define the TrafficLight enum with three variants
-___blank_start___enum TrafficLight {
+___blank_start___enum TrafficLight___blank_end___ {
     Red,
     Yellow,
     Green,
-}___blank_end___
+}
 
 impl TrafficLight {
     // Return the next state in the traffic light cycle
     fn next(&self) -> TrafficLight {
-        ___blank_start___match self {
-            TrafficLight::Red => TrafficLight::Green,
-            TrafficLight::Green => TrafficLight::Yellow,
-            TrafficLight::Yellow => TrafficLight::Red,
-        }___blank_end___
+        match self {
+            TrafficLight::Red => ___blank_start___TrafficLight::Green___blank_end___,
+            TrafficLight::Green => ___blank_start___TrafficLight::Yellow___blank_end___,
+            TrafficLight::Yellow => ___blank_start___TrafficLight::Red___blank_end___,
+        }
     }
     
     // Return the duration in seconds for each light state
     fn duration(&self) -> u32 {
-        ___blank_start___match self {
-            TrafficLight::Red => 60,
-            TrafficLight::Yellow => 10,
-            TrafficLight::Green => 45,
-        }___blank_end___
+        match self {
+            TrafficLight::Red => ___blank_start___60___blank_end___,
+            TrafficLight::Yellow => ___blank_start___10___blank_end___,
+            TrafficLight::Green => ___blank_start___45___blank_end___,
+        }
     }
     
     // Return a string description of the current state
     fn describe(&self) -> String {
-        ___blank_start___match self {
-            TrafficLight::Red => String::from("Stop! The light is red."),
-            TrafficLight::Yellow => String::from("Caution! The light is yellow."),
-            TrafficLight::Green => String::from("Go! The light is green."),
-        }___blank_end___
+        match self {
+            TrafficLight::Red => ___blank_start___String::from("Stop! The light is red.")___blank_end___,
+            TrafficLight::Yellow => ___blank_start___String::from("Caution! The light is yellow.")___blank_end___,
+            TrafficLight::Green => ___blank_start___String::from("Go! The light is green.")___blank_end___,
+        }
     }
 }
 ```

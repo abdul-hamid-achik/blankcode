@@ -31,6 +31,17 @@ Create a minimal async runtime with the following features:
 - Handle panics gracefully
 - No external async runtime dependencies
 
+Write your complete implementation below:
+
+```rust
+use std::future::Future;
+use std::pin::Pin;
+use std::task::{Context, Poll, Waker};
+use std::sync::{Arc, Mutex};
+
+// Your implementation here
+```
+
 ## Example Usage
 
 ```rust
@@ -47,17 +58,6 @@ fn main() {
         println!("Task returned: {:?}", result);
     });
 }
-```
-
-Write your complete implementation below:
-
-```rust
-use std::future::Future;
-use std::pin::Pin;
-use std::task::{Context, Poll, Waker};
-use std::sync::{Arc, Mutex};
-
-// Your implementation here
 ```
 
 ## Tests

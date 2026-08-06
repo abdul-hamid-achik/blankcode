@@ -7,7 +7,7 @@ interface LogContext {
   [key: string]: unknown
 }
 
-function _formatMessage(level: LogLevel, message: string, context?: LogContext): string {
+function formatMessage(level: LogLevel, message: string, context?: LogContext): string {
   const timestamp = new Date().toISOString()
   const ctxStr = context
     ? Object.entries(context)
@@ -19,9 +19,24 @@ function _formatMessage(level: LogLevel, message: string, context?: LogContext):
   return `[${timestamp}] [${level.toUpperCase()}]${ctxStr ? ` | ${ctxStr}` : ''} | ${message}`
 }
 
+const DEBUG_ENABLED = process.env['LOG_LEVEL'] === 'debug'
+
 export const logger = {
-  debug(message: string, context?: LogContext): void {},
-  info(message: string, context?: LogContext): void {},
-  warn(message: string, context?: LogContext): void {},
-  error(message: string, context?: LogContext): void {},
+  debug(message: string, context?: LogContext): void {
+    if (!DEBUG_ENABLED) return
+    // eslint-disable-next-line no-console
+    console.log(formatMessage('debug', message, context))
+  },
+  info(message: string, context?: LogContext): void {
+    // eslint-disable-next-line no-console
+    console.log(formatMessage('info', message, context))
+  },
+  warn(message: string, context?: LogContext): void {
+    // eslint-disable-next-line no-console
+    console.warn(formatMessage('warn', message, context))
+  },
+  error(message: string, context?: LogContext): void {
+    // eslint-disable-next-line no-console
+    console.error(formatMessage('error', message, context))
+  },
 }

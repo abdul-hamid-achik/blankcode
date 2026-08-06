@@ -1,8 +1,8 @@
 ---
-slug: react-lifecycle-and-effects-fetch-on-mount
-title: Fetching Data on Component Mount
-description: Learn how to use useEffect to fetch data when a component first renders and handle cleanup properly.
-difficulty: beginner
+slug: react-lifecycle-and-effects-fetch-with-error-handling
+title: Fetching Data on Mount with Loading and Error States
+description: Learn how to use useEffect to fetch data when a component first renders, track loading and error state, and handle cleanup properly.
+difficulty: intermediate
 hints:
   - useEffect runs after the component renders
   - An empty dependency array means the effect runs only once on mount
@@ -65,9 +65,9 @@ export function UserProfile({ userId }: { userId: number }) {
 
     fetchUser();
 
-    ___blank_start___return () => {
-      isMounted = false;
-    }___blank_end___;
+    return () => {
+      ___blank_start___isMounted = false___blank_end___;
+    };
   }, ___blank_start___[]___blank_end___);
 
   if (loading) ___blank_start___return <div>Loading...</div>___blank_end___;

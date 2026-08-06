@@ -2,12 +2,12 @@
 slug: rust-traits-and-generics-shape-area
 title: Generic Shape Area Calculator
 description: Implement a generic trait for calculating areas of different shapes using Rust traits and generics
-difficulty: beginner
+difficulty: intermediate
 hints:
   - Traits define shared behavior across different types
   - The `impl` keyword is used to implement a trait for a specific type
   - Generic functions use angle brackets `<T>` to specify type parameters
-  - Trait bounds are specified with `T: TraitName` syntax
+  - "Trait bounds are specified with `T: TraitName` syntax"
 tags:
   - traits
   - generics
@@ -20,7 +20,7 @@ In this exercise, you'll learn how to use traits and generics in Rust by impleme
 Your tasks:
 1. Define a `Shape` trait with an `area()` method
 2. Implement the trait for `Circle` and `Rectangle` structs
-3. Create a generic function that prints the area of any shape
+3. Create a generic function that formats the area of any shape
 
 ```rust
 // Define a trait called Shape with a method that returns area as f64
@@ -52,8 +52,9 @@ impl Shape for Rectangle {
 }
 
 // Generic function that accepts any type that implements Shape
-fn print_area___blank_start___<T: Shape>___blank_end___(shape: &T) {
-    println!("Area: {}", shape.area());
+// and returns a formatted description of its area
+fn format_area___blank_start___<T: Shape>___blank_end___(shape: &T) -> String {
+    format!("Area: {}", shape.area())
 }
 
 // Alternative syntax using where clause
@@ -69,8 +70,8 @@ fn main() {
     let circle = Circle { radius: 5.0 };
     let rectangle = Rectangle { width: 4.0, height: 6.0 };
     
-    print_area(&circle);
-    print_area(&rectangle);
+    println!("{}", format_area(&circle));
+    println!("{}", format_area(&rectangle));
     
     let total = calculate_total_area(&circle, &rectangle);
     println!("Total area: {}", total);
@@ -102,8 +103,8 @@ fn total_area_matches_sum() {
 }
 
 #[test]
-fn print_area_compiles() {
-    let circle = Circle { radius: 1.0 };
-    print_area(&circle);
+fn format_area_reports_rectangle_area() {
+    let rectangle = Rectangle { width: 4.0, height: 6.0 };
+    assert_eq!(format_area(&rectangle), "Area: 24");
 }
 ```

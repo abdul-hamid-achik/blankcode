@@ -179,14 +179,14 @@ async function calculateStreak(db: any, userId: string): Promise<number> {
   const today = new Date().toISOString().split('T')[0]
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
 
-  const dates = result.map((r: { date: string }) => r.date)
-  if (!dates.includes(today) && !dates.includes(yesterday)) {
+  const dates = new Set(result.map((r: { date: string }) => r.date))
+  if (!dates.has(today) && !dates.has(yesterday)) {
     return 0
   }
 
   for (let i = 0; i < result.length; i++) {
     const expectedDate = new Date(Date.now() - i * 86400000).toISOString().split('T')[0]
-    if (dates.includes(expectedDate)) {
+    if (dates.has(expectedDate)) {
       streak++
     } else if (i > 0) {
       break

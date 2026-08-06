@@ -2,7 +2,7 @@
 slug: react-routing-and-navigation-basic-setup
 title: Setting Up React Router Basic Navigation
 description: Learn how to set up React Router and create basic navigation between pages in a React application.
-difficulty: beginner
+difficulty: intermediate
 hints:
   - React Router v6 uses BrowserRouter as the main routing component
   - Routes component wraps all your Route definitions

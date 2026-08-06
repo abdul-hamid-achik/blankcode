@@ -17,7 +17,8 @@ interface ReviewsServiceShape {
   readonly recordReview: (
     userId: string,
     exerciseId: string,
-    passed: boolean
+    passed: boolean,
+    quality?: ReviewQuality
   ) => Effect.Effect<void, NotFoundError>
 }
 
@@ -34,7 +35,8 @@ export const ReviewsServiceLive = Layer.effect(
     function upsertSchedule(
       userId: string,
       exerciseId: string,
-      passed: boolean
+      passed: boolean,
+      explicitQuality?: ReviewQuality
     ): Effect.Effect<void, NotFoundError> {
       return Effect.gen(function* () {
         const existingSchedule = yield* Effect.tryPromise({
@@ -49,7 +51,9 @@ export const ReviewsServiceLive = Layer.effect(
             new NotFoundError({ resource: 'ReviewSchedule', id: `${userId}:${exerciseId}` }),
         })
 
-        const quality: ReviewQuality = passed ? 4 : 1 // good for passed, fail for failed
+        // If user provided a self-rating (3=hard, 4=good, 5=easy), use it.
+        // Otherwise default: passed → good (4), failed → fail (1).
+        const quality: ReviewQuality = passed ? (explicitQuality ?? 4) : 1
         const currentInterval = existingSchedule?.intervalDays ?? 1
         const currentRepetitions = existingSchedule?.repetitions ?? 0
         const currentEaseFactor = existingSchedule?.easeFactor ?? 2.5
@@ -168,7 +172,8 @@ export const ReviewsServiceLive = Layer.effect(
           return count
         }),
 
-      recordReview: (userId, exerciseId, passed) => upsertSchedule(userId, exerciseId, passed),
+      recordReview: (userId, exerciseId, passed, quality) =>
+        upsertSchedule(userId, exerciseId, passed, quality),
     })
   })
 )

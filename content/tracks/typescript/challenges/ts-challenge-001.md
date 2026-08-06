@@ -29,6 +29,14 @@ Create a `Counter` class that tracks a numeric count with the following features
 - All methods must have proper type annotations
 - The class should prevent negative counts (throw an error if decrement would go below 0)
 
+Write your complete implementation below:
+
+```typescript
+export class Counter {
+  // Your implementation here
+}
+```
+
 ## Example Usage
 
 ```typescript
@@ -37,14 +45,6 @@ counter.increment(); // Returns 6
 counter.decrement(); // Returns 5
 counter.getValue();  // Returns 5
 counter.reset();     // Returns void, count is now 0
-```
-
-Write your complete implementation below:
-
-```typescript
-export class Counter {
-  // Your implementation here
-}
 ```
 
 ## Tests

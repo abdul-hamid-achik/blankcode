@@ -6,7 +6,7 @@ difficulty: beginner
 hints:
   - defineProps() accepts a generic type parameter
   - Props can have default values using withDefaults()
-  - Optional props use ? in the type definition
+  - Access props via the props object (not by destructuring) so they stay reactive
 tags:
   - vue
   - props
@@ -14,31 +14,36 @@ tags:
   - components
 ---
 
-Define typed props for a Button component.
+Define typed props for a Button component and render it.
 
-```typescript
-// button.vue - script setup
+```vue
+<script setup lang="ts">
+import { ___blank_start___computed___blank_end___ } from 'vue'
+
 interface Props {
-  label: ___blank_start___string___blank_end___;
-  variant?: 'primary' | 'secondary' | 'danger';
-  disabled?: ___blank_start___boolean___blank_end___;
-  size?: 'sm' | 'md' | 'lg';
+  label: string
+  variant?: 'primary' | 'secondary' | 'danger'
+  disabled?: boolean
+  size?: 'sm' | 'md' | 'lg'
 }
 
-const props = ___blank_start___withDefaults(defineProps<Props>()___blank_end___, {
+const props = ___blank_start___withDefaults___blank_end___(___blank_start___defineProps<Props>()___blank_end___, {
   variant: 'primary',
   disabled: false,
   size: 'md',
 })
 
-const buttonClasses = computed(() => {
-  return [
-    'btn',
-    `btn-${props.variant}`,
-    `btn-${___blank_start___props.size___blank_end___}`,
-    { 'btn-disabled': props.disabled }
-  ]
-})
+const buttonClasses = computed(() => [
+  'btn',
+  `btn-${props.variant}`,
+  `btn-${___blank_start___props.size___blank_end___}`,
+  { 'btn-disabled': props.disabled },
+])
+</script>
+
+<template>
+  <button :class="buttonClasses" :disabled="props.disabled">{{ label }}</button>
+</template>
 ```
 
 ## Tests

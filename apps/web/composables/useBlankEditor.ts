@@ -1,4 +1,4 @@
-import type { BlankRegionInStarter } from '@blankcode/shared'
+import { type BlankRegionInStarter, extractBlankValues, reconstructCode } from '@blankcode/shared'
 import { type Extension, type Range, StateEffect, StateField } from '@codemirror/state'
 import {
   Decoration,
@@ -89,6 +89,10 @@ class BlankWidget extends WidgetType {
     input.placeholder = this.blank.placeholder
     input.spellcheck = false
     input.autocomplete = 'off'
+    input.setAttribute('aria-label', `Blank: ${this.blank.placeholder || this.blank.id}`)
+    if (this.feedbackState === 'incorrect') {
+      input.setAttribute('aria-invalid', 'true')
+    }
 
     // Compute width in ch units
     const widthChars = Math.max(this.blank.placeholder.length, this.value.length, 3) + 2
@@ -102,12 +106,16 @@ class BlankWidget extends WidgetType {
       this.onInput(this.blank.id, input.value)
     })
 
-    // Keydown for Tab navigation and Ctrl+Enter submit
+    // Keydown for Tab navigation between blanks (only intercept when there's
+    // another blank to move to — at the boundaries, let the browser's default
+    // Tab behavior take over so focus can leave the editor).
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Tab') {
-        e.preventDefault()
-        e.stopPropagation()
-        this.focusAdjacentBlank(view, input, e.shiftKey)
+        const moved = this.focusAdjacentBlank(view, input, e.shiftKey)
+        if (moved) {
+          e.preventDefault()
+          e.stopPropagation()
+        }
       } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault()
         this.onSubmit()
@@ -129,15 +137,22 @@ class BlankWidget extends WidgetType {
     return wrapper
   }
 
-  private focusAdjacentBlank(view: EditorView, current: HTMLInputElement, reverse: boolean) {
+  private focusAdjacentBlank(
+    view: EditorView,
+    current: HTMLInputElement,
+    reverse: boolean
+  ): boolean {
     const allInputs = Array.from(view.dom.querySelectorAll<HTMLInputElement>('.cm-blank-input'))
     const currentIndex = allInputs.indexOf(current)
-    if (currentIndex === -1) return
+    if (currentIndex === -1) return false
 
-    const nextIndex = reverse
-      ? (currentIndex - 1 + allInputs.length) % allInputs.length
-      : (currentIndex + 1) % allInputs.length
+    const nextIndex = reverse ? currentIndex - 1 : currentIndex + 1
+    if (nextIndex < 0 || nextIndex >= allInputs.length) {
+      // Boundary — let the browser handle Tab so focus leaves the editor.
+      return false
+    }
     allInputs[nextIndex]?.focus()
+    return true
   }
 
   private updateDataState(input: HTMLInputElement) {
@@ -192,6 +207,13 @@ function createBlankDecoPlugin(
           const from = blank.from
           const to = blank.to
           if (from < 0 || to > view.state.doc.length) continue
+
+          // A replace decoration may not span a line break. If the offsets no
+          // longer line up with the document, skip the widget instead of
+          // throwing — a missing blank is recoverable, a dead editor is not.
+          if (view.state.doc.lineAt(from).number !== view.state.doc.lineAt(to).number) {
+            continue
+          }
 
           const value = state.values.get(blank.id) ?? ''
           const feedback = state.feedback.get(blank.id)
@@ -317,80 +339,6 @@ export function createBlankExtensions(
 // --- Helper functions ---
 
 /**
- * Reconstruct full code from starter code by replacing blank placeholders with user values.
- */
-export function reconstructCode(
-  starterCode: string,
-  blanks: BlankRegionInStarter[],
-  values: Map<string, string>
-): string {
-  // Process blanks in reverse order of position to avoid offset shifts
-  const sorted = [...blanks].sort((a, b) => b.from - a.from)
-  let result = starterCode
-
-  for (const blank of sorted) {
-    const value = values.get(blank.id) ?? blank.placeholder
-    result = result.slice(0, blank.from) + value + result.slice(blank.to)
-  }
-
-  return result
-}
-
-/**
- * Extract blank values from saved code by comparing against the fixed text segments.
- * This reverse-engineers user values from a previously reconstructed code string.
- */
-export function extractBlankValues(
-  savedCode: string,
-  starterCode: string,
-  blanks: BlankRegionInStarter[]
-): Map<string, string> {
-  const values = new Map<string, string>()
-  if (blanks.length === 0) return values
-
-  // Sort blanks by position
-  const sorted = [...blanks].sort((a, b) => a.from - b.from)
-
-  // Build fixed segments between blanks
-  let savedOffset = 0
-  let starterOffset = 0
-
-  for (const blank of sorted) {
-    // Fixed text before this blank (same in both starter and saved)
-    const fixedLength = blank.from - starterOffset
-
-    // Skip past the fixed segment in saved code
-    savedOffset += fixedLength
-
-    // The value in the saved code occupies the space where the placeholder was.
-    // To find where it ends, we look for the next fixed segment.
-
-    // Find next blank or end of string
-    const nextBlankIdx = sorted.indexOf(blank) + 1
-    const nextBlank = sorted[nextBlankIdx]
-    const nextFixedSegment = nextBlank
-      ? starterCode.slice(blank.to, nextBlank.from)
-      : starterCode.slice(blank.to)
-
-    let valueEnd: number
-    if (nextFixedSegment.length > 0) {
-      const fixedPos = savedCode.indexOf(nextFixedSegment, savedOffset)
-      valueEnd = fixedPos !== -1 ? fixedPos : savedOffset
-    } else {
-      valueEnd = savedCode.length
-    }
-
-    const value = savedCode.slice(savedOffset, valueEnd)
-    values.set(blank.id, value)
-
-    savedOffset = valueEnd
-    starterOffset = blank.to
-  }
-
-  return values
-}
-
-/**
  * Dispatch feedback effects on a view after submission.
  */
 export function setBlankFeedbackOnView(
@@ -414,3 +362,7 @@ export function clearBlankFeedbackOnView(
     effects: clearFeedback.of(undefined),
   })
 }
+
+// Re-exported so callers keep importing blank helpers from one place; the
+// implementations live in @blankcode/shared because the API grades against them.
+export { extractBlankValues, reconstructCode }

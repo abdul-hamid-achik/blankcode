@@ -32,16 +32,14 @@ function reset() {
 </script>
 
 <template>
-  <div v-if="hasError" class="rounded-xl border border-destructive/50 bg-destructive/5 p-6">
+  <div v-if="hasError" class="rounded border border-destructive/50 bg-destructive/5 p-6">
     <div class="flex flex-col items-center text-center">
       <div class="text-4xl mb-4">!</div>
       <p class="text-destructive font-medium mb-2">{{ fallbackMessage }}</p>
       <p v-if="error?.message" class="text-sm text-muted-foreground mb-4">
         {{ error.message }}
       </p>
-      <Button variant="outline" size="sm" @click="reset">
-        Try Again
-      </Button>
+      <Button variant="outline" size="sm" @click="reset"> Try Again </Button>
     </div>
   </div>
   <slot v-else />

@@ -30,9 +30,9 @@ export const useReviewStore = defineStore('review', () => {
     }
   }
 
-  async function completeReview(exerciseId: string, passed: boolean) {
+  async function completeReview(exerciseId: string, passed: boolean, quality?: 3 | 4 | 5) {
     const api = useApi()
-    await api.reviews.complete(exerciseId, passed)
+    await api.reviews.complete(exerciseId, passed, quality)
     dueExercises.value = dueExercises.value.filter((e) => e.id !== exerciseId)
     dueCount.value = Math.max(0, dueCount.value - 1)
   }

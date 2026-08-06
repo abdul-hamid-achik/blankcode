@@ -1,8 +1,8 @@
 ---
 slug: react-performance-and-patterns-memo-optimization
-title: Optimizing Re-renders with React.memo
-description: Learn how to prevent unnecessary re-renders using React.memo and understand when components should update.
-difficulty: beginner
+title: Optimizing Re-renders with React.memo and Custom Comparisons
+description: Learn how to prevent unnecessary re-renders using React.memo, including writing a custom comparison function to control exactly when a component updates.
+difficulty: advanced
 hints:
   - React.memo is a higher-order component that memoizes your component
   - Wrap your component with React.memo to prevent re-renders when props haven't changed
@@ -32,7 +32,7 @@ interface UserProfileProps {
 }
 
 // TODO: Wrap this component to prevent unnecessary re-renders
-const UserProfile = ___blank_start___React.memo(___blank_end___({ name, email }: UserProfileProps) => {
+const UserProfile = ___blank_start___React.memo___blank_end___(({ name, email }: UserProfileProps) => {
   console.log('UserProfile rendered');
   return (
     <div className="user-profile">
@@ -40,7 +40,7 @@ const UserProfile = ___blank_start___React.memo(___blank_end___({ name, email }:
       <p>{email}</p>
     </div>
   );
-}___blank_start___)___blank_end___;
+});
 
 interface ExpensiveDisplayProps {
   data: {
@@ -51,7 +51,7 @@ interface ExpensiveDisplayProps {
 
 // TODO: Wrap this component with a custom comparison function
 // It should only re-render when the data.id changes
-const ExpensiveDisplay = ___blank_start___React.memo(___blank_end___(
+const ExpensiveDisplay = ___blank_start___React.memo___blank_end___(
   ({ data }: ExpensiveDisplayProps) => {
     console.log('ExpensiveDisplay rendered');
     // Simulate expensive calculation
@@ -63,11 +63,9 @@ const ExpensiveDisplay = ___blank_start___React.memo(___blank_end___(
       </div>
     );
   },
-  ___blank_start___(prevProps, nextProps) => {
-    // Return true if props are equal (should NOT re-render)
-    // Return false if props are different (should re-render)
-    return prevProps.data.id === nextProps.data.id;
-  }___blank_end___
+  // Return true if props are equal (should NOT re-render)
+  // Return false if props are different (should re-render)
+  ___blank_start___(prevProps, nextProps) => prevProps.data.id === nextProps.data.id___blank_end___
 );
 
 export default function App() {

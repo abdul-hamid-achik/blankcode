@@ -3,13 +3,12 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "baseUrl": ".",
     "paths": {
       "@blankcode/shared": ["../shared/src/index.ts"],
       "@blankcode/shared/*": ["../shared/src/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["./src/**/*"],
   "exclude": ["node_modules", "dist"],
   "references": [{ "path": "../shared" }]
 }

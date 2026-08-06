@@ -33,6 +33,15 @@ Create a `RequestBuilder` struct with the following features:
 - JSON serialization for body
 - Clone-friendly builder
 
+Write your complete implementation below:
+
+```rust
+use std::collections::HashMap;
+use std::time::Duration;
+
+// Your implementation here
+```
+
 ## Example Usage
 
 ```rust
@@ -43,15 +52,6 @@ let request = RequestBuilder::new(Method::GET, "https://api.example.com/users")
     .bearer_token("my-token")
     .timeout(Duration::from_secs(30))
     .build()?;
-```
-
-Write your complete implementation below:
-
-```rust
-use std::collections::HashMap;
-use std::time::Duration;
-
-// Your implementation here
 ```
 
 ## Tests

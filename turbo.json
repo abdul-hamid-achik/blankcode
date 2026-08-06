@@ -12,11 +12,20 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
-      "inputs": ["src/**", "test/**", "tests/**"]
-    },
-    "test:e2e": {
-      "dependsOn": ["build"],
-      "outputs": ["playwright-report/**", "test-results/**"]
+      "inputs": [
+        "src/**",
+        "test/**",
+        "tests/**",
+        "__tests__/**",
+        "components/**",
+        "composables/**",
+        "utils/**",
+        "stores/**",
+        "vitest.config.ts",
+        "../../content/**",
+        "../../docker/**",
+        "../../.env.example"
+      ]
     },
     "typecheck": {
       "dependsOn": ["^build"],

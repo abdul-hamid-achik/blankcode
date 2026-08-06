@@ -2,7 +2,7 @@
 slug: react-routing-and-navigation-basic-routes
 title: Setting Up Basic Routes in React
 description: Learn how to set up basic routing in a React application using React Router. Create multiple routes and navigate between different pages.
-difficulty: beginner
+difficulty: intermediate
 hints:
   - React Router provides components like BrowserRouter, Routes, and Route to handle navigation
   - The Route component needs a 'path' prop to specify the URL and an 'element' prop for the component to render
@@ -37,7 +37,7 @@ function App() {
       <nav>
         <ul>
           <li>
-            <___blank_start___Link___blank_end___ to="/">Home</___blank_start___Link___blank_end___>
+            <___blank_start___Link___blank_end___ to="/">Home</Link>
           </li>
           <li>
             <Link to="/about">About</Link>
@@ -52,8 +52,8 @@ function App() {
         <___blank_start___Route___blank_end___ path="/" element={<Home />} />
         <___blank_start___Route___blank_end___ path="/about" element={<About />} />
         <___blank_start___Route___blank_end___ path="/contact" element={<Contact />} />
-      </___blank_start___Routes___blank_end___>
-    </___blank_start___BrowserRouter___blank_end___>
+      </Routes>
+    </BrowserRouter>
   );
 }
 

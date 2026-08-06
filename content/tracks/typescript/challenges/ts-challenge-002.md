@@ -28,6 +28,12 @@ Implement the following generic array utility functions with proper TypeScript t
 - Handle edge cases (empty arrays, undefined, etc.)
 - Do not mutate the original arrays
 
+Write your complete implementation below:
+
+```typescript
+// Your implementation here
+```
+
 ## Example Usage
 
 ```typescript
@@ -39,12 +45,6 @@ unique([1, 1, 2, 3])    // Returns [1, 2, 3]
 const words = ['apple', 'banana', 'cherry']
 groupBy(words, w => w[0]) 
 // Returns { a: ['apple'], b: ['banana'], c: ['cherry'] }
-```
-
-Write your complete implementation below:
-
-```typescript
-// Your implementation here
 ```
 
 ## Tests

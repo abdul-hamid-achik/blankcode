@@ -23,6 +23,14 @@ Create a `Counter` type that is safe for concurrent use:
 5. **Value() int** - Returns current value (thread-safe)
 6. **Reset()** - Resets to 0 (thread-safe)
 
+Write your complete implementation below:
+
+```go
+package main
+
+// Your implementation here
+```
+
 ## Constraints
 
 - Must use `sync.Mutex` or `sync/atomic` for thread safety
@@ -37,14 +45,6 @@ counter := NewCounter(0)
 counter.Increment()  // Returns 1
 counter.Add(10)      // Returns 11
 counter.Value()      // Returns 11
-```
-
-Write your complete implementation below:
-
-```go
-package main
-
-// Your implementation here
 ```
 
 ## Tests

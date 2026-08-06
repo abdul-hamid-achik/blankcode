@@ -2,7 +2,17 @@ import tailwindcss from '@tailwindcss/vite'
 import type { PluginOption } from 'vite'
 
 export default defineNuxtConfig({
-  modules: ['@nuxt/content', '@pinia/nuxt', 'nuxt-studio'],
+  modules: ['@nuxt/content', '@pinia/nuxt', '@nuxt/fonts'],
+
+  // IBM Plex is the whole type system: Mono carries the display voice (the
+  // product is literally code text), Sans carries prose. Self-hosted by
+  // @nuxt/fonts so there is no CDN dependency at runtime.
+  fonts: {
+    families: [
+      { name: 'IBM Plex Mono', provider: 'google', weights: [400, 500, 600] },
+      { name: 'IBM Plex Sans', provider: 'google', weights: [400, 500, 600] },
+    ],
+  },
 
   css: ['~/assets/css/main.css'],
 

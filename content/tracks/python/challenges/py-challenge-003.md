@@ -31,6 +31,12 @@ Create a `DatabaseConnection` context manager with the following features:
 - Log all operations
 - Handle nested transactions
 
+Write your complete implementation below:
+
+```python
+# Your implementation here
+```
+
 ## Example Usage
 
 ```python
@@ -42,12 +48,6 @@ with DatabaseConnection() as db:
 def transfer(from_id, to_id, amount):
     db.execute("UPDATE accounts SET balance = balance - %s WHERE id = %s", (amount, from_id))
     db.execute("UPDATE accounts SET balance = balance + %s WHERE id = %s", (amount, to_id))
-```
-
-Write your complete implementation below:
-
-```python
-# Your implementation here
 ```
 
 ## Tests

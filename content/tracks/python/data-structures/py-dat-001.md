@@ -29,7 +29,7 @@ Complete the code by filling in the blanks to:
 student = {
     "name": "Alice Johnson",
     "student_id": "12345",
-    ___blank_start___"grades": []___blank_end___
+    "___blank_start___grades___blank_end___": []
 }
 
 # Create a list of test scores

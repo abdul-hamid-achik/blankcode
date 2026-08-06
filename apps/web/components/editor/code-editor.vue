@@ -237,10 +237,17 @@ watch(
   }
 )
 
-// Rebuild editor when blanks change (e.g., exercise loaded asynchronously)
+// Rebuild editor only when the blanks identity actually changes (different
+// exercise loaded). A new array with the same blank IDs/positions is treated
+// as a no-op so we don't drop focus or undo history on every parent re-render.
+function blanksFingerprint(blanks: readonly BlankRegionInStarter[]): string {
+  return blanks.map((b) => `${b.id}:${b.from}:${b.to}`).join('|')
+}
+
 watch(
-  () => props.blanks,
-  () => {
+  () => blanksFingerprint(props.blanks),
+  (next, prev) => {
+    if (next === prev) return
     destroyEditor()
     createEditor()
   }
@@ -293,9 +300,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="relative rounded-lg border border-border overflow-hidden h-full min-h-[300px]">
+  <div class="relative rounded-lg border border-rule overflow-hidden h-full min-h-[300px]">
     <div ref="editorContainer" class="h-full" />
-    <div class="absolute bottom-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded">
+    <div
+      class="absolute bottom-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded"
+    >
       {{ language }}{{ isBlankMode ? ' | Tab to navigate' : '' }} | Ctrl+Enter to submit
     </div>
   </div>

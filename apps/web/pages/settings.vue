@@ -38,12 +38,12 @@ function decreaseFontSize() {
 <template>
   <div class="container py-12">
     <div class="max-w-2xl mx-auto">
-      <h1 class="text-3xl font-bold mb-8">Settings</h1>
+      <h1 class="display text-2xl md:text-3xl mb-8">Settings</h1>
 
       <div class="space-y-8">
         <!-- Profile Settings -->
         <Card>
-          <h2 class="text-xl font-semibold mb-4">Profile</h2>
+          <h2 class="display text-lg mb-4">Profile</h2>
           <div class="space-y-4">
             <div>
               <label class="block text-sm font-medium mb-2">Email</label>
@@ -51,7 +51,7 @@ function decreaseFontSize() {
                 type="email"
                 :value="authStore.user?.email"
                 disabled
-                class="w-full px-3 py-2 rounded-lg border border-border bg-muted text-muted-foreground"
+                class="w-full px-3 py-2 rounded-lg border border-rule bg-muted text-muted-foreground"
               />
             </div>
             <div>
@@ -60,7 +60,7 @@ function decreaseFontSize() {
                 type="text"
                 :value="authStore.user?.username"
                 disabled
-                class="w-full px-3 py-2 rounded-lg border border-border bg-muted text-muted-foreground"
+                class="w-full px-3 py-2 rounded-lg border border-rule bg-muted text-muted-foreground"
               />
             </div>
             <div>
@@ -68,14 +68,12 @@ function decreaseFontSize() {
               <input
                 v-model="displayName"
                 type="text"
-                class="w-full px-3 py-2 rounded-lg border border-border bg-background"
+                class="w-full px-3 py-2 rounded-lg border border-rule bg-background"
                 placeholder="Enter your display name"
               />
             </div>
             <div class="flex items-center gap-4">
-              <Button :loading="isSaving" @click="saveProfile">
-                Save Changes
-              </Button>
+              <Button :loading="isSaving" @click="saveProfile"> Save Changes </Button>
               <span v-if="saveMessage" class="text-sm text-muted-foreground">
                 {{ saveMessage }}
               </span>
@@ -85,7 +83,7 @@ function decreaseFontSize() {
 
         <!-- Editor Settings -->
         <Card>
-          <h2 class="text-xl font-semibold mb-4">Editor Preferences</h2>
+          <h2 class="display text-lg mb-4">Editor Preferences</h2>
           <div class="space-y-4">
             <div>
               <label class="block text-sm font-medium mb-2">Theme</label>
@@ -112,13 +110,9 @@ function decreaseFontSize() {
                 Font Size: {{ preferencesStore.preferences.fontSize }}px
               </label>
               <div class="flex items-center gap-2">
-                <Button variant="outline" size="sm" @click="decreaseFontSize">
-                  -
-                </Button>
+                <Button variant="outline" size="sm" @click="decreaseFontSize"> - </Button>
                 <div class="w-12 text-center">{{ preferencesStore.preferences.fontSize }}</div>
-                <Button variant="outline" size="sm" @click="increaseFontSize">
-                  +
-                </Button>
+                <Button variant="outline" size="sm" @click="increaseFontSize"> + </Button>
               </div>
             </div>
 
@@ -148,7 +142,7 @@ function decreaseFontSize() {
               </Button>
             </div>
 
-            <div class="pt-4 border-t border-border">
+            <div class="pt-4 border-t border-rule">
               <Button variant="ghost" size="sm" @click="preferencesStore.reset">
                 Reset to Defaults
               </Button>

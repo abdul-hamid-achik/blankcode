@@ -31,19 +31,6 @@ Create a `VirtualizedList` component with the following features:
 - Use requestAnimationFrame for scroll handling
 - Support keyboard navigation
 
-## Example Usage
-
-```tsx
-<VirtualizedList
-  items={largeArray}
-  itemHeight={50}
-  containerHeight={400}
-  overscan={5}
-  renderItem={(item) => <div>{item.name}</div>}
-  onReachEnd={loadMore}
-/>
-```
-
 Write your complete implementation below:
 
 ```tsx
@@ -61,6 +48,19 @@ interface VirtualizedListProps<T> {
 }
 
 // Your implementation here
+```
+
+## Example Usage
+
+```tsx
+<VirtualizedList
+  items={largeArray}
+  itemHeight={50}
+  containerHeight={400}
+  overscan={5}
+  renderItem={(item) => <div>{item.name}</div>}
+  onReachEnd={loadMore}
+/>
 ```
 
 ## Tests

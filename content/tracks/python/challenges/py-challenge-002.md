@@ -33,6 +33,12 @@ Create a `FileStats` class that analyzes text files and provides the following s
 - Empty files should return 0 for counts and None for most_common_word
 - Strip newlines when reading
 
+Write your complete implementation below:
+
+```python
+# Your implementation here
+```
+
 ## Example Usage
 
 ```python
@@ -40,12 +46,6 @@ stats = FileStats('sample.txt')
 stats.line_count()           # Returns number of lines
 stats.word_count()           # Returns number of words
 stats.most_common_word()     # Returns most frequent word
-```
-
-Write your complete implementation below:
-
-```python
-# Your implementation here
 ```
 
 ## Tests

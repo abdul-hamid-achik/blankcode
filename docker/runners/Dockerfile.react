@@ -6,7 +6,8 @@ RUN mkdir -p /tmp/deps && cd /tmp/deps && npm init -y && \
     npm install \
     vitest typescript @types/node \
     react react-dom @types/react @types/react-dom \
-    @testing-library/react @testing-library/jest-dom \
+    @testing-library/react @testing-library/jest-dom @testing-library/user-event \
+    react-router-dom \
     jsdom && \
     mv /tmp/deps/node_modules /node_modules && \
     rm -rf /tmp/deps

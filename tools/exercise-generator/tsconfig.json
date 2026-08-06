@@ -3,15 +3,15 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
-    "baseUrl": ".",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "types": ["node"],
     "paths": {
       "@blankcode/shared": ["../../packages/shared/src/index.ts"],
       "@blankcode/shared/*": ["../../packages/shared/src/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["./src/**/*"],
   "exclude": ["node_modules", "dist"],
   "references": [{ "path": "../../packages/shared" }]
 }

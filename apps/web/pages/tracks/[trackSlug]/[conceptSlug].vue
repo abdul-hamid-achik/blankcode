@@ -33,7 +33,9 @@ const exerciseTypeBadges: Record<string, { label: string; icon: string; color: s
 <template>
   <div class="container py-12">
     <div v-if="isLoading" class="flex items-center justify-center py-12">
-      <div class="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+      <div
+        class="animate-spin h-6 w-6 border-2 border-rule-strong border-t-signal rounded-full"
+      ></div>
     </div>
 
     <div v-else class="max-w-4xl mx-auto">
@@ -44,17 +46,13 @@ const exerciseTypeBadges: Record<string, { label: string; icon: string; color: s
         >
           &larr; Back to Track
         </NuxtLink>
-        <h1 class="text-3xl font-bold mb-2">{{ conceptSlug }}</h1>
+        <h1 class="display text-2xl md:text-3xl mb-2">{{ conceptSlug }}</h1>
         <p class="text-muted-foreground">Practice exercises for this concept.</p>
       </div>
 
       <div v-if="exercises?.length" class="grid gap-4">
-        <NuxtLink
-          v-for="exercise in exercises"
-          :key="exercise.id"
-          :to="`/exercise/${exercise.id}`"
-        >
-          <Card class="hover:border-primary/50 transition-colors cursor-pointer">
+        <NuxtLink v-for="exercise in exercises" :key="exercise.id" :to="`/exercise/${exercise.id}`">
+          <Card class="hover:border-rule-strong transition-colors cursor-pointer">
             <div class="flex items-center justify-between">
               <div>
                 <div class="flex items-center gap-2 mb-1">
@@ -100,7 +98,10 @@ const exerciseTypeBadges: Record<string, { label: string; icon: string; color: s
         </NuxtLink>
       </div>
 
-      <div v-else-if="exercises && exercises.length === 0" class="text-center py-8 text-muted-foreground">
+      <div
+        v-else-if="exercises && exercises.length === 0"
+        class="text-center py-8 text-muted-foreground"
+      >
         No exercises available for this concept yet.
       </div>
     </div>

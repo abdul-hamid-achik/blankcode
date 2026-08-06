@@ -1,4 +1,7 @@
 import type { Difficulty } from '@blankcode/shared'
+import { complete, isGatewayConfigured, resolveConfig } from './llm.js'
+
+export { describeConfig, isGatewayConfigured, listAvailableModels, resolveConfig } from './llm.js'
 
 export interface GenerateOptions {
   track: string
@@ -54,6 +57,28 @@ const TRACK_CONFIG: Record<
   },
 }
 
+/**
+ * Models often wrap the whole answer in a ```markdown fence, or prefix it with
+ * a sentence of chat. Both break the frontmatter parser downstream, so strip
+ * anything before the opening `---` and unwrap a single outer fence.
+ */
+export function sanitizeGeneratedMarkdown(raw: string): string {
+  let content = raw.trim()
+
+  const outerFence = content.match(/^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/)
+  if (outerFence?.[1]) {
+    content = outerFence[1].trim()
+  }
+
+  // Drop any chatty preamble before the YAML frontmatter.
+  const frontmatterStart = content.indexOf('---\n')
+  if (frontmatterStart > 0) {
+    content = content.slice(frontmatterStart)
+  }
+
+  return content.trim()
+}
+
 function validateGeneratedExercise(content: string): { valid: boolean; errors: string[] } {
   const errors: string[] = []
 
@@ -75,20 +100,19 @@ function validateGeneratedExercise(content: string): { valid: boolean; errors: s
 }
 
 export async function generateExercise(options: GenerateOptions): Promise<string> {
-  const apiKey = process.env['ANTHROPIC_API_KEY']
-
-  if (!apiKey) {
+  if (!isGatewayConfigured()) {
     return generatePlaceholderExercise(options)
   }
 
+  const config = resolveConfig()
   const prompt = buildPrompt(options)
-  let result = await generateWithAnthropic(prompt)
+  let result = sanitizeGeneratedMarkdown((await complete(config, prompt)).text)
 
   const validation = validateGeneratedExercise(result)
   if (!validation.valid) {
     console.warn(`Generated exercise validation failed: ${validation.errors.join(', ')}`)
     const retryPrompt = `${prompt}\n\nIMPORTANT: Your previous output had these issues: ${validation.errors.join(', ')}. Please fix them.`
-    result = await generateWithAnthropic(retryPrompt)
+    result = sanitizeGeneratedMarkdown((await complete(config, retryPrompt)).text)
     const retryValidation = validateGeneratedExercise(result)
     if (!retryValidation.valid) {
       console.error(
@@ -118,6 +142,9 @@ Requirements:
 5. Include a Tests section with ${cfg.testFramework} tests
 6. Make it educational and progressive
 
+Output ONLY the raw Markdown document. Do not add any explanation before or
+after it, and do not wrap the whole document in a code fence.
+
 Format:
 ---
 slug: ${track}-${concept.replace('-', '')}-XXX
@@ -144,33 +171,6 @@ Explanation of what to do.
 ${cfg.testExample}
 \`\`\`
 `
-}
-
-async function generateWithAnthropic(prompt: string): Promise<string> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env['ANTHROPIC_API_KEY']!,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 4000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-
-  const data = (await response.json()) as {
-    content?: Array<{ text: string }>
-    error?: { type: string; message: string }
-  }
-
-  if (!response.ok || data.error) {
-    throw new Error(`Anthropic API error: ${data.error?.message ?? response.statusText}`)
-  }
-
-  return data.content?.[0]?.text ?? ''
 }
 
 function generatePlaceholderExercise(options: GenerateOptions): string {
@@ -212,7 +212,7 @@ test('example works', () => {
 \`\`\`
 
 ---
-Note: This is a placeholder. Set ANTHROPIC_API_KEY to generate real exercises.
+Note: This is a placeholder. Set AI_GATEWAY_API_KEY to generate real exercises.
 `
 }
 
@@ -220,14 +220,13 @@ export async function generateTrackScaffold(
   trackSlug: string,
   trackName: string
 ): Promise<TrackScaffold> {
-  const apiKey = process.env['ANTHROPIC_API_KEY']
-
-  if (!apiKey) {
+  if (!isGatewayConfigured()) {
     return generatePlaceholderScaffold(trackSlug, trackName)
   }
 
+  const config = resolveConfig()
   const prompt = buildTrackPrompt(trackSlug, trackName)
-  const result = await generateWithAnthropic(prompt)
+  const result = (await complete(config, prompt)).text
 
   return parseTrackScaffold(result, trackSlug, trackName)
 }

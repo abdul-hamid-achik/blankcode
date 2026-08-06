@@ -2,7 +2,7 @@
 slug: python-datastructures-shopping-list
 title: Managing a Shopping List with Lists and Dictionaries
 description: Learn to work with Python lists and dictionaries by creating and manipulating a shopping list with items and quantities.
-difficulty: beginner
+difficulty: intermediate
 hints:
   - Lists use square brackets [] and can be modified with .append()
   - Dictionaries use curly braces {} and store key-value pairs
@@ -25,15 +25,15 @@ Complete the code to:
 
 ```python
 def manage_shopping_list():
-    # Create a list with three initial shopping items
-    shopping_items = ___blank_start___["milk", "eggs", "bread"]___blank_end___
+    # Create a list with three initial shopping items: milk, eggs, bread
+    shopping_items = ["___blank_start___milk___blank_end___", "___blank_start___eggs___blank_end___", "___blank_start___bread___blank_end___"]
     
     # Create a dictionary to track quantities for each item
     # milk: 2, eggs: 12, bread: 1
-    item_quantities = ___blank_start___{"milk": 2, "eggs": 12, "bread": 1}___blank_end___
+    item_quantities = {"milk": ___blank_start___2___blank_end___, "eggs": ___blank_start___12___blank_end___, "bread": ___blank_start___1___blank_end___}
     
     # Add a new item "apples" to the shopping list
-    shopping_items.___blank_start___append("apples")___blank_end___
+    shopping_items.___blank_start___append___blank_end___("apples")
     
     # Add the quantity for apples (5) to the dictionary
     item_quantities["apples"] = 5

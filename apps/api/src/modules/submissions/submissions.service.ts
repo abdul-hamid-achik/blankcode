@@ -2,8 +2,10 @@ import { Drizzle } from '@blankcode/db/client'
 import { exercises, submissions } from '@blankcode/db/schema'
 import type { SubmissionCreateInput } from '@blankcode/shared'
 import { and, desc, eq } from 'drizzle-orm'
+import { type BlankRegionInStarter, gradeBlanks } from '@blankcode/shared'
 import { Context, Effect, Layer } from 'effect'
 import { BadRequestError, InvalidTransitionError, NotFoundError } from '../../api/errors.js'
+import { redactExercise } from '../exercises/redact.js'
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ['running', 'error'],
@@ -51,6 +53,39 @@ export class SubmissionsService extends Context.Tag('SubmissionsService')<
   SubmissionsService,
   SubmissionsServiceShape
 >() {}
+
+/**
+ * Attaches per-blank verdicts to a finished submission and strips the answers
+ * out of the embedded exercise.
+ *
+ * The browser used to grade blanks itself by comparing against
+ * `blanks[].solution`, which meant the API had to ship every answer to every
+ * client. Grading here keeps the answers server-side, and gating on a terminal
+ * status stops the response from becoming an oracle you can poll before the
+ * tests have run.
+ */
+function withBlankFeedback<T extends Record<string, any>>(submission: T) {
+  const exercise = submission['exercise'] as
+    | { starterCode?: string; blanks?: unknown; type?: string }
+    | undefined
+
+  const blanks = Array.isArray(exercise?.blanks)
+    ? (exercise.blanks as (BlankRegionInStarter & { solution?: string })[])
+    : []
+
+  const isTerminal = submission['status'] !== 'pending' && submission['status'] !== 'running'
+
+  const blankFeedback =
+    isTerminal && blanks.length > 0 && exercise?.starterCode
+      ? gradeBlanks(String(submission['code'] ?? ''), exercise.starterCode, blanks)
+      : null
+
+  return {
+    ...submission,
+    blankFeedback,
+    ...(exercise ? { exercise: redactExercise(exercise as Record<string, unknown>) } : {}),
+  }
+}
 
 export const SubmissionsServiceLive = Layer.effect(
   SubmissionsService,
@@ -151,7 +186,7 @@ export const SubmissionsServiceLive = Layer.effect(
             return yield* Effect.fail(new NotFoundError({ resource: 'Submission', id }))
           }
 
-          return submission
+          return withBlankFeedback(submission)
         }),
 
       findByExercise: (exerciseId, userId) =>

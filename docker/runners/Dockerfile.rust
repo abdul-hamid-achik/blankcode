@@ -1,21 +1,95 @@
-FROM rust:1.77-alpine
+# BlankCode Rust runner.
+#
+# The sandbox starts every container with `--network=none`
+# (apps/api/src/services/execution/sandbox.ts), so cargo can NEVER reach
+# crates.io while a submission runs. Any crate the exercise corpus is allowed to
+# use has to be vendored into this image at build time and compiled here, so the
+# sandboxed `cargo test --offline` is a purely local build.
+#
+# Two things must stay in sync with
+# apps/api/src/services/execution/executors/rust.executor.ts:
+#
+#   1. VENDORED_CRATES there <-> the [dependencies] table below. A crate the
+#      executor is willing to add must exist in /opt/blankcode/vendor or the
+#      submission fails to compile with no network to recover from.
+#   2. The manifest below <-> buildCargoManifest() there. If they drift, the
+#      prebuilt artifacts in /opt/blankcode/prebuilt/target simply miss and
+#      cargo rebuilds them inside the sandbox: slower, still correct.
+#
+# `debug = 0` is not a nicety. The sandbox sets `--ulimit=fsize=10485760`, and a
+# default debug build of tokio produces a 10.4 MB rlib, which trips SIGXFSZ.
+# Without debuginfo the largest artifact is ~6.6 MB.
 
-WORKDIR /app
+FROM rust:1.90-alpine AS deps
 
-# Install build dependencies
 RUN apk add --no-cache musl-dev
 
-# Create non-root user with writable Cargo cache directories
-# CARGO_HOME/bin stays read-only (contains rustc, cargo binaries)
-# registry + git dirs need write access for crate downloads
+WORKDIR /build
+
+RUN set -eux; \
+    mkdir -p src; \
+    printf 'pub fn __blankcode_prebuild() {}\n' > src/lib.rs; \
+    printf '%s\n' \
+      '[package]' \
+      'name = "solution"' \
+      'version = "0.1.0"' \
+      'edition = "2021"' \
+      '' \
+      '[lib]' \
+      'name = "solution"' \
+      'path = "src/lib.rs"' \
+      'doctest = false' \
+      '' \
+      '[profile.dev]' \
+      'debug = 0' \
+      'incremental = false' \
+      '' \
+      '[profile.test]' \
+      'debug = 0' \
+      'incremental = false' \
+      '' \
+      '[lints.rust]' \
+      'dead_code = "allow"' \
+      'unused_imports = "allow"' \
+      'unused_mut = "allow"' \
+      'unused_parens = "allow"' \
+      'unused_variables = "allow"' \
+      '' \
+      '[dependencies]' \
+      'tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "sync", "time"] }' \
+      > Cargo.toml
+
+# Download every dependency and lay it out as an offline directory source.
+RUN set -eux; \
+    mkdir -p .cargo; \
+    cargo vendor --versioned-dirs /opt/blankcode/vendor > .cargo/config.toml
+
+# Compile the dependency graph once, at image build time, so a submission that
+# needs tokio does not have to spend its 60s budget (on 0.5 CPU / 256 MB)
+# rebuilding it.
+RUN cargo test --offline --no-run
+
+FROM rust:1.90-alpine
+
+RUN apk add --no-cache musl-dev
+
+# Owned by the runner uid so the sandbox's `cp -a` can preserve mtimes — cargo
+# fingerprints are mtime based, and a reset mtime means a full rebuild.
+COPY --from=deps --chown=10000:10000 /opt/blankcode/vendor /opt/blankcode/vendor
+COPY --from=deps --chown=10000:10000 /build/target /opt/blankcode/prebuilt/target
+
 RUN adduser -D -u 10000 runner && \
-    mkdir -p /usr/local/cargo/registry /usr/local/cargo/git && \
-    chmod -R a+w /usr/local/cargo/registry /usr/local/cargo/git && \
     mkdir -p /home/runner && \
     chown -R runner:runner /home/runner
 
 ENV HOME=/home/runner
+ENV CARGO_TERM_COLOR=never
+
+WORKDIR /app
 
 USER runner
 
-CMD ["cargo", "test", "--", "--nocapture"]
+# Fallback only — the executor always passes an explicit command. No
+# --nocapture: it interleaves the submission's stdout into the `test <name> ...
+# ok` lines the result parser reads.
+CMD ["cargo", "test", "--offline"]

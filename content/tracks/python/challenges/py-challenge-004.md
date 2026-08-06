@@ -32,6 +32,16 @@ Create an `AsyncTaskQueue` class with the following features:
 - Support task cancellation
 - Track task status (pending, running, completed, failed)
 
+Write your complete implementation below:
+
+```python
+import asyncio
+from typing import Callable, Any, Optional
+from enum import Enum
+
+# Your implementation here
+```
+
 ## Example Usage
 
 ```python
@@ -49,16 +59,6 @@ for url in urls:
 
 await queue.run()
 await queue.wait()
-```
-
-Write your complete implementation below:
-
-```python
-import asyncio
-from typing import Callable, Any, Optional
-from enum import Enum
-
-# Your implementation here
 ```
 
 ## Tests

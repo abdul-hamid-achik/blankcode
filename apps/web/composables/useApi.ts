@@ -61,7 +61,7 @@ export function useApi() {
       ...(options.method === 'DELETE' || !options.body
         ? {}
         : { 'Content-Type': 'application/json' }),
-      ...((options.headers as Record<string, string>) ?? {}),
+      ...(options.headers as Record<string, string> | undefined),
     }
 
     if (token) {
@@ -218,10 +218,10 @@ export function useApi() {
     reviews: {
       getDue: () => request<ReviewExercise[]>('/reviews/due'),
       getDueCount: () => request<{ count: number }>('/reviews/due/count'),
-      complete: (exerciseId: string, passed: boolean) =>
+      complete: (exerciseId: string, passed: boolean, quality?: 3 | 4 | 5) =>
         request<void>(`/reviews/${exerciseId}/complete`, {
           method: 'POST',
-          body: JSON.stringify({ passed }),
+          body: JSON.stringify(quality === undefined ? { passed } : { passed, quality }),
         }),
     },
   }

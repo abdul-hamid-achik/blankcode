@@ -2,7 +2,7 @@
 slug: re-challenge-001
 title: 'Challenge: Build a Custom useLocalStorage Hook'
 description: Create a React hook that persists state to localStorage with proper typing.
-difficulty: beginner
+difficulty: intermediate
 type: challenge
 tags:
   - hooks
@@ -30,19 +30,19 @@ Create a custom React hook `useLocalStorage` with the following features:
 - Sync across tabs using storage event
 - Don't use external libraries
 
-## Example Usage
-
-```tsx
-const [name, setName] = useLocalStorage('name', 'Guest');
-const [count, setCount] = useLocalStorage('count', 0);
-```
-
 Write your complete implementation below:
 
 ```tsx
 import { useState, useEffect } from 'react';
 
 // Your implementation here
+```
+
+## Example Usage
+
+```tsx
+const [name, setName] = useLocalStorage('name', 'Guest');
+const [count, setCount] = useLocalStorage('count', 0);
 ```
 
 ## Tests
@@ -55,10 +55,10 @@ import { useLocalStorage } from './useLocalStorage'
 const localStorageMock = (() => {
   let store: Record<string, string> = {}
   return {
-    getItem: jest.fn((key: string) => store[key] || null),
-    setItem: jest.fn((key: string, value: string) => { store[key] = value }),
-    removeItem: jest.fn((key: string) => { delete store[key] }),
-    clear: jest.fn(() => { store = {} }),
+    getItem: vi.fn((key: string) => store[key] || null),
+    setItem: vi.fn((key: string, value: string) => { store[key] = value }),
+    removeItem: vi.fn((key: string) => { delete store[key] }),
+    clear: vi.fn(() => { store = {} }),
   }
 })()
 
@@ -68,7 +68,7 @@ Object.defineProperty(window, 'localStorage', {
 
 beforeEach(() => {
   localStorageMock.clear()
-  jest.clearAllMocks()
+  vi.clearAllMocks()
 })
 
 describe('useLocalStorage', () => {

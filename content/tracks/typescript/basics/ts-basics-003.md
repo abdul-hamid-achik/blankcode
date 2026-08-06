@@ -19,7 +19,7 @@ Complete the function that handles both string and number inputs.
 type StringOrNumber = ___blank_start___string | number___blank_end___;
 
 function formatValue(value: StringOrNumber): string {
-  if (___blank_start___typeof value === 'string'___blank_end___) {
+  if (typeof value === '___blank_start___string___blank_end___') {
     return value.toUpperCase();
   }
   return ___blank_start___value.toFixed(2)___blank_end___;

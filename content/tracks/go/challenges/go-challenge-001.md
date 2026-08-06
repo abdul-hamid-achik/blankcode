@@ -21,6 +21,14 @@ Create a string manipulation package with the following functions:
 3. **IsPalindrome(s string) bool** - Checks if a string is a palindrome (case-insensitive, ignores spaces)
 4. **CountVowels(s string) int** - Counts the number of vowels in a string
 
+Write your complete implementation below:
+
+```go
+package main
+
+// Your implementation here
+```
+
 ## Constraints
 
 - Handle empty strings gracefully
@@ -36,14 +44,6 @@ Reverse("hello")           // Returns "olleh"
 ReverseWords("hello world") // Returns "world hello"
 IsPalindrome("A man a plan a canal Panama") // Returns true
 CountVowels("Hello World")  // Returns 3
-```
-
-Write your complete implementation below:
-
-```go
-package main
-
-// Your implementation here
 ```
 
 ## Tests

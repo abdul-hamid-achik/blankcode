@@ -18,7 +18,7 @@ const { notifications, dismissNotification } = useAchievementNotifications()
         <div
           v-for="notification in notifications"
           :key="notification.id"
-          class="max-w-sm w-full bg-background border border-border rounded-lg shadow-lg overflow-hidden"
+          class="max-w-sm w-full bg-background border border-rule rounded-lg shadow-lg overflow-hidden"
           :style="{ borderLeftWidth: '4px', borderLeftColor: notification.color }"
         >
           <div class="p-4">

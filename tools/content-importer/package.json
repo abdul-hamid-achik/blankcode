@@ -2,10 +2,10 @@
   "name": "@blankcode/content-importer",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "bin": {
     "content-importer": "./dist/cli.js"
   },
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -17,12 +17,12 @@
     "@blankcode/exercise-parser": "workspace:*",
     "@blankcode/shared": "workspace:*",
     "dotenv-mono": "^1.3.0",
-    "glob": "^11.0.0",
-    "yaml": "^2.7.0"
+    "glob": "^13.0.6",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "typescript": "5.9.3"
+    "@types/node": "22",
+    "typescript": "^7.0.2"
   },
   "peerDependencies": {
     "drizzle-orm": ">=0.40.0",

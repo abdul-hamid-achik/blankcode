@@ -32,9 +32,8 @@ func Add(a, b int) int {
     return a + b
 }
 
-// ___blank_start___calculator_test.go___blank_end___
-
-package calculator
+// In real Go projects, this test lives in its own file named
+// ___blank_start___calculator_test.go___blank_end___ — shown together here for this exercise.
 
 func ___blank_start___TestAdd___blank_end___(t *testing.T) {
     result := Add(2, 3)
@@ -59,7 +58,10 @@ func TestAddFunction(t *testing.T) {
 	}
 }
 
-func TestStudentTestExists(t *testing.T) {
-	var _ func(*testing.T) = TestAdd
+func TestStudentTestPasses(t *testing.T) {
+	// Actually run the student's TestAdd against the real Add function,
+	// so a wrong function name, wrong comparison, or wrong t.Errorf call
+	// is caught — not just that a symbol named TestAdd compiles.
+	TestAdd(t)
 }
 ```

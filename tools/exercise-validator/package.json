@@ -1,0 +1,25 @@
+{
+  "name": "@blankcode/exercise-validator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "start": "bun src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@blankcode/exercise-parser": "workspace:*",
+    "@blankcode/shared": "workspace:*",
+    "glob": "^13.0.6",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "22",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
+  }
+}

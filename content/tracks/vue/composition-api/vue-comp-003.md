@@ -25,7 +25,7 @@ export function useSearch() {
   const searchHistory = ref<string[]>([])
 
   // Watch query changes and update history
-  ___blank_start___watch(query___blank_end___, (newQuery, oldQuery) => {
+  watch(___blank_start___query___blank_end___, (newQuery, oldQuery) => {
     if (newQuery && newQuery !== oldQuery) {
       searchHistory.value.___blank_start___push(newQuery)___blank_end___
     }
@@ -55,7 +55,7 @@ export function useSearch() {
 ## Tests
 
 ```typescript
-import { expect, test, vi } from 'vitest'
+import { expect, test } from 'vitest'
 import { nextTick } from 'vue'
 import { useSearch } from './use-search'
 

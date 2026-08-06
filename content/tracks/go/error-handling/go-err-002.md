@@ -18,7 +18,7 @@ In Go, error handling is explicit and idiomatic. Functions that can fail return 
 
 Complete the code by filling in the blanks to properly handle the division by zero error case.
 
-```typescript
+```go
 package main
 
 import (
@@ -28,7 +28,7 @@ import (
 // Divide performs division and returns an error if the divisor is zero
 func Divide(a, b float64) (float64, error) {
 	if b == 0 {
-		// Return zero value and an error for division by zero
+		// Return the zero value and an error with the exact message "cannot divide by zero"
 		return 0, ___blank_start___fmt.Errorf("cannot divide by zero")___blank_end___
 	}
 	return a / b, ___blank_start___nil___blank_end___

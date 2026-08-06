@@ -5,7 +5,7 @@ description: Build generic utility functions for working with arrays.
 difficulty: intermediate
 hints:
   - Multiple generic type parameters can be used
-  - Array.prototype methods work with generic arrays
+  - "`Array.prototype.at()` is typed to return `T | undefined` — it never assumes the index exists"
   - Consider edge cases like empty arrays
 tags:
   - generics
@@ -17,7 +17,7 @@ Implement generic array utility functions.
 
 ```typescript
 function first<T>(arr: T[]): ___blank_start___T | undefined___blank_end___ {
-  return ___blank_start___arr[0]___blank_end___;
+  return arr.at(0);
 }
 
 function last<T>(arr: ___blank_start___T[]___blank_end___): T | undefined {

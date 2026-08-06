@@ -2,12 +2,13 @@
 slug: react-advancedhooks-custom-counter-hook
 title: Build Your First Custom Hook
 description: Create a custom hook that manages counter state with increment, decrement, and reset functionality to understand the basics of custom React hooks.
-difficulty: beginner
+difficulty: intermediate
 hints:
   - Custom hooks must start with "use" prefix
   - Custom hooks can use other hooks like useState inside them
   - Return an object or array with the state and functions you want to expose
   - Remember that hooks can only be called at the top level of a function
+  - "When the next value depends on the previous one, pass a function to the setter: setCount((c) => c + 1)"
 tags:
   - react
   - hooks
@@ -36,11 +37,11 @@ function ___blank_start___useCounter___blank_end___(initialValue: number = 0): U
   const [count, setCount] = ___blank_start___useState(initialValue)___blank_end___;
 
   const increment = () => {
-    ___blank_start___setCount(count + 1)___blank_end___;
+    ___blank_start___setCount((c) => c + 1)___blank_end___;
   };
 
   const decrement = () => {
-    setCount(count - 1);
+    setCount((c) => c - 1);
   };
 
   const reset = () => {

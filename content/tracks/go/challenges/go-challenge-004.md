@@ -22,6 +22,14 @@ Create a `WorkerPool` type with the following features:
 4. **Stop()** - Gracefully shutdown all workers
 5. **Stats() PoolStats** - Get pool statistics
 
+Write your complete implementation below:
+
+```go
+package main
+
+// Your implementation here
+```
+
 ## Job Interface
 
 ```go
@@ -53,14 +61,6 @@ pool.Stop()
 fmt.Printf("Processed: %d, Failed: %d\n", 
     pool.Stats().SuccessCount, 
     pool.Stats().FailureCount)
-```
-
-Write your complete implementation below:
-
-```go
-package main
-
-// Your implementation here
 ```
 
 ## Tests

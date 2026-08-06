@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import RadialProgress from '~/components/charts/radial-progress.vue'
+import { computed, onMounted } from 'vue'
 import EmptyState from '~/components/error/empty-state.vue'
 import ProgressCard from '~/components/progress/progress-card.vue'
 import TrackProgressCard from '~/components/progress/track-progress-card.vue'
+import Button from '~/components/ui/button.vue'
 import { useProgressStore } from '~/stores/progress'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
@@ -12,69 +13,69 @@ const progressStore = useProgressStore()
 onMounted(async () => {
   await Promise.all([progressStore.loadStats(), progressStore.loadAllTracksProgress()])
 })
+
+const totals = computed(() => {
+  const tracks = progressStore.trackProgress
+  return {
+    completed: tracks.reduce((acc, t) => acc + t.completedExercises, 0),
+    total: tracks.reduce((acc, t) => acc + t.totalExercises, 0),
+  }
+})
+
+const overallPercent = computed(() =>
+  totals.value.total > 0 ? Math.round((totals.value.completed / totals.value.total) * 100) : 0
+)
+
+const stats = computed(() => [
+  { label: 'completed', value: progressStore.totalCompleted },
+  { label: 'current streak', value: `${progressStore.currentStreak}d` },
+  { label: 'longest streak', value: `${progressStore.userStats?.longestStreak ?? 0}d` },
+  { label: 'submissions', value: progressStore.userStats?.totalSubmissions ?? 0 },
+])
 </script>
 
 <template>
-  <div class="container py-12">
-    <div class="max-w-4xl mx-auto">
-      <h1 class="text-3xl font-bold mb-8">Your Progress</h1>
+  <div class="container max-w-3xl py-10 md:py-14">
+    <p class="eyebrow mb-2">progress</p>
+    <h1 class="display text-2xl md:text-3xl mb-10">Where the reps have gone.</h1>
 
-      <div v-if="progressStore.isLoading" class="text-center py-12 text-muted-foreground">
-        Loading progress...
-      </div>
+    <div v-if="progressStore.isLoading" role="status">
+      <div class="h-20 animate-pulse rounded border border-rule bg-muted/50" aria-hidden="true" />
+      <span class="sr-only">Loading progress…</span>
+    </div>
 
-      <template v-else>
-        <!-- Stats Overview -->
-        <div class="grid md:grid-cols-4 gap-6 mb-12">
-          <ProgressCard
-            label="Exercises Completed"
-            :value="progressStore.totalCompleted"
-          />
-          <ProgressCard
-            label="Current Streak"
-            :value="`${progressStore.currentStreak} days`"
-          />
-          <ProgressCard
-            label="Longest Streak"
-            :value="`${progressStore.userStats?.longestStreak ?? 0} days`"
-          />
-          <ProgressCard
-            label="Total Submissions"
-            :value="progressStore.userStats?.totalSubmissions ?? 0"
-          />
-        </div>
+    <template v-else>
+      <dl class="grid grid-cols-2 gap-px border border-rule bg-rule sm:grid-cols-4 mb-12">
+        <ProgressCard
+          v-for="stat in stats"
+          :key="stat.label"
+          :label="stat.label"
+          :value="stat.value"
+        />
+      </dl>
 
-        <!-- Overall Progress Chart -->
-        <div class="mb-12">
-          <h2 class="text-xl font-semibold mb-6">Overall Mastery</h2>
-          <div class="flex items-center justify-center p-8 rounded-xl border border-border bg-card">
-            <RadialProgress
-              v-if="progressStore.trackProgress.length > 0"
-              :value="progressStore.trackProgress.reduce((acc, t) => acc + t.completedExercises, 0)"
-              :max="progressStore.trackProgress.reduce((acc, t) => acc + t.totalExercises, 0)"
-              :size="180"
-              :stroke-width="12"
-            >
-              <div class="text-center">
-                <div class="text-3xl font-bold">
-                  {{ progressStore.trackProgress.reduce((acc, t) => acc + t.completedExercises, 0) }}
-                </div>
-                <div class="text-sm text-muted-foreground">exercises</div>
-              </div>
-            </RadialProgress>
-            <div v-else class="text-muted-foreground">
-              No progress yet
-            </div>
+      <template v-if="progressStore.trackProgress.length > 0">
+        <!-- One horizontal bar reads faster than a radial dial, and it sits on
+             the same rule the rest of the page uses. -->
+        <section class="mb-12">
+          <div class="mb-3 flex items-baseline justify-between gap-4">
+            <h2 class="eyebrow">overall</h2>
+            <p class="font-mono text-xs text-muted-foreground">
+              {{ totals.completed }}/{{ totals.total }} · {{ overallPercent }}%
+            </p>
           </div>
-        </div>
-
-        <!-- Track Progress -->
-        <div>
-          <h2 class="text-xl font-semibold mb-6">Progress by Track</h2>
           <div
-            v-if="progressStore.trackProgress.length > 0"
-            class="grid md:grid-cols-2 gap-4"
+            class="h-1.5 w-full bg-rule"
+            role="img"
+            :aria-label="`${overallPercent}% of all exercises complete`"
           >
+            <div class="h-full bg-signal" :style="{ width: `${overallPercent}%` }" />
+          </div>
+        </section>
+
+        <section>
+          <h2 class="eyebrow mb-3">by track</h2>
+          <div class="grid gap-px border border-rule bg-rule sm:grid-cols-2">
             <TrackProgressCard
               v-for="track in progressStore.trackProgress"
               :key="track.trackSlug"
@@ -85,13 +86,19 @@ onMounted(async () => {
               :mastery-level="track.masteryLevel"
             />
           </div>
-          <EmptyState
-            v-else
-            title="No tracks started"
-            description="Start learning a track to see your progress here."
-          />
-        </div>
+        </section>
       </template>
-    </div>
+
+      <EmptyState
+        v-else
+        eyebrow="nothing tracked yet"
+        title="No exercise has been run on this account."
+        description="Progress, mastery, and streaks all come from submissions. Finish one exercise and this page fills in."
+      >
+        <template #action>
+          <NuxtLink to="/tracks"><Button>Browse tracks</Button></NuxtLink>
+        </template>
+      </EmptyState>
+    </template>
   </div>
 </template>

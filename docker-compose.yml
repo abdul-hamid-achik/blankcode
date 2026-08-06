@@ -61,7 +61,7 @@ services:
              bun --watch apps/api/src/main.ts"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-blankcode}
-      JWT_SECRET: ${JWT_SECRET:-development-secret-change-me}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env (copy from .env.example and change it)}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       NODE_ENV: development
@@ -110,6 +110,19 @@ services:
         limits:
           memory: 512M
 
+  # One-shot: builds all per-language runner images on the host Docker daemon
+  # via the mounted socket, then exits 0. The worker's depends_on gates boot
+  # on this completing, so `docker compose up` "just works" — no profiles, no
+  # surprise --pull=never failures the first time someone clones the repo.
+  runner-images:
+    image: docker:27-cli
+    container_name: blankcode-runner-images
+    restart: "no"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker/runners:/runners:ro
+    entrypoint: ["/bin/sh", "/runners/build-all.sh"]
+
   # SECURITY NOTE: Worker requires Docker socket access for sandboxed code execution.
   # The 'user: root' and Docker socket mount grant host-level Docker access.
   worker:
@@ -117,19 +130,21 @@ services:
     container_name: blankcode-worker
     restart: unless-stopped
     user: root
+    stop_grace_period: 30s
     command: >
       sh -c "bun install &&
              bunx turbo build --filter=@blankcode/shared --filter=@blankcode/db &&
              bun --watch apps/api/src/workers/index.ts"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-blankcode}
-      JWT_SECRET: ${JWT_SECRET:-development-secret-change-me}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in .env (copy from .env.example and change it)}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       NODE_ENV: development
       DOCKER_ENABLED: ${DOCKER_ENABLED:-true}
       EXECUTION_TIMEOUT_MS: ${EXECUTION_TIMEOUT_MS:-60000}
       EXECUTION_MEMORY_MB: ${EXECUTION_MEMORY_MB:-256}
       EXECUTION_WORKSPACE_PATH: /tmp/blankcode-workspaces
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
     volumes:
       - .:/app
       - node_modules:/app/node_modules
@@ -147,10 +162,13 @@ services:
         condition: service_healthy
       api:
         condition: service_healthy
+      runner-images:
+        condition: service_completed_successfully
     healthcheck:
-      test: ["CMD-SHELL", "bun -e 'process.exit(0)'"]
-      interval: 30s
-      timeout: 10s
+      # Worker touches /tmp/worker-healthy each poll cycle; fail if mtime is stale.
+      test: ["CMD-SHELL", "test $(($(date +%s) - $(stat -c %Y /tmp/worker-healthy 2>/dev/null || echo 0))) -lt 30"]
+      interval: 10s
+      timeout: 5s
       retries: 3
       start_period: 120s
     deploy:
@@ -158,42 +176,6 @@ services:
         limits:
           memory: 1G
           cpus: '2'
-
-  # Code execution runners — build with: docker compose --profile runners build
-  runner-typescript:
-    profiles: ["runners"]
-    build:
-      context: ./docker/runners
-      dockerfile: Dockerfile.typescript
-    image: blankcode/runner-typescript:latest
-
-  runner-python:
-    profiles: ["runners"]
-    build:
-      context: ./docker/runners
-      dockerfile: Dockerfile.python
-    image: blankcode/runner-python:latest
-
-  runner-react:
-    profiles: ["runners"]
-    build:
-      context: ./docker/runners
-      dockerfile: Dockerfile.react
-    image: blankcode/runner-react:latest
-
-  runner-go:
-    profiles: ["runners"]
-    build:
-      context: ./docker/runners
-      dockerfile: Dockerfile.go
-    image: blankcode/runner-go:latest
-
-  runner-rust:
-    profiles: ["runners"]
-    build:
-      context: ./docker/runners
-      dockerfile: Dockerfile.rust
-    image: blankcode/runner-rust:latest
 
 volumes:
   postgres_data:

@@ -25,6 +25,7 @@ export const SubmissionWorkflowLive = SubmissionWorkflow.toLayer((payload) =>
       try: () =>
         db.query.exercises.findFirst({
           where: eq(schema.exercises.id, exerciseId),
+          with: { concept: { with: { track: true } } },
         }),
       catch: () => undefined,
     })
@@ -58,9 +59,10 @@ export const SubmissionWorkflowLive = SubmissionWorkflow.toLayer((payload) =>
       executionTimeMs: 0,
     }
 
+    const language = exercise.concept.track.slug
     const result: ExecutionResult = yield* Effect.tryPromise({
       try: () =>
-        executionService.execute(submissionId, exerciseId, code, exercise.testCode, 'typescript'),
+        executionService.execute(submissionId, exerciseId, code, exercise.testCode, language),
       catch: (e) => ({ ...errorResult, errorMessage: String(e) }),
     }).pipe(
       Effect.timeout(Duration.millis(config.execution.timeoutMs + 5000)),

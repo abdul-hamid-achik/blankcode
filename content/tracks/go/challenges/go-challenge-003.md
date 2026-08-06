@@ -23,6 +23,14 @@ Create a `RateLimiter` type with the following features:
 5. **Remaining() int** - Get remaining tokens
 6. **Reset()** - Reset to full capacity
 
+Write your complete implementation below:
+
+```go
+package main
+
+// Your implementation here
+```
+
 ## Constraints
 
 - Thread-safe for concurrent access
@@ -43,14 +51,6 @@ for i := 0; i < 100; i++ {
         // Rate limited
     }
 }
-```
-
-Write your complete implementation below:
-
-```go
-package main
-
-// Your implementation here
 ```
 
 ## Tests

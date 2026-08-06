@@ -14,7 +14,7 @@ const currentConceptSlug = computed(() => route.params['conceptSlug'] as string 
 </script>
 
 <template>
-  <aside class="w-64 border-r border-border bg-muted/30 p-4">
+  <aside class="w-64 border-r border-rule bg-muted/30 p-4">
     <nav class="space-y-1">
       <NuxtLink
         v-for="concept in concepts"

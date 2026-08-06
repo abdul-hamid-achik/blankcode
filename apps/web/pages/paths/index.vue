@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import Card from '~/components/ui/card.vue'
 import { useAsync } from '~/composables/useAsync'
 
 definePageMeta({ requiresAuth: false })
 
 const api = useApi()
-const { data: paths, isLoading } = useAsync(() => api.paths.getAll())
+const { data: paths, isLoading, execute: loadPaths } = useAsync(() => api.paths.getAll())
+
+// `useAsync` does not fetch on its own.
+onMounted(loadPaths)
 
 const sortedPaths = computed(() => {
   if (!paths.value) return []
@@ -20,20 +23,19 @@ const getProgress = (path: any) => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-b from-background to-muted/20">
+  <div class="min-h-screen">
     <!-- Hero Section -->
-    <div class="border-b border-border bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-pink-500/10">
+    <div class="border-b border-rule">
       <div class="container py-16">
         <div class="max-w-3xl">
-          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm mb-4">
+          <div class="eyebrow mb-4 inline-flex items-center gap-2">
             <span>🗺️</span>
             <span>Guided Learning</span>
           </div>
-          <h1 class="text-4xl md:text-5xl font-bold mb-4">
-            Learning Paths
-          </h1>
+          <h1 class="display text-2xl md:text-3xl mb-4">Learning Paths</h1>
           <p class="text-lg text-muted-foreground mb-6">
-            Curated challenge sequences to master specific skills. Follow a path from start to finish and become an expert.
+            Curated challenge sequences to master specific skills. Follow a path from start to
+            finish and become an expert.
           </p>
           <div class="flex flex-wrap gap-4 text-sm text-muted-foreground">
             <div class="flex items-center gap-2">
@@ -55,7 +57,9 @@ const getProgress = (path: any) => {
 
     <div class="container py-8">
       <div v-if="isLoading" class="flex items-center justify-center py-12">
-        <div class="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+        <div
+          class="animate-spin h-6 w-6 border-2 border-rule-strong border-t-signal rounded-full"
+        ></div>
       </div>
 
       <div v-else class="grid gap-6 md:grid-cols-2">
@@ -65,30 +69,40 @@ const getProgress = (path: any) => {
           :to="`/paths/${path.slug}`"
           class="group"
         >
-          <Card class="hover:border-primary/50 hover:shadow-xl transition-all cursor-pointer h-full overflow-hidden">
+          <Card
+            class="hover:border-rule-strong hover:shadow-xl transition-all cursor-pointer h-full overflow-hidden"
+          >
             <div class="h-2" :style="{ backgroundColor: path.color }"></div>
             <div class="p-6">
               <div class="flex items-start justify-between mb-4">
                 <div class="text-4xl">{{ path.icon }}</div>
-                <span class="text-xs font-medium px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
+                <span
+                  class="text-xs font-medium px-2.5 py-1 rounded-full bg-muted text-muted-foreground"
+                >
                   {{ path.challengeIds.length }} challenges
                 </span>
               </div>
-              
+
               <h3 class="text-xl font-bold mb-2 group-hover:text-primary transition-colors">
                 {{ path.name }}
               </h3>
-              
+
               <p class="text-sm text-muted-foreground mb-4 line-clamp-2">
                 {{ path.description }}
               </p>
-              
+
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>📚</span>
-                  <span>{{ getProgress(path).completed }} / {{ getProgress(path).total }} completed</span>
+                  <span
+                    >{{ getProgress(path).completed }} /
+                    {{ getProgress(path).total }} completed</span
+                  >
                 </div>
-                <div class="flex items-center gap-1 text-sm font-medium" :style="{ color: path.color }">
+                <div
+                  class="flex items-center gap-1 text-sm font-medium"
+                  :style="{ color: path.color }"
+                >
                   Start Path
                   <svg
                     xmlns="http://www.w3.org/2000/svg"

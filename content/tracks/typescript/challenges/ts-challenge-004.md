@@ -31,6 +31,12 @@ Create an `EventEmitter` class with the following features:
 - once() listeners auto-remove after first emit
 - Handle listener errors gracefully (don't stop other listeners)
 
+Write your complete implementation below:
+
+```typescript
+// Your implementation here
+```
+
 ## Example Usage
 
 ```typescript
@@ -49,17 +55,11 @@ emitter.on('userLogin', (userId, timestamp) => {
 emitter.emit('userLogin', 'user123', new Date())
 ```
 
-Write your complete implementation below:
-
-```typescript
-// Your implementation here
-```
-
 ## Tests
 
 ```typescript
 import { describe, it, expect, vi } from 'vitest'
-import { EventEmitter } from './EventEmitter'
+import { EventEmitter } from './solution'
 
 describe('EventEmitter', () => {
   interface TestEvents {
@@ -181,14 +181,14 @@ describe('EventEmitter', () => {
   it('should type-check event arguments', () => {
     const emitter = new EventEmitter<TestEvents>()
     const listener = vi.fn()
-    
+
     emitter.on('simple', listener)
-    
+
     // @ts-expect-error - Wrong argument type
-    // emitter.emit('simple', 123)
-    
+    emitter.emit('simple', 123)
+
     // @ts-expect-error - Missing argument
-    // emitter.emit('simple')
+    emitter.emit('simple')
   })
 })
 ```

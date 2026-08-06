@@ -77,3 +77,6 @@ knip-report.json
 *.tfstate.backup
 *.tfvars
 !*.tfvars.example
+
+# Histoire
+.histoire/

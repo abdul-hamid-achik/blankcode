@@ -106,7 +106,7 @@ services:
       DOCKER_IMAGE_GO: ${REGISTRY:-ghcr.io/your-org}/blankcode-runner-go:latest
       DOCKER_IMAGE_RUST: ${REGISTRY:-ghcr.io/your-org}/blankcode-runner-rust:latest
       DOCKER_IMAGE_REACT: ${REGISTRY:-ghcr.io/your-org}/blankcode-runner-react:latest
-      DOCKER_IMAGE_VUE: ${REGISTRY:-ghcr.io/your-org}/blankcode-runner-typescript:latest
+      DOCKER_IMAGE_VUE: ${REGISTRY:-ghcr.io/your-org}/blankcode-runner-vue:latest
       DOCKER_IMAGE_NODE: ${REGISTRY:-ghcr.io/your-org}/blankcode-runner-typescript:latest
     deploy:
       replicas: 1

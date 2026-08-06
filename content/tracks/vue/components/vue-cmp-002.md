@@ -5,8 +5,8 @@ description: Define and use typed custom events in Vue components.
 difficulty: intermediate
 hints:
   - defineEmits() accepts a type parameter for event definitions
-  - Event payloads are typed in the emit function
-  - Use emit() to trigger events
+  - "Event payloads are typed as tuples: [isValid: boolean, message?: string]"
+  - Call emit() with the event name first, then its payload arguments
 tags:
   - vue
   - emits
@@ -14,38 +14,51 @@ tags:
   - typescript
 ---
 
-Define typed emits for a form input component.
+Define typed emits for a form input component and wire them to a text input.
 
-```typescript
-// form-input.vue - script setup
+```vue
+<script setup lang="ts">
 interface Props {
-  modelValue: string;
-  label: string;
+  modelValue: string
+  label: string
 }
 
-const props = defineProps<Props>()
+const props = ___blank_start___defineProps<Props>()___blank_end___
 
-const emit = ___blank_start___defineEmits<{___blank_end___
-  'update:modelValue': [value: string];
-  'focus': [];
-  'blur': [];
-  'validate': [isValid: boolean, message?: string];
-___blank_start___}>()___blank_end___
+const emit = defineEmits<{
+  'update:modelValue': [value: string]
+  focus: []
+  blur: []
+  validate: [isValid: boolean, message?: string]
+}>()
 
 function handleInput(event: Event) {
   const target = event.target as HTMLInputElement
-  ___blank_start___emit('update:modelValue', target.value)___blank_end___
+  emit('___blank_start___update:modelValue___blank_end___', target.value)
 }
+
+const requiredMessage = 'Field is required'
 
 function handleBlur() {
   emit('blur')
   const isValid = props.modelValue.length > 0
-  emit(___blank_start___'validate', isValid, isValid ? undefined : 'Field is required'___blank_end___)
+  emit('validate', ___blank_start___isValid, isValid ? undefined : requiredMessage___blank_end___)
 }
 
 function handleFocus() {
   emit('focus')
 }
+</script>
+
+<template>
+  <input
+    :value="modelValue"
+    :placeholder="label"
+    @input="handleInput"
+    @focus="handleFocus"
+    @blur="handleBlur"
+  />
+</template>
 ```
 
 ## Tests

@@ -23,28 +23,59 @@
   --radius-sm: calc(var(--radius) - 4px);
   --color-code-bg: hsl(var(--code-bg));
   --color-code-selection: hsl(var(--code-selection));
+
+  /* Practice-sheet system ------------------------------------------------
+     The page is a sheet of engineering graph paper. `rule` is the grid line,
+     `signal` is the mark you make on it — the blank you fill in. Everything
+     else stays quiet so the mark is the loudest thing on screen. */
+  --color-rule: hsl(var(--rule));
+  --color-rule-strong: hsl(var(--rule-strong));
+  --color-signal: hsl(var(--signal));
+  --color-signal-foreground: hsl(var(--signal-foreground));
+  --color-signal-soft: hsl(var(--signal-soft));
+  --color-pass: hsl(var(--pass));
+  --color-fail: hsl(var(--fail));
+
+  --font-display: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* The sheet is ruled every 24px; layout snaps to it. */
+  --spacing-rule: 24px;
 }
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    /* Light: cool graph paper, not warm cream. */
+    --background: 216 30% 96%;
+    --foreground: 220 28% 10%;
+    --card: 210 33% 99%;
+    --card-foreground: 220 28% 10%;
+    --primary: 220 28% 10%;
+    --primary-foreground: 210 33% 99%;
+    --secondary: 216 25% 91%;
+    --secondary-foreground: 220 28% 10%;
+    --muted: 216 25% 92%;
+    --muted-foreground: 218 12% 40%;
+    --accent: 216 25% 91%;
+    --accent-foreground: 220 28% 10%;
+    --destructive: 0 65% 45%;
+    --destructive-foreground: 210 33% 99%;
+    --border: 216 22% 86%;
+    --input: 216 22% 86%;
+    --ring: 22 90% 50%;
+
+    --rule: 216 24% 88%;
+    --rule-strong: 216 20% 78%;
+    /* The pencil mark. The one loud colour in the system. */
+    --signal: 22 90% 48%;
+    --signal-foreground: 40 100% 98%;
+    --signal-soft: 22 90% 48%;
+    --pass: 140 60% 32%;
+    --fail: 0 65% 45%;
+
+    /* Corners are near-square: this is a ruled sheet, not a rounded card UI. */
+    --radius: 0.25rem;
 
     --code-bg: 220 13% 18%;
     --code-selection: 220 13% 28%;
@@ -58,24 +89,34 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
-    --radius: 0.5rem;
+    /* Dark is the same sheet inverted: ink surface, grid drawn in light. */
+    --background: 220 30% 7%;
+    --foreground: 214 25% 92%;
+    --card: 220 27% 10%;
+    --card-foreground: 214 25% 92%;
+    --primary: 214 25% 92%;
+    --primary-foreground: 220 30% 7%;
+    --secondary: 220 22% 15%;
+    --secondary-foreground: 214 25% 92%;
+    --muted: 220 22% 14%;
+    --muted-foreground: 216 14% 62%;
+    --accent: 220 22% 15%;
+    --accent-foreground: 214 25% 92%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 214 25% 96%;
+    --border: 220 20% 18%;
+    --input: 220 20% 18%;
+    --ring: 22 95% 58%;
+
+    --rule: 220 20% 16%;
+    --rule-strong: 220 18% 26%;
+    --signal: 22 95% 56%;
+    --signal-foreground: 220 30% 7%;
+    --signal-soft: 22 95% 56%;
+    --pass: 140 55% 48%;
+    --fail: 0 70% 58%;
+
+    --radius: 0.25rem;
 
     --code-bg: 222 47% 8%;
     --code-selection: 222 47% 16%;
@@ -94,6 +135,77 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv05' 1;
+  }
+
+  /* Focus is never invisible. One ring, the signal colour, everywhere. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--signal));
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+/* --- Practice-sheet primitives -------------------------------------------
+   `.sheet` is the graph-paper substrate. Used sparingly — the hero and the
+   error page only — so it reads as a deliberate surface, not wallpaper. */
+.sheet {
+  background-image:
+    linear-gradient(to right, hsl(var(--rule) / 0.7) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--rule) / 0.7) 1px, transparent 1px);
+  background-size: var(--spacing-rule) var(--spacing-rule);
+  background-position: center center;
+}
+
+/* Fades the grid out at the edges so it never fights the page chrome. */
+.sheet-fade {
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 40%, transparent 100%);
+}
+
+/* Display voice: mono, tight, lowercase. The product is code text. */
+.display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1.02;
+}
+
+/* Small uppercase mono labels — the workbook's marginalia. */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+/* A blank as it appears on paper: a ruled slot waiting for a mark. */
+.blank-slot {
+  font-family: var(--font-mono);
+  color: hsl(var(--signal));
+  border-bottom: 2px solid hsl(var(--signal) / 0.45);
+  background: hsl(var(--signal) / 0.08);
+  padding: 0 0.35em;
+  border-radius: 2px 2px 0 0;
+}
+
+/* At display sizes the slot should hug the glyphs, not float around them. */
+.blank-slot--display {
+  display: inline-block;
+  padding: 0 0.12em;
+  border-bottom-width: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
