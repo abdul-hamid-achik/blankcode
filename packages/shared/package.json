@@ -34,10 +34,10 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "effect": "^3.0.0"
+    "effect": "^3.22.1"
   },
   "devDependencies": {
-    "typescript": "5.9.3",
-    "vitest": "4.0.18"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }

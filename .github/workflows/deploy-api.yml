@@ -107,7 +107,7 @@ jobs:
       packages: write
     strategy:
       matrix:
-        runner: [typescript, python, react, go, rust]
+        runner: [typescript, python, react, vue, go, rust]
     steps:
       - uses: actions/checkout@v5
 
