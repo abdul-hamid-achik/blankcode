@@ -4,6 +4,7 @@ import { chmod, mkdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { config } from '../../config/index.js'
+import { executeInVercelSandbox } from './vercel-sandbox.js'
 import { logger } from './logger.js'
 import type { ExecutionContext } from './types.js'
 
@@ -141,11 +142,22 @@ export async function cleanupWorkspace(workDir: string): Promise<void> {
   }
 }
 
+/**
+ * Runs a submission in the configured sandbox backend.
+ *
+ * Kept under the original name so the four language executors need no changes:
+ * they describe *what* to run, and this decides *where*. Docker locally, a
+ * Vercel Sandbox microVM when deployed somewhere that has no Docker daemon.
+ */
 export async function executeInDocker(
   context: ExecutionContext,
   files: Record<string, string>,
   command: string[]
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  if (config.execution.backend === 'vercel-sandbox') {
+    return executeInVercelSandbox(context, files, command)
+  }
+
   const image = config.execution.images[context.language] ?? config.execution.images['typescript']!
 
   const workDir = await prepareWorkspace(files)

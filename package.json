@@ -32,7 +32,8 @@
     "story": "bun run --filter @blankcode/web story",
     "story:build": "bun run --filter @blankcode/web story:build",
     "verify": "bun run lint && bun run typecheck && bun run test && bun run knip && bun run content:validate --strict",
-    "format:check": "bunx oxfmt --check ."
+    "format:check": "bunx oxfmt --check .",
+    "sandbox:build": "bun run --filter @blankcode/sandbox-images start"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2"

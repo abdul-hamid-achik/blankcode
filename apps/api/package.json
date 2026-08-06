@@ -24,6 +24,7 @@
     "@effect/rpc": "^0.76.2",
     "@effect/sql": "^0.52.1",
     "@effect/workflow": "^0.19.1",
+    "@vercel/sandbox": "^2.9.2",
     "bcrypt": "^6.0.0",
     "effect": "^3.22.1",
     "jose": "^6.2.8"

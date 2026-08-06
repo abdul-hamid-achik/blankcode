@@ -80,3 +80,5 @@ knip-report.json
 
 # Histoire
 .histoire/
+.vercel
+.env*

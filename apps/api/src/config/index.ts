@@ -39,6 +39,14 @@ export const config = {
     corsOrigin: process.env['CORS_ORIGIN'] ?? 'http://localhost:5173',
   },
   execution: {
+    /*
+     * Where submissions run.
+     *   'docker'         — local Docker daemon (development, self-hosting)
+     *   'vercel-sandbox' — Firecracker microVM per run (serverless deploys)
+     * Docker cannot run inside a Vercel Function, so anything deployed there
+     * has to use the sandbox backend.
+     */
+    backend: (process.env['EXECUTION_BACKEND'] ?? 'docker') as 'docker' | 'vercel-sandbox',
     timeoutMs: Number.parseInt(process.env['EXECUTION_TIMEOUT_MS'] ?? '60000', 10),
     memoryLimitMb: Number.parseInt(process.env['EXECUTION_MEMORY_MB'] ?? '256', 10),
     cpuLimit: Number.parseFloat(process.env['EXECUTION_CPU_LIMIT'] ?? '0.5'),
