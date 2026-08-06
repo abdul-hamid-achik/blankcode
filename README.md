@@ -1,274 +1,214 @@
 # BlankCode
 
-A modern, interactive coding exercise platform for learning programming through hands-on practice. Built with Vue.js, NestJS, and a robust async execution system.
+A self-hosted coding-practice platform. You read real code with strategic gaps,
+fill in the blanks, and a sandboxed runner executes the exercise's real test
+suite against your answer. Built to keep programming muscle memory alive across
+several languages.
 
 ## Features
 
-- **Multi-Language Support**: Practice coding in TypeScript, JavaScript, Python, Go, Rust, and Vue
-- **Interactive Code Editor**: CodeMirror-powered editor with syntax highlighting, customizable font size, and tab settings
-- **Real-Time Test Execution**: Async job processing with detailed test results and execution metrics
-- **Progress Tracking**: Track mastery levels, completion rates, and learning streaks
-- **Content Management**: Markdown-based exercises with automated parsing and blank region detection
-- **Secure Execution**: Sandboxed code execution with resource limits and timeouts
+- **6 language tracks**: TypeScript, Python, Go, Rust, Vue, and React
+- **Fill-in-the-blank exercises**: CodeMirror editor with inline blank widgets, Tab navigation, and per-blank feedback
+- **Real test execution**: submissions run in a hardened Docker sandbox and the output is parsed per language
+- **Spaced repetition**: SM-2 scheduler resurfaces exercises before you forget them
+- **Progress tracking**: mastery levels, completion rates, streaks, achievements, and learning paths
+- **AI exercise generation**: author new exercises through the Vercel AI Gateway (DeepSeek by default)
 
 ## Quick Start
 
 ```bash
-# Clone the repository
 git clone https://github.com/abdul-hamid-achik/blankcode.git
 cd blankcode
-
-# Install dependencies
 bun install
 
-# Set up environment variables
+# JWT_SECRET is required — the API refuses to boot without it
 cp .env.example .env
+echo "JWT_SECRET=$(openssl rand -base64 48)" >> .env
 
-# Start database and Redis
+# Postgres + API + web + worker + runner images
 docker compose up -d
 
-# Run database migrations
-bun run db:push
-
-# Start development servers
-bun run dev
+# Load the exercise content into the database
+bun run content:import
 ```
 
-The web application will be available at `http://localhost:5173` and the API at `http://localhost:3000`.
+Web app: <http://localhost:3001> · API: <http://localhost:3000>
+
+### Running without Docker
+
+Only Postgres is strictly required. Set `DOCKER_ENABLED=false` to execute
+submissions directly on the host — much faster to iterate on, but **without
+sandbox isolation**, so only do it with content you trust.
+
+```bash
+docker compose up -d postgres
+bun run db:push
+bun run content:import
+bun run dev        # API on :3000, web on :3001
+bun run worker     # separate terminal
+```
+
+## Prerequisites
+
+- [Bun](https://bun.sh/) >= 1.3.7
+- [Docker](https://www.docker.com/) and Docker Compose (for Postgres and the sandbox runners)
+- Node.js >= 22 (some tooling shells out to it)
 
 ## Project Structure
 
 ```
 blankcode/
 ├── apps/
-│   ├── api/          # NestJS backend server
-│   └── web/          # Vue 3 frontend application
+│   ├── api/          # Effect.ts HttpApi server + submission worker
+│   └── web/          # Nuxt 4 frontend
 ├── packages/
 │   ├── db/           # Drizzle ORM schema and migrations
 │   ├── shared/       # Shared types, schemas, and utilities
 │   └── exercise-parser/  # Markdown exercise parser
 ├── tools/
-│   ├── content-importer/   # CLI for importing exercises
-│   └── exercise-generator/ # CLI for generating exercises
-├── content/          # Exercise content in markdown format
-└── docker/           # Docker configurations
-```
-
-## Prerequisites
-
-- [Bun](https://bun.sh/) >= 1.3.7
-- [Node.js](https://nodejs.org/) >= 20 (for some tooling)
-- [Docker](https://www.docker.com/) and Docker Compose
-- PostgreSQL 17 (via Docker or local installation)
-- Redis 7.4 (via Docker or local installation)
-
-## Installation
-
-### 1. Install Dependencies
-
-```bash
-bun install
-```
-
-### 2. Configure Environment
-
-Create a `.env` file in the root directory:
-
-```env
-# Database
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/blankcode
-
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-# API
-API_PORT=3000
-API_HOST=0.0.0.0
-CORS_ORIGIN=http://localhost:5173
-
-# JWT Authentication
-JWT_SECRET=your-super-secret-key-change-in-production
-JWT_EXPIRES_IN=7d
-
-# Code Execution
-EXECUTION_TIMEOUT=30000
-EXECUTION_MEMORY_LIMIT=256
-DOCKER_EXECUTION_ENABLED=false
-
-# AI Generation (optional)
-OPENAI_API_KEY=
-ANTHROPIC_API_KEY=
-```
-
-### 3. Start Infrastructure
-
-```bash
-# Start PostgreSQL and Redis
-docker compose up -d
-
-# Run database migrations
-bun run db:push
-```
-
-### 4. Import Content (Optional)
-
-```bash
-# Import exercise content from markdown files
-bun run content:import
+│   ├── content-importer/   # CLI: markdown -> database
+│   └── exercise-generator/ # CLI: AI-generated exercises
+├── content/          # Exercise + tutorial content (markdown)
+└── docker/runners/   # Per-language sandbox images
 ```
 
 ## Development
 
-### Running the Development Server
-
 ```bash
-# Start all services (API, Web, Worker)
-bun run dev
-
-# Or run specific services
-bun run dev --filter=@blankcode/api
-bun run dev --filter=@blankcode/web
+bun run dev          # API (:3000) + web (:3001)
+bun run worker       # submission processor
+bun run story        # Histoire component workshop (:6006)
+bun run verify       # lint + typecheck + test + knip
 ```
 
 ### Available Scripts
 
 | Script | Description |
 |--------|-------------|
-| `bun run dev` | Start all services in development mode |
-| `bun run build` | Build all packages for production |
-| `bun run test` | Run unit tests |
-| `bun run test:e2e` | Run end-to-end tests |
-| `bun run lint` | Check code for linting errors |
-| `bun run lint:fix` | Fix auto-fixable linting errors |
-| `bun run typecheck` | Run TypeScript type checking |
-| `bun run db:push` | Push schema changes to database |
-| `bun run db:studio` | Open Drizzle Studio for database management |
-| `bun run content:import` | Import exercises from markdown files |
-| `bun run content:generate` | Generate exercises using AI |
+| `bun run dev` | Start API and web in watch mode |
+| `bun run build` | Build every workspace |
+| `bun run test` | Run all unit tests |
+| `bun run verify` | Full gate: lint, typecheck, test, knip |
+| `bun run lint` / `lint:fix` | oxlint + oxfmt check / autofix |
+| `bun run format` | Format with oxfmt |
+| `bun run typecheck` | TypeScript across all workspaces |
+| `bun run knip` | Detect unused files, exports, and dependencies |
+| `bun run story` | Histoire component workshop |
+| `bun run story:build` | Build the static component workshop |
+| `bun run db:push` | Push schema changes to the database |
+| `bun run db:studio` | Drizzle Studio |
+| `bun run content:import` | Import exercises from markdown into the DB |
+| `bun run content:generate` | Generate a new exercise with an LLM |
+| `bun run runners:build` | Build all sandbox runner images |
 
-### Code Quality
+### Component workshop (Histoire)
 
-This project uses:
+`bun run story` opens an isolated workshop at <http://localhost:6006> for the
+presentational components (`*.story.vue`). Histoire runs its own Vite server and
+does **not** boot Nuxt, so stories must avoid Nuxt auto-imports; `NuxtLink` is
+stubbed in `apps/web/histoire.setup.ts`.
 
-- **Biome** for linting and formatting
-- **TypeScript** for type safety
-- **Vitest** for unit testing
-- **Playwright** for E2E testing
-- **Knip** for detecting unused code
-- **Lefthook** for git hooks
+> Histoire 1.0.0-beta.1 declares a `vite ^7` peer while Nuxt 4 ships Vite 8.
+> It works, but `@vitejs/plugin-vue`, Tailwind, and the `~`/`@` aliases are
+> registered explicitly in `histoire.config.ts` to compensate.
+
+### Testing
+
+Unit tests run on Vitest in every workspace:
 
 ```bash
-# Run all checks
-bun run lint && bun run typecheck && bun run test
+bun run test                          # everything
+bun run test --filter=@blankcode/api  # one workspace
+cd apps/web && bun run test:watch     # watch mode
 ```
+
+There is no Playwright suite in this repo — end-to-end coverage lives in the
+external `cairntrace` engine.
 
 ## Architecture
 
-### Backend (NestJS)
+### Backend (Effect.ts)
 
-The API is built with NestJS using the Fastify adapter for high performance:
+The API is built with `@effect/platform` (`HttpApiBuilder`) on Node's HTTP server:
 
-- **Auth Module**: JWT-based authentication with rate limiting
-- **Tracks Module**: Learning tracks and concepts management
-- **Exercises Module**: Exercise retrieval with progress tracking
-- **Submissions Module**: Code submission and async execution
-- **Progress Module**: User progress and mastery tracking
+- **Auth**: JWT access tokens + rotating refresh tokens, bcrypt password hashing
+- **Tracks / Concepts / Exercises**: hierarchical learning content
+- **Submissions**: queued for async execution via a worker process
+- **Progress / Mastery / Reviews**: completion tracking + SM-2 spaced repetition
+- **Achievements / Paths / Challenges**: gamification layer
+- `@effect/cluster` is wired for workflow execution; the current production path is the SQL-polling worker in `apps/api/src/workers/`
 
-### Frontend (Vue 3)
-
-The web application uses Vue 3 with the Composition API:
+### Frontend (Nuxt 4)
 
 - **Pinia** for state management
-- **Vue Router** for navigation
-- **Radix Vue** for accessible UI components
-- **TailwindCSS** for styling
-- **CodeMirror** for the code editor
+- **Nuxt Content** for static markdown tutorials
+- **Radix Vue** for accessible primitives
+- **TailwindCSS v4** for styling
+- **CodeMirror 6** for the editor (with blank-region widgets)
 
 ### Code Execution
 
-Submissions are processed asynchronously using BullMQ:
+Submissions are processed asynchronously by a dedicated worker process:
 
-1. User submits code via the API
-2. Submission is queued in Redis
-3. Worker processes the submission with language-specific executor
-4. Tests are run and results are parsed
-5. Results are stored and user progress is updated
+1. User submits code via the API; a row is inserted with `status='pending'`
+2. The worker polls Postgres for pending rows and dispatches by language
+3. Code runs in a hardened Docker sandbox (network=none, read-only fs, dropped caps, pid/memory/cpu/file limits)
+4. Test output is parsed per language and stored back on the submission row
+5. Progress, mastery, and the SM-2 review schedule are updated from the result
 
-## Docker Deployment
+There is no Redis or external queue — Postgres is the only datastore.
 
-### Full Stack Deployment
+## AI Exercise Generation
 
-```bash
-# Build and start all services
-docker compose --profile full up -d
-
-# With code execution runners
-docker compose --profile full --profile runners up -d
-
-# Watch for changes and rebuild
-docker compose --profile full watch
-```
-
-### Services
-
-| Service | Port | Description |
-|---------|------|-------------|
-| `web` | 80 | Nginx serving the Vue frontend |
-| `api` | 3000 | NestJS API server |
-| `worker` | - | BullMQ submission processor |
-| `postgres` | 5432 | PostgreSQL database |
-| `redis` | 6379 | Redis for job queues |
-
-## API Reference
-
-### Authentication
+`bun run content:generate` authors new exercises with an LLM. Everything runs
+through the **Vercel AI Gateway** via the AI SDK, so there is exactly one
+credential and swapping models is a config edit, not a code change.
 
 ```bash
-# Register a new user
-POST /auth/register
-{
-  "email": "user@example.com",
-  "username": "johndoe",
-  "password": "securepassword"
-}
+# .env — the only credential needed
+AI_GATEWAY_API_KEY=vck_...
 
-# Login
-POST /auth/login
-{
-  "email": "user@example.com",
-  "password": "securepassword"
-}
+bun run content:generate --models                                   # list model slugs
+bun run content:generate typescript generics advanced "conditional types"
+bun run content:generate --init react --name "React"
+bun run content:generate vue composition-api beginner --dry-run
 ```
 
-### Exercises
+The CLI prints the active model before each call.
+
+### Model configuration
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `AI_GATEWAY_API_KEY` | — | Vercel AI Gateway key ([docs](https://vercel.com/docs/ai-gateway)) |
+| `LLM_MODEL` | `deepseek/deepseek-v4-flash` | Any gateway slug — see `--models` |
+| `LLM_FALLBACK_MODELS` | — | Comma-separated failover chain |
+| `LLM_TEMPERATURE` | `0.6` | Enough variety that exercise 002 differs from 001 |
+| `LLM_MAX_TOKENS` | `4000` | |
+| `LLM_MAX_RETRIES` | `2` | Transient failures are retried by the AI SDK |
+
+Model slugs are `provider/model` and use **dots** for versions
+(`anthropic/claude-sonnet-4.6`, not `-4-6`). DeepSeek is the default because it
+is roughly 20-50x cheaper than frontier models for this workload; switching to
+Anthropic is a one-line env change:
 
 ```bash
-# Get all exercises
-GET /exercises
-
-# Get exercise by ID
-GET /exercises/:exerciseId
-
-# Submit code
-POST /submissions
-{
-  "exerciseId": "exercise-uuid",
-  "code": "function solution() { return 42; }"
-}
+LLM_MODEL=anthropic/claude-sonnet-5
+LLM_FALLBACK_MODELS=deepseek/deepseek-v4-pro
 ```
 
-### Rate Limits
+`VERCEL_OIDC_TOKEN` (from `vercel env pull`) is accepted as an alternative
+credential. With neither set, the generator emits a placeholder exercise instead
+of failing, so the pipeline stays testable with no credentials.
 
-| Endpoint | Limit |
-|----------|-------|
-| General | 100 requests/minute |
-| Auth | 5 requests/minute |
-| Submissions | 30 requests/minute |
+Requests are tagged `app:blankcode` / `feature:exercise-generation`, so
+generation spend is attributable in the Vercel AI Gateway dashboard. Generated
+output is validated (frontmatter, blank markers, `## Tests` section, code
+blocks) and retried once with the failures fed back into the prompt.
 
 ## Content Authoring
 
-Exercises are written in Markdown with YAML frontmatter:
+Exercises are Markdown with YAML frontmatter:
 
 ```markdown
 ---
@@ -284,8 +224,6 @@ tags:
   - output
 ---
 
-# Hello World
-
 Write a function that returns the string "Hello, World!".
 
 \`\`\`typescript
@@ -293,56 +231,99 @@ export function hello(): string {
   return ___blank_start___"Hello, World!"___blank_end___;
 }
 \`\`\`
+
+## Tests
+
+\`\`\`typescript
+import { expect, test } from 'vitest'
+
+test('greets', () => {
+  expect(hello()).toBe('Hello, World!')
+})
+\`\`\`
 ```
 
-Place exercise files in `content/tracks/{language}/{concept}/`.
+Place files in `content/tracks/{language}/{concept}/`, then run
+`bun run content:import`. Adding a new track means adding a
+`content/tracks/{slug}/` directory — and updating the language list in
+`apps/web/components/landing/language-showcase.vue`, which links straight to
+track slugs.
 
-## Testing
+## API Reference
 
-### Unit Tests
+### Authentication
 
 ```bash
-# Run all unit tests
-bun run test
-
-# Run tests for a specific package
-bun run test --filter=@blankcode/api
-bun run test --filter=@blankcode/web
-
-# Run tests in watch mode
-bun run test -- --watch
+POST /auth/register   { "email", "username", "password" }
+POST /auth/login      { "email", "password" }
+POST /auth/refresh    { "refreshToken" }
 ```
 
-### E2E Tests
+### Exercises and submissions
 
 ```bash
-# Run Playwright tests
-bun run test:e2e
-
-# Run with UI
-bun run test:e2e -- --ui
+GET  /exercises
+GET  /exercises/:exerciseId
+GET  /exercises/:exerciseId/progress
+POST /submissions     { "exerciseId", "code" }
+GET  /submissions/:id
 ```
+
+### Rate Limits
+
+| Endpoint | Limit |
+|----------|-------|
+| General | 100 requests/minute |
+| Auth | 5 requests/minute |
+| Submissions | 30 requests/minute |
+
+## Docker Deployment
+
+```bash
+docker compose up -d          # full stack
+docker compose watch          # rebuild on change
+bun run runners:build         # rebuild sandbox images only
+```
+
+The `runner-images` one-shot service builds every per-language sandbox image
+before the worker starts. The worker fails fast at boot if an image is missing,
+pointing at `docker compose up runner-images`.
+
+| Service | Port | Description |
+|---------|------|-------------|
+| `web` | 3001 | Nuxt dev server |
+| `api` | 3000 | Effect.ts API |
+| `worker` | — | Submission processor (needs the Docker socket) |
+| `postgres` | 5432 | PostgreSQL 17 |
+
+## Toolchain notes
+
+- **Bun** is the runtime and package manager — never npm/npx/yarn/pnpm.
+- **TypeScript 7** everywhere except `apps/web`, which is pinned to 5.9.3
+  because `vue-tsc` cannot yet resolve TS 7's package exports.
+- TS 7 removed `baseUrl`; all `paths` in `tsconfig.base.json` are relative, and
+  workspaces that need Node/Bun globals declare `"types"` explicitly.
+- **oxlint** for linting and **oxfmt** for formatting (both Rust, from the oxc
+  project), **Knip** for dead code, **Lefthook** for hooks (pre-commit: format +
+  lint + typecheck + knip; pre-push: tests).
+- oxfmt is scoped to JS/TS/Vue/JSON. Markdown and YAML are **excluded on
+  purpose**: it reformats fenced code blocks, which would destroy the aligned
+  comments in `content/tutorials/`.
+- oxfmt 0.62 can reflow a multi-statement inline Vue handler
+  (`@click="a(); b = false"`) into semicolon-less lines that Vue's template
+  parser rejects — and `vue-tsc` does **not** catch it. Use a named handler
+  instead; `apps/web/__tests__/sfc-compiles.test.ts` compiles every SFC to
+  catch any recurrence.
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes
-4. Run tests: `bun run test`
-5. Commit your changes: `git commit -m 'feat: add amazing feature'`
-6. Push to the branch: `git push origin feature/amazing-feature`
-7. Open a Pull Request
+1. Create a feature branch
+2. Make your changes
+3. Run `bun run verify`
+4. Commit with a conventional-commit message
 
-See [AGENTS.md](./AGENTS.md) for guidelines on AI-assisted development.
+See [AGENTS.md](./AGENTS.md) for AI-assisted development guidelines.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- [NestJS](https://nestjs.com/) - A progressive Node.js framework
-- [Vue.js](https://vuejs.org/) - The Progressive JavaScript Framework
-- [Drizzle ORM](https://orm.drizzle.team/) - TypeScript ORM
-- [CodeMirror](https://codemirror.net/) - Versatile text editor
-- [BullMQ](https://docs.bullmq.io/) - Premium Message Queue for Node.js
+MIT — see [LICENSE](LICENSE).
