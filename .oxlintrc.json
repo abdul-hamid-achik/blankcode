@@ -25,11 +25,21 @@
   "rules": {
     "no-unused-vars": [
       "error",
-      { "args": "none", "argsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }
+      {
+        "args": "none",
+        "argsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
     ],
     "typescript/no-unused-vars": [
       "error",
-      { "args": "none", "argsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }
+      {
+        "args": "none",
+        "argsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
     ],
     "prefer-const": "error",
     "no-var": "error",
@@ -37,14 +47,10 @@
     "typescript/no-non-null-assertion": "warn",
     "no-console": "warn",
     "eqeqeq": ["warn", "smart"],
-
     "no-underscore-dangle": "off",
     "no-shadow": "warn",
-
     "no-await-in-loop": "off",
-
     "import/no-unassigned-import": "off",
-
     "vitest/require-mock-type-parameters": "off",
     "vitest/no-conditional-expect": "warn"
   },

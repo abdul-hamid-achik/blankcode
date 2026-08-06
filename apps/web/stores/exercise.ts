@@ -231,11 +231,26 @@ export const useExerciseStore = defineStore('exercise', () => {
     }
   }
 
+  /**
+   * Reads the per-blank verdict the API attached to the finished submission.
+   *
+   * This used to be computed here by comparing against `blank.solution`, which
+   * forced the API to ship every answer to the browser — the solution to any
+   * exercise was one Network tab away. Grading now happens server-side and the
+   * client only renders the result.
+   */
   function computeBlankFeedback() {
+    const verdicts = (latestSubmission.value as { blankFeedback?: Record<string, string> } | null)
+      ?.blankFeedback
+    if (!verdicts) {
+      blankFeedback.value = undefined
+      return
+    }
+
     const feedback = new Map<string, 'correct' | 'incorrect'>()
     for (const blank of blanks.value) {
-      const value = blankValues.value.get(blank.id) ?? ''
-      feedback.set(blank.id, value.trim() === blank.solution.trim() ? 'correct' : 'incorrect')
+      const verdict = verdicts[blank.id]
+      if (verdict === 'correct' || verdict === 'incorrect') feedback.set(blank.id, verdict)
     }
     blankFeedback.value = feedback
   }

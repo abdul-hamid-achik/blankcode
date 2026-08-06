@@ -1,4 +1,4 @@
-import type { BlankRegionInStarter } from '@blankcode/shared'
+import { type BlankRegionInStarter, extractBlankValues, reconstructCode } from '@blankcode/shared'
 import { type Extension, type Range, StateEffect, StateField } from '@codemirror/state'
 import {
   Decoration,
@@ -339,79 +339,6 @@ export function createBlankExtensions(
 // --- Helper functions ---
 
 /**
- * Reconstruct full code from starter code by replacing blank placeholders with user values.
- */
-export function reconstructCode(
-  starterCode: string,
-  blanks: BlankRegionInStarter[],
-  values: Map<string, string>
-): string {
-  // Process blanks in reverse order of position to avoid offset shifts
-  const sorted = [...blanks].sort((a, b) => b.from - a.from)
-  let result = starterCode
-
-  for (const blank of sorted) {
-    const value = values.get(blank.id) ?? blank.placeholder
-    result = result.slice(0, blank.from) + value + result.slice(blank.to)
-  }
-
-  return result
-}
-
-function escapeRegExp(literal: string): string {
-  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-/**
- * Recover the values a user typed from a previously reconstructed code string.
- *
- * The starter is `F0 B0 F1 B1 ... Fn`, where `F` are fixed segments and `B` are
- * blanks; the saved code is the same with each `B` replaced by the user's text.
- *
- * The previous implementation walked forward calling `indexOf` for each next
- * fixed segment, which silently truncated any value that happened to contain
- * that segment — typing `f(x)` into a blank followed by `)` cut the value to
- * `f(x`. Because drafts are saved as reconstructed code and re-extracted on
- * load, that truncation compounded on every reload and corrupted real work.
- *
- * Anchoring the whole thing as one regex over the full string fixes it: the
- * engine backtracks so that *every* fixed segment lines up, including the tail,
- * instead of committing to the first plausible match for each one.
- */
-export function extractBlankValues(
-  savedCode: string,
-  starterCode: string,
-  blanks: BlankRegionInStarter[]
-): Map<string, string> {
-  const values = new Map<string, string>()
-  if (blanks.length === 0) return values
-
-  const sorted = [...blanks].sort((a, b) => a.from - b.from)
-
-  // Split the starter into the fixed segments surrounding each blank.
-  const fixedSegments: string[] = []
-  let cursor = 0
-  for (const blank of sorted) {
-    fixedSegments.push(starterCode.slice(cursor, blank.from))
-    cursor = blank.to
-  }
-  fixedSegments.push(starterCode.slice(cursor))
-
-  const pattern = fixedSegments.map(escapeRegExp).join('([\\s\\S]*?)')
-  const match = new RegExp(`^${pattern}$`).exec(savedCode)
-
-  if (match) {
-    sorted.forEach((blank, i) => values.set(blank.id, match[i + 1] ?? ''))
-    return values
-  }
-
-  // The saved code no longer matches the starter's fixed text — usually a
-  // stale draft from before the exercise was edited. Recovering half of it
-  // would silently mangle the user's work, so start clean instead.
-  return new Map()
-}
-
-/**
  * Dispatch feedback effects on a view after submission.
  */
 export function setBlankFeedbackOnView(
@@ -435,3 +362,7 @@ export function clearBlankFeedbackOnView(
     effects: clearFeedback.of(undefined),
   })
 }
+
+// Re-exported so callers keep importing blank helpers from one place; the
+// implementations live in @blankcode/shared because the API grades against them.
+export { extractBlankValues, reconstructCode }

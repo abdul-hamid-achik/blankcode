@@ -146,7 +146,11 @@ describe('ExercisesService', () => {
       )
 
       expect(result).toHaveLength(1)
-      expect(result[0]).toEqual(mockExercise)
+      // The service redacts before returning: no full solution, no per-blank
+      // answers. Assert the contract rather than the raw row.
+      const [returned] = result
+      expect(returned).not.toHaveProperty('solutionCode')
+      expect(returned).toMatchObject({ id: mockExercise.id, slug: mockExercise.slug })
       expect(mockDb.query.tracks.findFirst).toHaveBeenCalledOnce()
       expect(mockDb.query.concepts.findFirst).toHaveBeenCalledOnce()
     })
@@ -570,7 +574,11 @@ describe('ExercisesService', () => {
         testLayer
       )
 
-      expect(result.exercise).toEqual(exerciseWithRelations)
+      expect(result.exercise).not.toHaveProperty('solutionCode')
+      expect(result.exercise).toMatchObject({
+        id: exerciseWithRelations.id,
+        starterCode: exerciseWithRelations.starterCode,
+      })
       expect(result.exercise.concept.track.slug).toBe('typescript')
       expect(result.exercise.title).toBe('Promise Basics')
       expect(result.exercise.starterCode).toBe(mockExercise.starterCode)
