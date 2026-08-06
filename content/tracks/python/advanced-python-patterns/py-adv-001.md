@@ -2,7 +2,7 @@
 slug: python-advanced-patterns-context-manager
 title: Building a Simple Context Manager
 description: Learn to create a custom context manager using the __enter__ and __exit__ methods to manage resources safely.
-difficulty: beginner
+difficulty: intermediate
 hints:
   - The __enter__ method is called when entering the 'with' block
   - The __exit__ method is called when leaving the 'with' block, even if an error occurs
@@ -29,13 +29,13 @@ class FileLogger:
         self.filename = filename
         self.file = None
     
-    def ___blank_start____enter____blank_end___(self):
+    ___blank_start___def __enter__(self)___blank_end___:
         """Called when entering the 'with' block"""
         print(f"Opening {self.filename}")
         self.file = open(self.filename, 'w')
         return ___blank_start___self.file___blank_end___
     
-    def ___blank_start____exit____blank_end___(self, exc_type, exc_val, exc_tb):
+    ___blank_start___def __exit__(self, exc_type, exc_val, exc_tb)___blank_end___:
         """Called when exiting the 'with' block"""
         if self.file:
             print(f"Closing {self.filename}")

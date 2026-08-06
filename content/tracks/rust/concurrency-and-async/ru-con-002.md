@@ -1,120 +1,98 @@
 ---
-slug: rust-concurrency-and-async-basic-tasks
-title: Spawning Your First Async Tasks
-description: Learn how to create and run basic async tasks using tokio runtime in Rust
-difficulty: beginner
+slug: rust-concurrency-and-async-threads-and-channels
+title: Sharing State and Messages Across Threads
+description: Learn Rust's "fearless concurrency" by spawning OS threads that safely share state with Arc and Mutex, and pass values between threads with an mpsc channel.
+difficulty: intermediate
 hints:
-  - Use tokio::spawn to create a new async task
-  - The main function needs to be marked as async with the tokio runtime
-  - Use .await to wait for async operations to complete
-  - join! macro can run multiple futures concurrently
+  - Arc<T> lets multiple threads share ownership of the same heap value
+  - Mutex<T> only allows one thread at a time to access the value it guards
+  - lock() returns a Result wrapping a guard; unwrap() gets the guard itself
+  - "std::sync::mpsc::channel() returns a (Sender, Receiver) pair, and cloning the Sender lets many threads send to one Receiver"
 tags:
   - concurrency
-  - async
-  - tokio
-  - tasks
+  - threads
+  - mutex
+  - channels
 ---
 
-In this exercise, you'll learn the basics of async programming in Rust using the Tokio runtime. You'll spawn async tasks and wait for them to complete.
+In this exercise, you'll use Rust's standard library concurrency primitives directly, without an async runtime. You'll learn how to:
+- Share mutable state across threads safely with `Arc<Mutex<T>>`
+- Wait for spawned threads to finish with `.join()`
+- Send values between threads with an `mpsc` channel
 
-Your task is to:
-1. Mark the main function to use the tokio async runtime
-2. Spawn an async task that prints a message
-3. Use the join! macro to run multiple tasks concurrently
-4. Await the completion of the spawned task
+Complete the two functions below.
 
-```typescript
-import { describe, it, expect } from 'vitest';
+```rust
+use std::sync::{Arc, Mutex};
+use std::thread;
 
-const code = `
-use tokio::time::{sleep, Duration};
+// Spawn `count` threads that each increment a shared counter by 1.
+// Wait for every thread to finish, then return the final count.
+fn increment_concurrently(count: usize) -> i32 {
+    let counter = ___blank_start___Arc::new(Mutex::new(0))___blank_end___;
+    let mut handles = Vec::new();
 
-___blank_start___#[tokio::main]___blank_end___
-async fn main() {
-    println!("Starting async program");
-    
-    // Spawn a new async task
-    let task_handle = ___blank_start___tokio::spawn___blank_end___(async {
-        sleep(Duration::from_millis(100)).await;
-        println!("Task 1 completed");
-        42
-    });
-    
-    // Run multiple tasks concurrently using join!
-    let (result1, result2) = ___blank_start___tokio::join!___blank_end___(
-        async {
-            sleep(Duration::from_millis(50)).await;
-            "Task 2 done"
-        },
-        async {
-            sleep(Duration::from_millis(50)).await;
-            "Task 3 done"
-        }
-    );
-    
-    println!("Concurrent results: {}, {}", result1, result2);
-    
-    // Wait for the spawned task to complete
-    let task_result = task_handle.___blank_start___await___blank_end___.unwrap();
-    println!("Task result: {}", task_result);
+    for _ in 0..count {
+        let counter = ___blank_start___Arc::clone(&counter)___blank_end___;
+        let handle = thread::spawn(move || {
+            let mut value = ___blank_start___counter.lock().unwrap()___blank_end___;
+            *value += 1;
+        });
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        ___blank_start___handle.join().unwrap()___blank_end___;
+    }
+
+    let total = *counter.lock().unwrap();
+    total
 }
-`;
 
-describe('Rust Async Basics Exercise', () => {
-  it('should use #[tokio::main] attribute for async main', () => {
-    expect(code).toMatch(/#\[tokio::main\]/);
-  });
+// Spawn a thread per value in `0..count`, each sending its value over a
+// channel. Collect every value received on the other end, sorted ascending.
+fn collect_messages(count: i32) -> Vec<i32> {
+    let (tx, rx) = ___blank_start___std::sync::mpsc::channel()___blank_end___;
 
-  it('should spawn an async task with tokio::spawn', () => {
-    expect(code).toMatch(/tokio::spawn/);
-  });
+    for i in 0..count {
+        let tx = tx.clone();
+        thread::spawn(move || {
+            tx.send(i).unwrap();
+        });
+    }
+    drop(tx);
 
-  it('should use tokio::join! macro for concurrent execution', () => {
-    expect(code).toMatch(/tokio::join!/);
-  });
-
-  it('should await the task handle', () => {
-    expect(code).toMatch(/task_handle\.await/);
-  });
-
-  it('should have all blanks filled correctly', () => {
-    const blanks = code.match(/___blank_start___(.*?)___blank_end___/g);
-    expect(blanks).toBeTruthy();
-    expect(blanks?.length).toBe(4);
-  });
-
-  it('should use correct tokio imports', () => {
-    expect(code).toContain('use tokio::time::{sleep, Duration}');
-  });
-
-  it('should handle task results properly', () => {
-    expect(code).toMatch(/\.unwrap\(\)/);
-    expect(code).toContain('task_result');
-  });
-});
+    let mut received: Vec<i32> = rx.___blank_start___iter()___blank_end___.collect();
+    received.sort();
+    received
+}
 ```
 
 ## Tests
 
 ```rust
-use tokio::time::{sleep, Duration};
+#[test]
+fn increment_concurrently_sums_all_threads() {
+    let total = increment_concurrently(50);
+    assert_eq!(total, 50);
+}
 
-#[tokio::test]
-async fn async_tasks_complete() {
-    let task_handle = tokio::spawn(async {
-        sleep(Duration::from_millis(10)).await;
-        42
-    });
+#[test]
+fn increment_concurrently_zero_threads() {
+    let total = increment_concurrently(0);
+    assert_eq!(total, 0);
+}
 
-    let (result1, result2) = tokio::join!(
-        async { "Task 2 done" },
-        async { "Task 3 done" }
-    );
+#[test]
+fn collect_messages_receives_every_value() {
+    let messages = collect_messages(20);
+    let expected: Vec<i32> = (0..20).collect();
+    assert_eq!(messages, expected);
+}
 
-    assert_eq!(result1, "Task 2 done");
-    assert_eq!(result2, "Task 3 done");
-
-    let task_result = task_handle.await.unwrap();
-    assert_eq!(task_result, 42);
+#[test]
+fn collect_messages_empty() {
+    let messages = collect_messages(0);
+    assert!(messages.is_empty());
 }
 ```

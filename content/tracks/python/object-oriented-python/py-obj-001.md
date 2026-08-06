@@ -24,7 +24,7 @@ Fill in the blanks to complete the class definition.
 
 ```python
 ___blank_start___class___blank_end___ Pet:
-    def ___blank_start_____init____blank_end___(self, name, species):
+    ___blank_start___def __init__(self, name, species)___blank_end___:
         ___blank_start___self.name___blank_end___ = name
         ___blank_start___self.species___blank_end___ = species
     

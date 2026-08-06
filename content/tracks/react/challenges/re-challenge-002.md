@@ -36,15 +36,6 @@ Create a `DebouncedSearch` component with the following features:
 - Handle component unmount during async operations
 - Use React hooks (useState, useEffect, useCallback, useRef)
 
-## Example Usage
-
-```tsx
-<DebouncedSearch
-  onSearch={async (q) => fetch(`/api/search?q=${q}`).then(r => r.json())}
-  placeholder="Search users..."
-/>
-```
-
 Write your complete implementation below:
 
 ```tsx
@@ -64,18 +55,27 @@ interface DebouncedSearchProps {
 // Your implementation here
 ```
 
+## Example Usage
+
+```tsx
+<DebouncedSearch
+  onSearch={async (q) => fetch(`/api/search?q=${q}`).then(r => r.json())}
+  placeholder="Search users..."
+/>
+```
+
 ## Tests
 
 ```tsx
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { DebouncedSearch } from './DebouncedSearch'
 
-jest.useFakeTimers()
+vi.useFakeTimers()
 
-const mockOnSearch = jest.fn()
+const mockOnSearch = vi.fn()
 
 beforeEach(() => {
-  jest.clearAllMocks()
+  vi.clearAllMocks()
 })
 
 describe('DebouncedSearch', () => {
@@ -100,7 +100,7 @@ describe('DebouncedSearch', () => {
     const input = screen.getByPlaceholderText('Search...')
     
     fireEvent.change(input, { target: { value: 'test' } })
-    jest.advanceTimersByTime(300)
+    vi.advanceTimersByTime(300)
     
     await waitFor(() => {
       expect(mockOnSearch).toHaveBeenCalledWith('test')
@@ -116,7 +116,7 @@ describe('DebouncedSearch', () => {
     const input = screen.getByPlaceholderText('Search...')
     
     fireEvent.change(input, { target: { value: 'test' } })
-    jest.advanceTimersByTime(300)
+    vi.advanceTimersByTime(300)
     
     expect(screen.getByText('Loading...')).toBeInTheDocument()
   })
@@ -131,7 +131,7 @@ describe('DebouncedSearch', () => {
     const input = screen.getByPlaceholderText('Search...')
     
     fireEvent.change(input, { target: { value: 'test' } })
-    jest.advanceTimersByTime(300)
+    vi.advanceTimersByTime(300)
     
     await waitFor(() => {
       expect(screen.getByText('Result 1')).toBeInTheDocument()
@@ -146,7 +146,7 @@ describe('DebouncedSearch', () => {
     const input = screen.getByPlaceholderText('Search...')
     
     fireEvent.change(input, { target: { value: 'test' } })
-    jest.advanceTimersByTime(300)
+    vi.advanceTimersByTime(300)
     
     await waitFor(() => {
       expect(screen.getByText('Error: Search failed')).toBeInTheDocument()
@@ -160,7 +160,7 @@ describe('DebouncedSearch', () => {
     const input = screen.getByPlaceholderText('Search...')
     
     fireEvent.change(input, { target: { value: 'test' } })
-    jest.advanceTimersByTime(300)
+    vi.advanceTimersByTime(300)
     
     await waitFor(() => {
       expect(screen.getByText('Result')).toBeInTheDocument()
@@ -177,7 +177,7 @@ describe('DebouncedSearch', () => {
     const input = screen.getByPlaceholderText('Search...')
     
     fireEvent.change(input, { target: { value: '' } })
-    jest.advanceTimersByTime(300)
+    vi.advanceTimersByTime(300)
     
     expect(mockOnSearch).not.toHaveBeenCalled()
   })
@@ -187,10 +187,10 @@ describe('DebouncedSearch', () => {
     const input = screen.getByPlaceholderText('Search...')
     
     fireEvent.change(input, { target: { value: 'test' } })
-    jest.advanceTimersByTime(400)
+    vi.advanceTimersByTime(400)
     expect(mockOnSearch).not.toHaveBeenCalled()
     
-    jest.advanceTimersByTime(100)
+    vi.advanceTimersByTime(100)
     expect(mockOnSearch).toHaveBeenCalled()
   })
 })

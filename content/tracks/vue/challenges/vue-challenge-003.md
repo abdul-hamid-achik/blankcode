@@ -31,23 +31,6 @@ Create a `VirtualizedList` Vue component with the following features:
 - Support keyboard navigation
 - Use Vue 3 Composition API
 
-## Example Usage
-
-```vue
-<VirtualizedList
-  :items="largeArray"
-  :item-height="50"
-  :container-height="400"
-  :overscan="5"
-  @scroll="handleScroll"
-  @reach-end="loadMore"
->
-  <template #item="{ item, index }">
-    <div>{{ item.name }}</div>
-  </template>
-</VirtualizedList>
-```
-
 Write your complete implementation below:
 
 ```vue
@@ -80,6 +63,23 @@ const emit = defineEmits<{
 </template>
 ```
 
+## Example Usage
+
+```vue
+<VirtualizedList
+  :items="largeArray"
+  :item-height="50"
+  :container-height="400"
+  :overscan="5"
+  @scroll="handleScroll"
+  @reach-end="loadMore"
+>
+  <template #item="{ item, index }">
+    <div>{{ item.name }}</div>
+  </template>
+</VirtualizedList>
+```
+
 ## Tests
 
 ```typescript
@@ -101,7 +101,7 @@ describe('VirtualizedList', () => {
         containerHeight: 400,
       },
       slots: {
-        item: '<div :key="item.id">{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div :key="item.id">{{ item.name }}</div></template>',
       },
     })
     
@@ -117,7 +117,7 @@ describe('VirtualizedList', () => {
         containerHeight: 400,
       },
       slots: {
-        item: '<div class="item">{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div class="item">{{ item.name }}</div></template>',
       },
     })
     
@@ -134,7 +134,7 @@ describe('VirtualizedList', () => {
         containerHeight: 400,
       },
       slots: {
-        item: '<div class="item">{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div class="item">{{ item.name }}</div></template>',
       },
     })
     
@@ -149,7 +149,7 @@ describe('VirtualizedList', () => {
         containerHeight: 400,
       },
       slots: {
-        item: '<div class="item">{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div class="item">{{ item.name }}</div></template>',
       },
     })
     
@@ -168,7 +168,7 @@ describe('VirtualizedList', () => {
         containerHeight: 400,
       },
       slots: {
-        item: '<div>{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div>{{ item.name }}</div></template>',
       },
     })
     
@@ -188,7 +188,7 @@ describe('VirtualizedList', () => {
         reachEndThreshold: 100,
       },
       slots: {
-        item: '<div class="item">{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div class="item">{{ item.name }}</div></template>',
       },
     })
     
@@ -208,7 +208,7 @@ describe('VirtualizedList', () => {
         reachEndThreshold: 100,
       },
       slots: {
-        item: '<div class="item">{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div class="item">{{ item.name }}</div></template>',
       },
     })
     
@@ -230,7 +230,7 @@ describe('VirtualizedList', () => {
         overscan: 10,
       },
       slots: {
-        item: '<div class="item">{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div class="item">{{ item.name }}</div></template>',
       },
     })
     
@@ -248,7 +248,7 @@ describe('VirtualizedList', () => {
         reachEndThreshold: 100,
       },
       slots: {
-        item: '<div class="item">{{ item.name }}</div>',
+        item: '<template #item="{ item }"><div class="item">{{ item.name }}</div></template>',
       },
     })
     

@@ -35,6 +35,14 @@ Create a `useForm` hook with the following features:
 - Validate on change (optional)
 - Type-safe with TypeScript generics
 
+Write your complete implementation below:
+
+```tsx
+import { useState, useCallback } from 'react';
+
+// Your implementation here
+```
+
 ## Example Usage
 
 ```tsx
@@ -62,14 +70,6 @@ return (
     <button type="submit" disabled={isSubmitting}>Submit</button>
   </form>
 )
-```
-
-Write your complete implementation below:
-
-```tsx
-import { useState, useCallback } from 'react';
-
-// Your implementation here
 ```
 
 ## Tests

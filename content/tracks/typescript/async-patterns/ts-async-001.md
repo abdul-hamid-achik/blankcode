@@ -19,7 +19,7 @@ Complete the function to return a Promise that resolves with a greeting after th
 function delayedGreeting(name: string, delayMs: number): Promise<string> {
   return new ___blank_start___Promise___blank_end___((resolve) => {
     ___blank_start___setTimeout___blank_end___(() => {
-      resolve(___blank_start___`Hello, ${name}!`___blank_end___);
+      resolve(`Hello, ${___blank_start___name___blank_end___}!`);
     }, delayMs);
   });
 }

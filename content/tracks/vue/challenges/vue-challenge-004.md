@@ -35,6 +35,14 @@ Create a `useForm` composable with the following features:
 - Validate on change (optional)
 - Type-safe with TypeScript generics
 
+Write your complete implementation below:
+
+```typescript
+import { ref, computed } from 'vue'
+
+// Your implementation here
+```
+
 ## Example Usage
 
 ```vue
@@ -66,41 +74,30 @@ const onSubmit = (data) => {
 </template>
 ```
 
-Write your complete implementation below:
-
-```vue
-<script setup lang="ts">
-import { ref, computed } from 'vue'
-
-// Your implementation here
-</script>
-```
-
 ## Tests
 
 ```typescript
 import { describe, it, expect, vi } from 'vitest'
-import { renderHook } from '@vue/test-utils'
 import { useForm } from './useForm'
 
 describe('useForm', () => {
   it('should initialize with provided values', () => {
-    const { values } = renderHook(() => useForm({
+    const { values } = useForm({
       initialValues: { name: 'John', email: 'john@example.com' },
       validationRules: {},
-    }))
+    })
     
     expect(values.value.name).toBe('John')
     expect(values.value.email).toBe('john@example.com')
   })
 
   it('should validate required field', () => {
-    const { errors, handleSubmit } = renderHook(() => useForm({
+    const { errors, handleSubmit } = useForm({
       initialValues: { name: '' },
       validationRules: {
         name: [{ type: 'required', message: 'Name is required' }],
       },
-    }))
+    })
     
     handleSubmit(() => {})(new Event('submit'))
     
@@ -108,12 +105,12 @@ describe('useForm', () => {
   })
 
   it('should validate email format', () => {
-    const { errors, handleSubmit } = renderHook(() => useForm({
+    const { errors, handleSubmit } = useForm({
       initialValues: { email: 'invalid' },
       validationRules: {
         email: [{ type: 'email', message: 'Invalid email' }],
       },
-    }))
+    })
     
     handleSubmit(() => {})(new Event('submit'))
     
@@ -121,12 +118,12 @@ describe('useForm', () => {
   })
 
   it('should validate min length', () => {
-    const { errors, handleSubmit } = renderHook(() => useForm({
+    const { errors, handleSubmit } = useForm({
       initialValues: { password: '123' },
       validationRules: {
         password: [{ type: 'minLength', value: 8, message: 'Too short' }],
       },
-    }))
+    })
     
     handleSubmit(() => {})(new Event('submit'))
     
@@ -134,12 +131,12 @@ describe('useForm', () => {
   })
 
   it('should validate max length', () => {
-    const { errors, handleSubmit } = renderHook(() => useForm({
+    const { errors, handleSubmit } = useForm({
       initialValues: { username: 'verylongusername' },
       validationRules: {
         username: [{ type: 'maxLength', value: 10, message: 'Too long' }],
       },
-    }))
+    })
     
     handleSubmit(() => {})(new Event('submit'))
     
@@ -147,12 +144,12 @@ describe('useForm', () => {
   })
 
   it('should validate pattern/regex', () => {
-    const { errors, handleSubmit } = renderHook(() => useForm({
+    const { errors, handleSubmit } = useForm({
       initialValues: { phone: '123' },
       validationRules: {
         phone: [{ type: 'pattern', pattern: /^\d{3}-\d{3}-\d{4}$/, message: 'Invalid format' }],
       },
-    }))
+    })
     
     handleSubmit(() => {})(new Event('submit'))
     
@@ -160,7 +157,7 @@ describe('useForm', () => {
   })
 
   it('should validate custom function', () => {
-    const { errors, handleSubmit } = renderHook(() => useForm({
+    const { errors, handleSubmit } = useForm({
       initialValues: { age: '25' },
       validationRules: {
         age: [{ 
@@ -169,7 +166,7 @@ describe('useForm', () => {
           message: 'Must be 18+' 
         }],
       },
-    }))
+    })
     
     handleSubmit(() => {})(new Event('submit'))
     
@@ -177,12 +174,12 @@ describe('useForm', () => {
   })
 
   it('should track touched fields', () => {
-    const { touched, register } = renderHook(() => useForm({
+    const { touched, register } = useForm({
       initialValues: { name: '' },
       validationRules: {
         name: [{ type: 'required', message: 'Required' }],
       },
-    }))
+    })
     
     register('name').onBlur()
     
@@ -191,10 +188,10 @@ describe('useForm', () => {
 
   it('should call onSubmit with form data', () => {
     const onSubmit = vi.fn()
-    const { handleSubmit } = renderHook(() => useForm({
+    const { handleSubmit } = useForm({
       initialValues: { name: 'John' },
       validationRules: {},
-    }))
+    })
     
     handleSubmit(onSubmit)(new Event('submit'))
     
@@ -203,12 +200,12 @@ describe('useForm', () => {
 
   it('should not submit if form is invalid', () => {
     const onSubmit = vi.fn()
-    const { handleSubmit } = renderHook(() => useForm({
+    const { handleSubmit } = useForm({
       initialValues: { email: 'invalid' },
       validationRules: {
         email: [{ type: 'email', message: 'Invalid' }],
       },
-    }))
+    })
     
     handleSubmit(onSubmit)(new Event('submit'))
     
@@ -216,10 +213,10 @@ describe('useForm', () => {
   })
 
   it('should set isSubmitting during submission', async () => {
-    const { isSubmitting, handleSubmit } = renderHook(() => useForm({
+    const { isSubmitting, handleSubmit } = useForm({
       initialValues: { name: 'John' },
       validationRules: {},
-    }))
+    })
     
     expect(isSubmitting.value).toBe(false)
     
@@ -231,10 +228,10 @@ describe('useForm', () => {
   })
 
   it('should reset form to initial values', () => {
-    const { values, setFieldValue, resetForm } = renderHook(() => useForm({
+    const { values, setFieldValue, resetForm } = useForm({
       initialValues: { name: 'John' },
       validationRules: {},
-    }))
+    })
     
     setFieldValue('name', 'Jane')
     resetForm()
@@ -243,10 +240,10 @@ describe('useForm', () => {
   })
 
   it('should manually set field value', () => {
-    const { values, setFieldValue } = renderHook(() => useForm({
+    const { values, setFieldValue } = useForm({
       initialValues: { name: 'John' },
       validationRules: {},
-    }))
+    })
     
     setFieldValue('name', 'Jane')
     
@@ -254,13 +251,13 @@ describe('useForm', () => {
   })
 
   it('should validate on change', () => {
-    const { errors, register } = renderHook(() => useForm({
+    const { errors, register } = useForm({
       initialValues: { email: '' },
       validationRules: {
         email: [{ type: 'email', message: 'Invalid email' }],
       },
       validateOnChange: true,
-    }))
+    })
     
     register('email').onChange('invalid')
     
@@ -270,7 +267,7 @@ describe('useForm', () => {
   it('should support async validation', async () => {
     vi.useFakeTimers()
     
-    const { errors, setFieldValue, handleSubmit } = renderHook(() => useForm({
+    const { errors, setFieldValue, handleSubmit } = useForm({
       initialValues: { username: '' },
       validationRules: {
         username: [{
@@ -282,7 +279,7 @@ describe('useForm', () => {
           message: 'Username taken',
         }],
       },
-    }))
+    })
     
     setFieldValue('username', 'taken')
     handleSubmit(() => {})(new Event('submit'))
@@ -295,13 +292,13 @@ describe('useForm', () => {
   })
 
   it('should compute isValid flag', () => {
-    const wrapper = renderHook(() => useForm({
+    const wrapper = useForm({
       initialValues: { name: '', email: '' },
       validationRules: {
         name: [{ type: 'required', message: 'Required' }],
         email: [{ type: 'email', message: 'Invalid' }],
       },
-    }))
+    })
     
     expect(wrapper.isValid.value).toBe(false)
     

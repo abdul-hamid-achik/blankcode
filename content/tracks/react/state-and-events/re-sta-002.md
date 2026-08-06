@@ -1,5 +1,5 @@
 ---
-slug: react-state-and-events-counter
+slug: react-state-and-events-counter-click-handlers
 title: Interactive Counter with State and Events
 description: Build a counter component that uses React state to track a value and event handlers to update it when buttons are clicked.
 difficulty: beginner

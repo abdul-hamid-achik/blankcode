@@ -31,16 +31,6 @@ Create a `Cache<K, V>` struct with the following features:
 - Background cleanup optional
 - Generic over key and value types
 
-## Example Usage
-
-```rust
-let cache = Cache::new();
-cache.insert("key1", "value1", Duration::from_secs(60));
-cache.insert("key2", 42, Duration::from_secs(30));
-
-let value = cache.get(&"key1"); // Some("value1")
-```
-
 Write your complete implementation below:
 
 ```rust
@@ -50,6 +40,16 @@ use std::sync::{RwLock, Arc};
 use std::time::Instant;
 
 // Your implementation here
+```
+
+## Example Usage
+
+```rust
+let cache = Cache::new();
+cache.insert("key1", "value1", Duration::from_secs(60));
+cache.insert("key2", 42, Duration::from_secs(30));
+
+let value = cache.get(&"key1"); // Some("value1")
 ```
 
 ## Tests
@@ -185,6 +185,8 @@ mod tests {
         for handle in handles {
             handle.join().unwrap();
         }
+
+        assert_eq!(cache.len(), 100);
     }
 }
 ```

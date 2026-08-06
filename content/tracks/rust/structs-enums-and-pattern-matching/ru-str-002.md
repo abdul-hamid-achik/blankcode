@@ -2,7 +2,7 @@
 slug: rust-structs-enums-and-pattern-matching-inventory-system
 title: Building a Game Inventory System
 description: Learn to use structs, enums, and pattern matching to create a simple inventory system for a game character.
-difficulty: beginner
+difficulty: intermediate
 hints:
   - Enums are perfect for representing a fixed set of item types
   - Use pattern matching with 'match' to handle different enum variants
@@ -25,11 +25,11 @@ Your tasks:
 
 ```rust
 // Define an enum for different item types
-___blank_start___enum ItemType {
+___blank_start___enum ItemType___blank_end___ {
     Weapon,
     Potion,
     Armor,
-}___blank_end___
+}
 
 struct Item {
     name: String,
@@ -50,11 +50,11 @@ impl Item {
 
     // Return a description based on the item type using pattern matching
     fn describe(&self) -> String {
-        ___blank_start___match self.item_type {
-            ItemType::Weapon => format!("{} is a weapon for combat", self.name),
-            ItemType::Potion => format!("{} is a potion for healing", self.name),
-            ItemType::Armor => format!("{} is armor for protection", self.name),
-        }___blank_end___
+        match self.item_type {
+            ItemType::Weapon => ___blank_start___format!("{} is a weapon for combat", self.name)___blank_end___,
+            ItemType::Potion => ___blank_start___format!("{} is a potion for healing", self.name)___blank_end___,
+            ItemType::Armor => ___blank_start___format!("{} is armor for protection", self.name)___blank_end___,
+        }
     }
 }
 
@@ -72,12 +72,12 @@ impl Inventory {
     fn count_items_of_type(&self, item_type: ItemType) -> usize {
         let mut count = 0;
         for item in &self.items {
-            ___blank_start___match (&item.item_type, &item_type) {
-                (ItemType::Weapon, ItemType::Weapon) => count += 1,
-                (ItemType::Potion, ItemType::Potion) => count += 1,
-                (ItemType::Armor, ItemType::Armor) => count += 1,
+            match (&item.item_type, &item_type) {
+                ___blank_start___(ItemType::Weapon, ItemType::Weapon)___blank_end___ => count += 1,
+                ___blank_start___(ItemType::Potion, ItemType::Potion)___blank_end___ => count += 1,
+                ___blank_start___(ItemType::Armor, ItemType::Armor)___blank_end___ => count += 1,
                 _ => {}
-            }___blank_end___
+            }
         }
         count
     }

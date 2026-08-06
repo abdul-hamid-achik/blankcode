@@ -2,7 +2,7 @@
 slug: python-file-handling-exceptions-safe-read
 title: Safe File Reading with Exception Handling
 description: Learn to handle common file-related exceptions when reading files in Python, including FileNotFoundError and PermissionError.
-difficulty: beginner
+difficulty: intermediate
 hints:
   - Use try-except blocks to catch specific exceptions
   - FileNotFoundError occurs when a file doesn't exist

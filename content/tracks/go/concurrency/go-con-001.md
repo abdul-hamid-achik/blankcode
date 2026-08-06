@@ -2,7 +2,7 @@
 slug: go-concurrency-goroutines-basics
 title: Introduction to Goroutines
 description: Learn how to create and use goroutines to run functions concurrently in Go
-difficulty: beginner
+difficulty: intermediate
 hints:
   - Use the 'go' keyword before a function call to run it as a goroutine
   - Goroutines run concurrently with the main function
@@ -67,9 +67,73 @@ func main() {
 ```go
 package main
 
-import "testing"
+import (
+	"fmt"
+	"io"
+	"os"
+	"strings"
+	"testing"
+	"time"
+)
 
-func TestProgramRuns(t *testing.T) {
-	main()
+// captureOutput runs fn with stdout captured. It never blocks the test
+// indefinitely: if fn (main) doesn't finish in time — e.g. because a
+// goroutine never calls wg.Done() and wg.Wait() blocks forever — it fails
+// the test instead of hanging or triggering a Go runtime deadlock crash.
+func captureOutput(t *testing.T, fn func()) (string, time.Duration) {
+	t.Helper()
+
+	original := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdout = writer
+
+	done := make(chan struct{})
+	start := time.Now()
+	go func() {
+		fn()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		os.Stdout = original
+		_ = writer.Close()
+		t.Fatal("main() did not finish within 2s — check that every goroutine calls wg.Done()")
+		return "", 0
+	}
+	elapsed := time.Since(start)
+
+	_ = writer.Close()
+	os.Stdout = original
+	output, _ := io.ReadAll(reader)
+	return string(output), elapsed
+}
+
+func TestAllGoroutinesCompleteBeforeExit(t *testing.T) {
+	output, _ := captureOutput(t, main)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) != 4 {
+		t.Fatalf("expected 4 lines of output (3 messages + completion), got %d: %q", len(lines), output)
+	}
+	if lines[len(lines)-1] != "All goroutines completed!" {
+		t.Fatalf("expected the completion message to print last (after wg.Wait()), got %q", lines[len(lines)-1])
+	}
+	for i := 1; i <= 3; i++ {
+		want := fmt.Sprintf("Message from goroutine %d", i)
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected output to contain %q, got %q", want, output)
+		}
+	}
+}
+
+func TestGoroutinesRunConcurrently(t *testing.T) {
+	_, elapsed := captureOutput(t, main)
+	if elapsed >= 250*time.Millisecond {
+		t.Fatalf("main() took %v to finish — the 3 goroutines should run concurrently (~100ms total), not sequentially (~300ms); check the 'go' keyword", elapsed)
+	}
 }
 ```

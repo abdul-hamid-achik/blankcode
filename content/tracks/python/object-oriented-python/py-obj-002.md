@@ -1,7 +1,7 @@
 ---
-slug: python-object-oriented-python-pet-class
-title: Creating a Simple Pet Class
-description: Learn the basics of object-oriented programming in Python by creating a Pet class with attributes and methods.
+slug: python-object-oriented-pet-energy-management
+title: Pet Class with Energy Management
+description: Learn the basics of object-oriented programming in Python by creating a Pet class whose methods mutate an energy attribute over time.
 difficulty: beginner
 hints:
   - Use __init__ to define the constructor method
@@ -25,7 +25,7 @@ Complete the blanks to make the Pet class work correctly.
 
 ```python
 class Pet:
-    def ___blank_start_____init____blank_end___(self, name, species):
+    ___blank_start___def __init__(self, name, species)___blank_end___:
         """Initialize a new pet with a name, species, and full energy."""
         self.name = name
         self.species = species

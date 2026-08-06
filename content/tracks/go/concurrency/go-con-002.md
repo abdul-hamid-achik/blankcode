@@ -2,7 +2,7 @@
 slug: go-concurrency-goroutines-basic
 title: Your First Goroutines
 description: Learn how to launch goroutines and wait for them to complete using WaitGroups
-difficulty: beginner
+difficulty: intermediate
 hints:
   - Goroutines are launched using the 'go' keyword before a function call
   - WaitGroups need to know how many goroutines to wait for using Add()
@@ -64,8 +64,13 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
+// captureOutput runs fn with stdout captured. fn runs in its own goroutine
+// with a bounded wait so that a WaitGroup which never reaches zero — e.g.
+// because a goroutine never calls wg.Done() — fails the test cleanly instead
+// of hanging or triggering a Go runtime deadlock crash.
 func captureOutput(t *testing.T, fn func()) string {
 	t.Helper()
 	original := os.Stdout
@@ -75,7 +80,20 @@ func captureOutput(t *testing.T, fn func()) string {
 	}
 	os.Stdout = writer
 
-	fn()
+	done := make(chan struct{})
+	go func() {
+		fn()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		os.Stdout = original
+		_ = writer.Close()
+		t.Fatal("main() did not finish within 2s — check that the goroutine calls wg.Done()")
+		return ""
+	}
 
 	_ = writer.Close()
 	os.Stdout = original

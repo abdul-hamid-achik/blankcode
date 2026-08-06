@@ -30,6 +30,12 @@ Create a `createStore` function with the following features:
 - Unsubscribe function from subscribe()
 - Action types must be string literals
 
+Write your complete implementation below:
+
+```typescript
+// Your implementation here
+```
+
 ## Example Usage
 
 ```typescript
@@ -51,17 +57,11 @@ store.dispatch({ type: 'INCREMENT' })
 console.log(store.getState()) // { count: 1 }
 ```
 
-Write your complete implementation below:
-
-```typescript
-// Your implementation here
-```
-
 ## Tests
 
 ```typescript
 import { describe, it, expect, vi } from 'vitest'
-import { createStore } from './createStore'
+import { createStore } from './solution'
 
 describe('createStore', () => {
   it('should initialize with provided state', () => {

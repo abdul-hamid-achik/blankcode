@@ -1,7 +1,7 @@
 ---
-slug: go-structs-and-interfaces-shape-calculator
-title: Shape Area Calculator with Interfaces
-description: Create a shape calculator using structs and interfaces to calculate areas of different geometric shapes.
+slug: go-structs-and-interfaces-encapsulated-shapes
+title: Shape Area Calculator with Encapsulated Fields
+description: Create a shape calculator using structs and interfaces, with unexported fields, to calculate areas of different geometric shapes.
 difficulty: beginner
 hints:
   - Interfaces in Go define a set of method signatures that a type must implement
@@ -90,8 +90,8 @@ if CalculateArea(rect) != 20.0 {
 t.Fatalf("expected rectangle area 20.0")
 }
 actual := float64(int(CalculateArea(circle)*100)) / 100
-if actual != 78.54 {
-t.Fatalf("expected circle area 78.54, got %.2f", actual)
+if actual != 78.53 {
+t.Fatalf("expected circle area 78.53, got %.2f", actual)
 }
 }
 

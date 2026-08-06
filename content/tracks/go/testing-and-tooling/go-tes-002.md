@@ -22,7 +22,7 @@ Your task is to complete a simple calculator test suite that verifies basic arit
 package calculator
 
 import (
-	___blank_start___ "testing" ___blank_end___
+	___blank_start___"testing"___blank_end___
 )
 
 // Add returns the sum of two integers
@@ -36,17 +36,17 @@ func Multiply(a, b int) int {
 }
 
 // TestAdd verifies the Add function works correctly
-func ___blank_start___ TestAdd ___blank_end___(t *testing.T) {
+func ___blank_start___TestAdd___blank_end___(t *testing.T) {
 	result := Add(2, 3)
 	expected := 5
 	
 	if result != expected {
-		t.___blank_start___ Errorf ___blank_end___("Add(2, 3) = %d; want %d", result, expected)
+		t.___blank_start___Errorf___blank_end___("Add(2, 3) = %d; want %d", result, expected)
 	}
 }
 
 // TestMultiply verifies the Multiply function works correctly
-func TestMultiply(t *___blank_start___ testing.T ___blank_end___) {
+func TestMultiply(t *___blank_start___testing.T___blank_end___) {
 	result := Multiply(4, 5)
 	expected := 20
 	
@@ -81,8 +81,11 @@ func TestMultiplyValues(t *testing.T) {
 	}
 }
 
-func TestStudentTestsExist(t *testing.T) {
-	var _ func(*testing.T) = TestAdd
-	var _ func(*testing.T) = TestMultiply
+func TestStudentTestsPass(t *testing.T) {
+	// Actually run the student's TestAdd and TestMultiply against the real
+	// functions, so a wrong function name, wrong signature, or wrong
+	// t.Errorf call is caught — not just that the symbols compile.
+	TestAdd(t)
+	TestMultiply(t)
 }
 ```

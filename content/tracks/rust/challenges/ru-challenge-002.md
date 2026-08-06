@@ -29,18 +29,18 @@ Create a division module that handles errors gracefully:
 - Handle infinity results (overflow)
 - Handle NaN inputs as invalid
 
+Write your complete implementation below:
+
+```rust
+// Your implementation here
+```
+
 ## Example Usage
 
 ```rust
 divide(10.0, 2.0)      // Ok(5.0)
 divide(10.0, 0.0)      // Err(DivisionByZero)
 safe_divide(10.0, 0.0) // None
-```
-
-Write your complete implementation below:
-
-```rust
-// Your implementation here
 ```
 
 ## Tests

@@ -20,7 +20,7 @@ Create a `retry` function with the following features:
 2. **RetryOptions interface** - Configuration for retry behavior
 3. **maxRetries** - Maximum number of retry attempts (default: 3)
 4. **delay** - Initial delay in ms (default: 1000)
-5. **backoff** - Exponential backoff multiplier (default: 2)
+5. **backoff** - Exponential backoff multiplier (default: 1, i.e. no growth unless the caller opts in)
 6. **shouldRetry** - Optional predicate to determine if should retry
 
 ## Constraints
@@ -30,6 +30,12 @@ Create a `retry` function with the following features:
 - Return the result on first success
 - Throw error after max retries exhausted
 - Support custom retry condition
+
+Write your complete implementation below:
+
+```typescript
+// Your implementation here
+```
 
 ## Example Usage
 
@@ -50,17 +56,11 @@ const result = await retry(
 )
 ```
 
-Write your complete implementation below:
-
-```typescript
-// Your implementation here
-```
-
 ## Tests
 
 ```typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { retry, RetryOptions } from './retry'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { retry, RetryOptions } from './solution'
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -88,7 +88,7 @@ describe('retry', () => {
     
     const promise = retry(fn, { maxRetries: 3, delay: 100 })
     
-    vi.advanceTimersByTime(200)
+    await vi.advanceTimersByTimeAsync(200)
     const result = await promise
     
     expect(result).toBe('success')
@@ -100,7 +100,7 @@ describe('retry', () => {
     
     const promise = retry(fn, { maxRetries: 3, delay: 100 })
     
-    vi.advanceTimersByTime(300)
+    await vi.advanceTimersByTimeAsync(300)
     
     await expect(promise).rejects.toThrow('Always fails')
     expect(fn).toHaveBeenCalledTimes(4) // Initial + 3 retries
@@ -135,7 +135,7 @@ describe('retry', () => {
       shouldRetry: (error: Error) => error.message === 'Retry me'
     })
     
-    vi.advanceTimersByTime(100)
+    await vi.advanceTimersByTimeAsync(100)
     
     await expect(promise).rejects.toThrow('Dont retry')
     expect(fn).toHaveBeenCalledTimes(2)

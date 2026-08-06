@@ -2,7 +2,7 @@
 slug: go-advancedpatterns-functional-options
 title: Functional Options Pattern
 description: Learn to implement the functional options pattern for flexible and extensible configuration in Go
-difficulty: beginner
+difficulty: intermediate
 hints:
   - Option functions return a function that modifies the config struct
   - Each option should be a closure that captures its parameter
@@ -36,7 +36,7 @@ type Server struct {
 }
 
 // Option is a function that configures a Server
-type Option ___blank_start___func(*Server)___blank_end___
+type Option func(___blank_start___*Server___blank_end___)
 
 // NewServer creates a new Server with default values and applies options
 func NewServer(opts ...Option) *Server {
@@ -58,9 +58,7 @@ func NewServer(opts ...Option) *Server {
 
 // WithHost returns an Option that sets the host
 func WithHost(host string) Option {
-    return ___blank_start___func(s *Server) {
-        s.host = host
-    }___blank_end___
+    return ___blank_start___func(s *Server) { s.host = host }___blank_end___
 }
 
 // WithPort returns an Option that sets the port
@@ -113,7 +111,7 @@ func TestAllOptions(t *testing.T) {
 	s := NewServer(
 		WithHost("api.example.com"),
 		WithPort(443),
-		WithTimeout(60),
+		WithTimeout(60*time.Second),
 		WithMaxConnections(500),
 	)
 	if s.host != "api.example.com" || s.port != 443 || s.timeout != 60*time.Second || s.maxConn != 500 {

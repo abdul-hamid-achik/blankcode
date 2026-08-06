@@ -37,18 +37,6 @@ Create a `DebouncedSearch` Vue component with the following features:
 - Handle component unmount during async operations
 - Use Vue 3 Composition API with `<script setup>`
 
-## Example Usage
-
-```vue
-<template>
-  <DebouncedSearch
-    :search-fn="fetchUsers"
-    placeholder="Search users..."
-    @results="handleResults"
-  />
-</template>
-```
-
 Write your complete implementation below:
 
 ```vue
@@ -58,6 +46,18 @@ Write your complete implementation below:
 
 <template>
   <!-- Your template here -->
+</template>
+```
+
+## Example Usage
+
+```vue
+<template>
+  <DebouncedSearch
+    :search-fn="fetchUsers"
+    placeholder="Search users..."
+    @results="handleResults"
+  />
 </template>
 ```
 

@@ -2,7 +2,7 @@
 slug: react-performance-and-patterns-memo-basics
 title: Optimizing Re-renders with React.memo
 description: Learn how to prevent unnecessary re-renders using React.memo to optimize component performance in a simple counter application.
-difficulty: beginner
+difficulty: intermediate
 hints:
   - React.memo creates a memoized version of a component that only re-renders when props change
   - Use React.memo by wrapping your component function
@@ -31,7 +31,7 @@ interface ItemListProps {
 }
 
 // Wrap this component to prevent unnecessary re-renders
-const ItemList = ___blank_start___memo(___blank_end___({ items }: ItemListProps) => {
+const ItemList = ___blank_start___memo___blank_end___(({ items }: ItemListProps) => {
   console.log('ItemList rendered');
   return (
     <div>
@@ -43,14 +43,14 @@ const ItemList = ___blank_start___memo(___blank_end___({ items }: ItemListProps)
       </ul>
     </div>
   );
-}___blank_start___)___blank_end___;
+});
 
 interface ExpensiveDisplayProps {
   value: number;
 }
 
 // This component does an expensive calculation
-const ExpensiveDisplay = ___blank_start___memo(___blank_end___({ value }: ExpensiveDisplayProps) => {
+const ExpensiveDisplay = ___blank_start___memo___blank_end___(({ value }: ExpensiveDisplayProps) => {
   console.log('ExpensiveDisplay rendered');
   
   // Simulate expensive calculation
@@ -60,7 +60,7 @@ const ExpensiveDisplay = ___blank_start___memo(___blank_end___({ value }: Expens
   }
   
   return <div>Processed value: {result.toFixed(2)}</div>;
-}___blank_start___)___blank_end___;
+});
 
 export default function CounterApp() {
   const [count, setCount] = useState(0);

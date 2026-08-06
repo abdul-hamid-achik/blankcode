@@ -2,7 +2,7 @@
 slug: python-file-handling-exceptions-001
 title: Safe File Reading with Exception Handling
 description: Learn how to safely read files using try-except blocks to handle common file-related exceptions in Python.
-difficulty: beginner
+difficulty: intermediate
 hints:
   - Use FileNotFoundError to catch when a file doesn't exist
   - The 'with' statement automatically closes files even if an error occurs
@@ -35,7 +35,7 @@ def safe_read_file(filename):
         A dictionary with 'success' (bool) and either 'content' or 'error' keys
     """
     try:
-        ___blank_start___with open(filename, 'r') as file___blank_end___:
+        with open(filename, '___blank_start___r___blank_end___') as file:
             content = file.read()
             return {"success": True, "content": content}
     

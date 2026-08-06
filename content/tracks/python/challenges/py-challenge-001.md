@@ -29,6 +29,12 @@ Create a temperature conversion module with the following functions:
 - Support unit strings: 'C', 'F', 'K' (case-insensitive)
 - Round results to 2 decimal places
 
+Write your complete implementation below:
+
+```python
+# Your implementation here
+```
+
 ## Example Usage
 
 ```python
@@ -36,12 +42,6 @@ celsius_to_fahrenheit(0)    # Returns 32.0
 fahrenheit_to_celsius(32)   # Returns 0.0
 celsius_to_kelvin(0)        # Returns 273.15
 convert_temperature(100, 'C', 'F')  # Returns 212.0
-```
-
-Write your complete implementation below:
-
-```python
-# Your implementation here
 ```
 
 ## Tests

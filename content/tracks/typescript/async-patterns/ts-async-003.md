@@ -32,7 +32,7 @@ async function safeFetch(url: string): Promise<ApiResponse<string>> {
   ___blank_start___try___blank_end___ {
     const data = await fetchData(url);
     return { ___blank_start___data___blank_end___ };
-  } ___blank_start___catch (error)___blank_end___ {
+  } catch (error) {
     return {
       data: '',
       error: ___blank_start___(error as Error).message___blank_end___

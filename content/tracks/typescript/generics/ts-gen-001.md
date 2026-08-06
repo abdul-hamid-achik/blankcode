@@ -2,7 +2,7 @@
 slug: ts-gen-001
 title: Generic Function Basics
 description: Create a generic function that works with any type.
-difficulty: intermediate
+difficulty: beginner
 hints:
   - Generic type parameters go in angle brackets before the function parameters
   - Use T as a conventional name for a single type parameter

@@ -2,7 +2,7 @@
 slug: react-advancedhooks-usememo-optimization
 title: Optimizing Expensive Calculations with useMemo
 description: Learn how to use the useMemo hook to memoize expensive computations and prevent unnecessary recalculations on every render.
-difficulty: beginner
+difficulty: intermediate
 hints:
   - useMemo takes two arguments - a function that returns the computed value and a dependency array
   - The memoized value only recalculates when dependencies change
@@ -47,14 +47,10 @@ export function NumberStats({ numbers }: NumberStatsProps) {
   const [renderCount, setRenderCount] = useState(0);
 
   // Memoize the expensive sum calculation
-  const sum = ___blank_start___useMemo(() => {
-    return calculateSum(numbers);
-  }, [numbers])___blank_end___;
+  const sum = ___blank_start___useMemo(() => calculateSum(numbers), [numbers])___blank_end___;
 
   // Memoize the average calculation which depends on sum
-  const average = ___blank_start___useMemo(() => {
-    return numbers.length > 0 ? sum / numbers.length : 0;
-  }, [sum, numbers.length])___blank_end___;
+  const average = ___blank_start___useMemo(() => (numbers.length > 0 ? sum / numbers.length : 0), [sum, numbers.length])___blank_end___;
 
   return (
     <div>
