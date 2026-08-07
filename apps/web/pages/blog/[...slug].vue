@@ -1,4 +1,31 @@
 <script setup lang="ts">
+import { usePageSeo } from '~/composables/usePageSeo'
+import { readingMinutes, sortPostsNewestFirst } from '~/utils/blog'
+
+interface TocLink {
+  id: string
+  depth: number
+  text: string
+}
+
+interface PostDoc {
+  path: string
+  title: string
+  description: string
+  date: string
+  author: string
+  tags: string[]
+  ogDescription?: string
+  body: { toc?: { links?: TocLink[] } }
+}
+
+interface SiblingPost {
+  path: string
+  title: string
+  date: string
+  draft: boolean
+}
+
 const route = useRoute()
 
 const slugPath = computed(() => {
@@ -18,28 +45,48 @@ if (!post.value) {
   throw createError({ statusCode: 404, statusMessage: 'Post not found', fatal: true })
 }
 
+// The whole published list, for prev/next. Fetched with the same ordering the
+// index uses, so walking "older" from the newest post visits every post in
+// the order the index shows them.
+const { data: siblings } = await useAsyncData('blog-siblings', () =>
+  queryCollection('blog').select('path', 'title', 'date', 'draft').all()
+)
+
+const doc = computed(() => post.value as unknown as PostDoc)
 const site = useSiteUrl()
-const meta = computed(() => post.value as unknown as Record<string, string & string[]>)
 const canonical = computed(() => `${site}${postPath.value}`)
 
-useSeoMeta({
-  title: () => meta.value['title'],
-  description: () => meta.value['description'],
-  ogTitle: () => meta.value['title'],
-  ogDescription: () => meta.value['ogDescription'] || meta.value['description'],
-  ogType: 'article',
-  ogUrl: () => canonical.value,
-  articlePublishedTime: () => meta.value['date'],
-  articleAuthor: () => [String(meta.value['author'] ?? 'BlankCode')],
-  twitterCard: 'summary_large_image',
-  twitterTitle: () => meta.value['title'],
-  twitterDescription: () => meta.value['ogDescription'] || meta.value['description'],
+const minutes = computed(() => readingMinutes(doc.value.body))
+
+/** h2 entries only. Three or more earn a table of contents. */
+const tocLinks = computed(() =>
+  (doc.value.body.toc?.links ?? []).filter((link) => link.depth === 2)
+)
+
+const ordered = computed(() =>
+  sortPostsNewestFirst(((siblings.value ?? []) as unknown as SiblingPost[]).filter((p) => !p.draft))
+)
+const position = computed(() => ordered.value.findIndex((p) => p.path === postPath.value))
+const newer = computed(() => (position.value > 0 ? ordered.value[position.value - 1] : undefined))
+const older = computed(() =>
+  position.value >= 0 && position.value < ordered.value.length - 1
+    ? ordered.value[position.value + 1]
+    : undefined
+)
+
+usePageSeo({
+  title: doc.value.title,
+  description: doc.value.description,
+  path: postPath.value,
+  type: 'article',
+  ogDescription: doc.value.ogDescription || undefined,
+  publishedTime: doc.value.date,
+  author: doc.value.author || 'BlankCode',
 })
 
 // Article structured data, so search results can show the date and author
 // rather than guessing them out of the page text.
 useHead({
-  link: [{ rel: 'canonical', href: canonical }],
   script: [
     {
       type: 'application/ld+json',
@@ -47,13 +94,13 @@ useHead({
         JSON.stringify({
           '@context': 'https://schema.org',
           '@type': 'BlogPosting',
-          headline: meta.value['title'],
-          description: meta.value['description'],
-          datePublished: meta.value['date'],
-          author: { '@type': 'Organization', name: meta.value['author'] },
+          headline: doc.value.title,
+          description: doc.value.description,
+          datePublished: doc.value.date,
+          author: { '@type': 'Organization', name: doc.value.author },
           publisher: { '@type': 'Organization', name: 'BlankCode', url: site },
           mainEntityOfPage: { '@type': 'WebPage', '@id': canonical.value },
-          keywords: (meta.value['tags'] as unknown as string[] | undefined)?.join(', '),
+          keywords: doc.value.tags?.join(', '),
         })
       ),
     },
@@ -70,35 +117,93 @@ function formatDate(date: string): string {
 </script>
 
 <template>
-  <article v-if="post" class="container py-12">
-    <div class="max-w-2xl mx-auto">
-      <NuxtLink
-        to="/blog"
-        class="text-sm text-muted-foreground hover:text-foreground mb-6 inline-block"
-      >
-        &#8592; Back to the blog
-      </NuxtLink>
+  <article v-if="post" class="container py-12 md:py-16">
+    <!-- 42rem ≈ 65ch at the article's 17px body size: the reading measure. -->
+    <div class="mx-auto max-w-[42rem]">
+      <nav aria-label="Breadcrumb" class="mb-8">
+        <NuxtLink to="/blog" class="eyebrow inline-block transition-colors hover:text-foreground">
+          &#8592; blog
+        </NuxtLink>
+      </nav>
 
-      <header class="mb-10">
-        <h1 class="display text-2xl md:text-3xl mb-3">{{ (post as any).title }}</h1>
-        <p class="text-muted-foreground mb-4">{{ (post as any).description }}</p>
-        <div class="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          <time :datetime="(post as any).date">{{ formatDate((post as any).date) }}</time>
-          <span
-            v-for="tag in (post as any).tags"
-            :key="tag"
-            class="px-2 py-0.5 rounded-full bg-accent text-accent-foreground"
-          >
-            {{ tag }}
-          </span>
-        </div>
+      <header class="mb-10 border-b border-rule pb-8">
+        <p class="eyebrow mb-4">
+          <time :datetime="doc.date">{{ formatDate(doc.date) }}</time>
+          <span aria-hidden="true"> · </span>{{ minutes }} min read
+        </p>
+        <h1 class="display text-3xl md:text-4xl leading-tight mb-4">{{ doc.title }}</h1>
+        <p class="text-lg leading-relaxed text-muted-foreground">{{ doc.description }}</p>
+        <p
+          v-if="doc.tags?.length"
+          class="mt-5 flex flex-wrap gap-x-3 font-mono text-xs text-muted-foreground/80"
+        >
+          <span v-for="tag in doc.tags" :key="tag">#{{ tag }}</span>
+        </p>
       </header>
 
-      <div
-        class="prose prose-invert max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-strong:text-foreground prose-a:text-primary hover:prose-a:text-primary/80 prose-code:text-primary prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted prose-pre:border prose-pre:border-rule prose-li:text-muted-foreground prose-ul:text-muted-foreground prose-ol:text-muted-foreground"
+      <!-- Contents, when the post has enough sections to need a map. -->
+      <nav
+        v-if="tocLinks.length >= 3"
+        aria-label="Contents"
+        class="mb-10 border-l-2 border-rule-strong py-1 pl-5"
       >
+        <p class="eyebrow mb-3">contents</p>
+        <ol class="space-y-1.5">
+          <li v-for="link in tocLinks" :key="link.id">
+            <a
+              :href="`#${link.id}`"
+              class="font-mono text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {{ link.text }}
+            </a>
+          </li>
+        </ol>
+      </nav>
+
+      <div class="article-body">
         <ContentRenderer :value="post" />
       </div>
+
+      <!-- What this site is, stated once, at the point where a reader who
+           arrived from a search engine has just finished the argument. -->
+      <aside class="mt-16 border-t border-rule-strong pt-8" aria-label="About BlankCode">
+        <p class="eyebrow mb-3">practice</p>
+        <p class="max-w-[58ch] leading-relaxed text-muted-foreground">
+          BlankCode is this idea as a tool: real code with the load-bearing lines blanked out,
+          scheduled to come back just before you would forget them.
+        </p>
+        <NuxtLink
+          to="/tracks"
+          class="mt-4 inline-block font-mono text-sm text-foreground underline decoration-rule-strong underline-offset-4 transition-colors hover:decoration-foreground"
+        >
+          Browse the tracks &#8594;
+        </NuxtLink>
+      </aside>
+
+      <!-- Somewhere to go next, in both directions along the timeline. -->
+      <nav
+        v-if="newer || older"
+        aria-label="More posts"
+        class="mt-12 grid gap-px border-t border-rule pt-8 sm:grid-cols-2 sm:gap-8"
+      >
+        <NuxtLink v-if="newer" :to="newer.path" class="group block pb-6 sm:pb-0">
+          <p class="eyebrow mb-2">&#8592; newer</p>
+          <p class="display text-base leading-snug transition-colors group-hover:text-signal">
+            {{ newer.title }}
+          </p>
+        </NuxtLink>
+        <NuxtLink
+          v-if="older"
+          :to="older.path"
+          class="group block sm:text-right"
+          :class="{ 'sm:col-start-2': !newer }"
+        >
+          <p class="eyebrow mb-2">older &#8594;</p>
+          <p class="display text-base leading-snug transition-colors group-hover:text-signal">
+            {{ older.title }}
+          </p>
+        </NuxtLink>
+      </nav>
     </div>
   </article>
 </template>

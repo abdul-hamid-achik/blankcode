@@ -23,6 +23,16 @@ export interface PageSeo {
   readonly type?: 'website' | 'article'
   /** Absolute or root-relative. Falls back to the shared card. */
   readonly image?: string
+  /**
+   * Overrides the social-card description only. A post sometimes needs a
+   * different pitch on a timeline than in a search snippet; the page
+   * description stays as written.
+   */
+  readonly ogDescription?: string
+  /** ISO date. Emitted as article:published_time when `type` is `article`. */
+  readonly publishedTime?: string
+  /** Emitted as article:author when `type` is `article`. */
+  readonly author?: string
 }
 
 const DEFAULT_IMAGE = '/og.png'
@@ -34,11 +44,14 @@ export function usePageSeo(page: PageSeo): void {
     ? page.image
     : `${site}${page.image ?? DEFAULT_IMAGE}`
 
+  const socialDescription = page.ogDescription ?? page.description
+  const isArticle = page.type === 'article'
+
   useSeoMeta({
     title: page.title,
     description: page.description,
     ogTitle: page.title,
-    ogDescription: page.description,
+    ogDescription: socialDescription,
     ogType: page.type ?? 'website',
     ogUrl: url,
     ogImage: image,
@@ -47,8 +60,12 @@ export function usePageSeo(page: PageSeo): void {
     // panel, and the small variant crops it to an unreadable square.
     twitterCard: 'summary_large_image',
     twitterTitle: page.title,
-    twitterDescription: page.description,
+    twitterDescription: socialDescription,
     twitterImage: image,
+    // article:* tags are only valid alongside og:type article; emitting them
+    // on a website page would just be noise for a parser.
+    ...(isArticle && page.publishedTime ? { articlePublishedTime: page.publishedTime } : {}),
+    ...(isArticle && page.author ? { articleAuthor: [page.author] } : {}),
   })
 
   useHead({

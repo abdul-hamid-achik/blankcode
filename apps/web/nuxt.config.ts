@@ -37,6 +37,42 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  content: {
+    build: {
+      markdown: {
+        highlight: {
+          // Shiki writes both palettes into the HTML at build time: the
+          // default colours inline, the dark ones as --shiki-dark variables.
+          // `.dark` on <html> flips between them via the .article-body rules
+          // in main.css — no client-side re-highlighting, so a crawler and a
+          // reader get the same markup.
+          theme: {
+            default: 'github-light',
+            dark: 'one-dark-pro',
+          },
+          langs: [
+            'bash',
+            'css',
+            'diff',
+            'go',
+            'html',
+            'js',
+            'json',
+            'jsx',
+            'md',
+            'python',
+            'rust',
+            'sql',
+            'ts',
+            'tsx',
+            'vue',
+            'yaml',
+          ],
+        },
+      },
+    },
+  },
+
   app: {
     head: {
       link: [

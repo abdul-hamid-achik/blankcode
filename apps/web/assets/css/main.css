@@ -187,6 +187,187 @@
   border-bottom-width: 3px;
 }
 
+/* --- Article prose --------------------------------------------------------
+   Long-form reading (blog posts). The page sets the measure (~65ch); this
+   styles what @nuxt/content renders inside it. Headings take the display
+   voice, code sits on the editor's surface (--code-bg), and separation is
+   done with 1px rules, not boxes or shadows. */
+.article-body {
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  color: hsl(var(--foreground) / 0.92);
+}
+
+.article-body > :first-child {
+  margin-top: 0;
+}
+
+.article-body p {
+  margin: 1.25em 0;
+}
+
+/* A section break on the sheet: a rule, then the heading in the display
+   voice. Scroll-margin keeps a heading clear of the sticky header when a
+   table-of-contents link jumps to it. */
+.article-body h2 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  font-size: 1.375rem;
+  line-height: 1.3;
+  margin: 2.5em 0 0.9em;
+  padding-top: 1.5rem;
+  border-top: 1px solid hsl(var(--rule));
+  scroll-margin-top: 5rem;
+}
+
+.article-body h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  font-size: 1.125rem;
+  line-height: 1.35;
+  margin: 2em 0 0.75em;
+  scroll-margin-top: 5rem;
+}
+
+.article-body h4 {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.9375rem;
+  margin: 1.75em 0 0.5em;
+  scroll-margin-top: 5rem;
+}
+
+/* @nuxt/content wraps heading text in its own anchor; it must read as a
+   heading, not a link. */
+.article-body h2 a,
+.article-body h3 a,
+.article-body h4 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.article-body a {
+  color: hsl(var(--foreground));
+  text-decoration: underline;
+  text-decoration-color: hsl(var(--rule-strong));
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.article-body a:hover {
+  text-decoration-color: hsl(var(--foreground));
+}
+
+.article-body strong {
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.article-body ul,
+.article-body ol {
+  margin: 1.25em 0;
+  padding-left: 1.5rem;
+}
+
+.article-body ul {
+  list-style: disc;
+}
+
+.article-body ol {
+  list-style: decimal;
+}
+
+.article-body li {
+  margin: 0.4em 0;
+}
+
+.article-body li::marker {
+  color: hsl(var(--muted-foreground));
+}
+
+.article-body blockquote {
+  margin: 1.5em 0;
+  padding-left: 1.25rem;
+  border-left: 2px solid hsl(var(--rule-strong));
+  color: hsl(var(--muted-foreground));
+}
+
+.article-body hr {
+  border: 0;
+  border-top: 1px solid hsl(var(--rule));
+  margin: 2.5em 0;
+}
+
+.article-body img {
+  max-width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid hsl(var(--rule));
+}
+
+.article-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-size: 0.9375rem;
+}
+
+.article-body th {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+  text-align: left;
+  padding: 0.5rem 0.75rem 0.5rem 0;
+  border-bottom: 1px solid hsl(var(--rule-strong));
+}
+
+.article-body td {
+  padding: 0.5rem 0.75rem 0.5rem 0;
+  border-bottom: 1px solid hsl(var(--rule));
+  vertical-align: top;
+}
+
+/* Inline code: a quiet chip in the mono face. */
+.article-body code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: hsl(var(--muted));
+  padding: 0.1em 0.4em;
+  border-radius: 3px;
+}
+
+/* Code blocks are the editor's surface: same background token the exercise
+   editor draws on, a rule for a border, near-square corners. The background
+   override out-prioritises shiki's theme background on purpose — the block
+   must sit on the same paper as the exercise editor, in both themes.
+
+   Token colours need no rules here: @nuxt/content emits the dual-theme CSS
+   itself (`html .shiki span` reads --shiki-default, `html.dark .shiki span`
+   reads --shiki-dark), which matches the `.dark` class this site puts on
+   <html>. */
+.article-body pre {
+  margin: 1.5em 0;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  border: 1px solid hsl(var(--rule));
+  border-radius: var(--radius);
+  background: hsl(var(--code-bg)) !important;
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.article-body pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
