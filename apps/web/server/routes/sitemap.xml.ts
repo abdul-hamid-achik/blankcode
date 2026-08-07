@@ -1,5 +1,4 @@
 import { queryCollection } from '@nuxt/content/nitro'
-import { TRACK_SLUGS } from '@blankcode/shared'
 
 /**
  * The sitemap, built from the content collections rather than a hand-kept list,
@@ -21,23 +20,27 @@ interface Entry {
   lastmod?: string
 }
 
-const STATIC_ROUTES: Entry[] = [
-  { loc: '/', changefreq: 'weekly', priority: '1.0' },
-  { loc: '/blog', changefreq: 'weekly', priority: '0.8' },
-  { loc: '/tutorials', changefreq: 'weekly', priority: '0.8' },
-  { loc: '/tracks', changefreq: 'weekly', priority: '0.7' },
-  // Each track page renders its name and concepts on the server, so these are
-  // real content rather than shells — worth listing. The slugs are a fixed set.
-  ...TRACK_SLUGS.map((slug): Entry => ({
-    loc: `/tracks/${slug}`,
-    changefreq: 'weekly',
-    priority: '0.7',
-  })),
-  { loc: '/challenges', changefreq: 'weekly', priority: '0.6' },
-  { loc: '/paths', changefreq: 'weekly', priority: '0.6' },
-  { loc: '/privacy', changefreq: 'monthly', priority: '0.2' },
-  { loc: '/terms', changefreq: 'monthly', priority: '0.2' },
-]
+function staticRoutes(trackSlugs: string[]): Entry[] {
+  return [
+    { loc: '/', changefreq: 'weekly', priority: '1.0' },
+    { loc: '/blog', changefreq: 'weekly', priority: '0.8' },
+    { loc: '/tutorials', changefreq: 'weekly', priority: '0.8' },
+    { loc: '/tracks', changefreq: 'weekly', priority: '0.7' },
+    // Each track page renders its name and concepts on the server, so these are
+    // real content rather than shells — worth listing. Only tracks that have
+    // content: a slug the database would accept but nobody has written exercises
+    // for is a blank page, and offering one to a crawler is a soft 404.
+    ...trackSlugs.map((slug): Entry => ({
+      loc: `/tracks/${slug}`,
+      changefreq: 'weekly',
+      priority: '0.7',
+    })),
+    { loc: '/challenges', changefreq: 'weekly', priority: '0.6' },
+    { loc: '/paths', changefreq: 'weekly', priority: '0.6' },
+    { loc: '/privacy', changefreq: 'monthly', priority: '0.2' },
+    { loc: '/terms', changefreq: 'monthly', priority: '0.2' },
+  ]
+}
 
 function escapeXml(value: string): string {
   return value
@@ -48,9 +51,10 @@ function escapeXml(value: string): string {
 }
 
 export default defineEventHandler(async (event) => {
-  const site = (useRuntimeConfig().public['siteUrl'] as string).replace(/\/+$/, '')
+  const config = useRuntimeConfig()
+  const site = (config.public['siteUrl'] as string).replace(/\/+$/, '')
 
-  const entries = [...STATIC_ROUTES]
+  const entries = staticRoutes((config['publishedTrackSlugs'] as string[] | undefined) ?? [])
 
   // Content failing to load must not take the sitemap down with it: a sitemap
   // missing its articles is recoverable, a 500 tells crawlers the site is dead.

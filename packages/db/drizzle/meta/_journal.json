@@ -15,6 +15,13 @@
       "when": 1771470555748,
       "tag": "0001_pretty_human_torch",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771470555749,
+      "tag": "0002_add_review_exercise_type",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,16 @@
+slug: python-ladder
+name: Python, End to End
+description: >-
+  Five challenges from a warm-up to an expert problem. The language people
+  claim to know best and forget fastest, because it lets you get away with
+  more before it stops you.
+icon: layers
+color: signal
+order: 50
+isPublished: true
+challenges:
+  - py-challenge-001
+  - py-challenge-002
+  - py-challenge-003
+  - py-challenge-004
+  - py-challenge-005

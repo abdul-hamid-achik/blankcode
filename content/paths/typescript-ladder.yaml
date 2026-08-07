@@ -1,0 +1,16 @@
+slug: typescript-ladder
+name: TypeScript, End to End
+description: >-
+  Six challenges from a warm-up to an expert problem, in the order the
+  difficulty actually rises. Finish it and the language is back in your hands.
+icon: layers
+color: signal
+order: 20
+isPublished: true
+challenges:
+  - ts-challenge-001
+  - ts-challenge-002
+  - ts-challenge-003
+  - ts-challenge-004
+  - ts-challenge-005
+  - ts-challenge-006

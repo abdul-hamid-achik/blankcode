@@ -1,0 +1,20 @@
+slug: systems
+name: Closer to the Metal
+description: >-
+  Go and Rust, where the compiler argues back. Concurrency, ownership, and
+  the errors you are made to handle rather than allowed to ignore.
+icon: cpu
+color: signal
+order: 40
+isPublished: true
+challenges:
+  - go-challenge-001
+  - ru-challenge-001
+  - go-challenge-002
+  - ru-challenge-002
+  - go-challenge-003
+  - ru-challenge-003
+  - go-challenge-004
+  - ru-challenge-004
+  - go-challenge-005
+  - ru-challenge-005

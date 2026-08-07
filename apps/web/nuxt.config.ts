@@ -1,5 +1,26 @@
+import { readdirSync } from 'node:fs'
+import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import type { PluginOption } from 'vite'
+
+/**
+ * The tracks that actually have content, read from the content directory at
+ * build time.
+ *
+ * Not `TRACK_SLUGS` from the shared package: that lists every slug the database
+ * enum accepts, which is a superset. `node` is a valid slug with no exercises
+ * behind it, and building the sitemap from the wider list published a URL for a
+ * page with nothing on it — a soft 404 offered to crawlers on purpose.
+ *
+ * Reading the directory means the two cannot drift: a track appears here when
+ * someone writes content for it, and not before.
+ */
+const publishedTrackSlugs = readdirSync(resolve(__dirname, '../../content/tracks'), {
+  withFileTypes: true,
+})
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+  .sort()
 
 export default defineNuxtConfig({
   modules: ['@nuxt/content', '@pinia/nuxt', '@nuxt/fonts'],
@@ -40,6 +61,8 @@ export default defineNuxtConfig({
       // per environment so a preview never claims to be the production site.
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL ?? 'https://blankcode.dev',
     },
+    // Server-only: the sitemap needs it, the browser does not.
+    publishedTrackSlugs,
   },
 
   nitro: {

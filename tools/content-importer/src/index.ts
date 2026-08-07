@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
-import { concepts, createDatabaseFromEnv, exercises, tracks } from '@blankcode/db'
+import { concepts, createDatabaseFromEnv, exercises, learningPaths, tracks } from '@blankcode/db'
 import { parseExercise, stripBlankMarkers } from '@blankcode/exercise-parser'
 import { glob } from 'glob'
 import { parse as parseYaml } from 'yaml'
@@ -9,6 +9,7 @@ export interface ImportResult {
   tracks: number
   concepts: number
   exercises: number
+  paths: number
 }
 
 type Db = ReturnType<typeof createDatabaseFromEnv>
@@ -113,9 +114,71 @@ async function importExercise(db: Db, exercisePath: string, conceptId: string): 
   return true
 }
 
+/**
+ * Learning paths, from `content/paths/*.yaml`.
+ *
+ * Paths are written in terms of exercise *slugs* and stored as exercise ids.
+ * Slugs are what a person can write and review in a diff; ids are what the
+ * table holds. Resolving happens here so the two never have to meet.
+ *
+ * A path naming a slug that does not exist is a hard failure rather than a
+ * silently shorter path — the whole point of a curated sequence is that it is
+ * the sequence somebody chose, and one dropped step is invisible in the UI.
+ */
+async function importPaths(db: Db, contentDir: string): Promise<number> {
+  const pathFiles = await glob('*.yaml', { cwd: join(contentDir, 'paths') })
+  if (pathFiles.length === 0) return 0
+
+  const allExercises = await db.select({ id: exercises.id, slug: exercises.slug }).from(exercises)
+  const idBySlug = new Map(allExercises.map((exercise) => [exercise.slug, exercise.id]))
+
+  let imported = 0
+
+  for (const file of pathFiles.sort()) {
+    const data = parseYaml(await readFile(join(contentDir, 'paths', file), 'utf-8'))
+    const challengeSlugs: string[] = data.challenges ?? []
+
+    const missing = challengeSlugs.filter((slug) => !idBySlug.has(slug))
+    if (missing.length > 0) {
+      throw new Error(`Path "${data.slug}" references unknown exercises: ${missing.join(', ')}`)
+    }
+
+    await db
+      .insert(learningPaths)
+      .values({
+        slug: data.slug,
+        name: data.name,
+        description: data.description,
+        icon: data.icon,
+        color: data.color,
+        order: data.order ?? 0,
+        challengeIds: challengeSlugs.map((slug) => idBySlug.get(slug) as string),
+        isPublished: data.isPublished ?? false,
+      })
+      .onConflictDoUpdate({
+        target: learningPaths.slug,
+        set: {
+          name: data.name,
+          description: data.description,
+          icon: data.icon,
+          color: data.color,
+          order: data.order ?? 0,
+          challengeIds: challengeSlugs.map((slug) => idBySlug.get(slug) as string),
+          isPublished: data.isPublished ?? false,
+          updatedAt: new Date(),
+        },
+      })
+
+    imported++
+    console.log(`Imported path: ${data.name} (${challengeSlugs.length} challenges)`)
+  }
+
+  return imported
+}
+
 export async function importContent(contentDir: string): Promise<ImportResult> {
   const db = createDatabaseFromEnv()
-  const result: ImportResult = { tracks: 0, concepts: 0, exercises: 0 }
+  const result: ImportResult = { tracks: 0, concepts: 0, exercises: 0, paths: 0 }
 
   const trackFiles = await glob('*/_track.yaml', { cwd: join(contentDir, 'tracks') })
 
@@ -149,6 +212,9 @@ export async function importContent(contentDir: string): Promise<ImportResult> {
       }
     }
   }
+
+  // After the exercises: a path resolves slugs to ids, so the ids have to exist.
+  result.paths = await importPaths(db, contentDir)
 
   return result
 }
