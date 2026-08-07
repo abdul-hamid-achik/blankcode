@@ -2,6 +2,8 @@ import { readFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { concepts, createDatabaseFromEnv, exercises, learningPaths, tracks } from '@blankcode/db'
 import { parseExercise, stripBlankMarkers } from '@blankcode/exercise-parser'
+import { LEARNING_PATHS } from '@blankcode/shared'
+import { notInArray } from 'drizzle-orm'
 import { glob } from 'glob'
 import { parse as parseYaml } from 'yaml'
 
@@ -115,63 +117,76 @@ async function importExercise(db: Db, exercisePath: string, conceptId: string): 
 }
 
 /**
- * Learning paths, from `content/paths/*.yaml`.
+ * Learning paths.
  *
- * Paths are written in terms of exercise *slugs* and stored as exercise ids.
- * Slugs are what a person can write and review in a diff; ids are what the
- * table holds. Resolving happens here so the two never have to meet.
+ * `LEARNING_PATHS` is the single definition: the /paths index and the 404 guard
+ * on the detail page both read it directly, so it has to stay the thing that
+ * decides which paths exist. This function's job is to make the database agree
+ * with it.
  *
- * A path naming a slug that does not exist is a hard failure rather than a
- * silently shorter path — the whole point of a curated sequence is that it is
- * the sequence somebody chose, and one dropped step is invisible in the UI.
+ * The translation is the reason this exists. A path lists its challenges by
+ * *slug*, which is what a person can write and review; the detail page then
+ * asks the API for each one by the value stored here, and that lookup is on
+ * `exercises.id` — a uuid. Writing the slugs through unchanged produced a table
+ * that looked populated and a page that could not resolve a single exercise.
+ *
+ * An unknown slug fails the import. A path that silently loses a step is worse
+ * than one that never imported: the sequence is the whole point, and a missing
+ * step is invisible in the UI.
  */
-async function importPaths(db: Db, contentDir: string): Promise<number> {
-  const pathFiles = await glob('*.yaml', { cwd: join(contentDir, 'paths') })
-  if (pathFiles.length === 0) return 0
-
+async function importPaths(db: Db): Promise<number> {
   const allExercises = await db.select({ id: exercises.id, slug: exercises.slug }).from(exercises)
   const idBySlug = new Map(allExercises.map((exercise) => [exercise.slug, exercise.id]))
 
   let imported = 0
 
-  for (const file of pathFiles.sort()) {
-    const data = parseYaml(await readFile(join(contentDir, 'paths', file), 'utf-8'))
-    const challengeSlugs: string[] = data.challenges ?? []
-
-    const missing = challengeSlugs.filter((slug) => !idBySlug.has(slug))
+  for (const path of LEARNING_PATHS) {
+    const missing = path.challengeIds.filter((slug) => !idBySlug.has(slug))
     if (missing.length > 0) {
-      throw new Error(`Path "${data.slug}" references unknown exercises: ${missing.join(', ')}`)
+      throw new Error(`Path "${path.slug}" references unknown exercises: ${missing.join(', ')}`)
+    }
+
+    const challengeIds = path.challengeIds.map((slug) => idBySlug.get(slug) as string)
+    const values = {
+      slug: path.slug,
+      name: path.name,
+      description: path.description,
+      icon: path.icon,
+      color: path.color,
+      order: path.order,
+      challengeIds,
+      isPublished: path.isPublished,
     }
 
     await db
       .insert(learningPaths)
-      .values({
-        slug: data.slug,
-        name: data.name,
-        description: data.description,
-        icon: data.icon,
-        color: data.color,
-        order: data.order ?? 0,
-        challengeIds: challengeSlugs.map((slug) => idBySlug.get(slug) as string),
-        isPublished: data.isPublished ?? false,
-      })
+      .values(values)
       .onConflictDoUpdate({
         target: learningPaths.slug,
-        set: {
-          name: data.name,
-          description: data.description,
-          icon: data.icon,
-          color: data.color,
-          order: data.order ?? 0,
-          challengeIds: challengeSlugs.map((slug) => idBySlug.get(slug) as string),
-          isPublished: data.isPublished ?? false,
-          updatedAt: new Date(),
-        },
+        set: { ...values, updatedAt: new Date() },
       })
 
     imported++
-    console.log(`Imported path: ${data.name} (${challengeSlugs.length} challenges)`)
+    console.log(`Imported path: ${path.name} (${challengeIds.length} challenges)`)
   }
+
+  /*
+   * Anything left behind is a path that used to exist and does not any more —
+   * renamed, or dropped. Upserting alone never removes it, so it keeps being
+   * served with challenge ids that may no longer resolve. Five of those were
+   * sitting in both databases before this ran.
+   */
+  const removed = await db
+    .delete(learningPaths)
+    .where(
+      notInArray(
+        learningPaths.slug,
+        LEARNING_PATHS.map((path) => path.slug)
+      )
+    )
+    .returning({ slug: learningPaths.slug })
+
+  for (const path of removed) console.log(`Removed stale path: ${path.slug}`)
 
   return imported
 }
@@ -214,7 +229,7 @@ export async function importContent(contentDir: string): Promise<ImportResult> {
   }
 
   // After the exercises: a path resolves slugs to ids, so the ids have to exist.
-  result.paths = await importPaths(db, contentDir)
+  result.paths = await importPaths(db)
 
   return result
 }
