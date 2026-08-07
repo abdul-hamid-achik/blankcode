@@ -13,16 +13,29 @@ function resolveSecret(envVar: string, fallback: string): string {
   return process.env[envVar] ?? fallback
 }
 
-const KNOWN_DEFAULT_SECRETS = [
+const KNOWN_DEFAULT_SECRETS = new Set([
   'development-secret-change-me',
   'your-super-secret-jwt-key-change-in-production',
-]
+])
 
-const jwtSecret = resolveSecret('JWT_SECRET', '')
-if (!jwtSecret || KNOWN_DEFAULT_SECRETS.includes(jwtSecret)) {
-  throw new Error(
-    'JWT_SECRET is missing or set to a known default. Set a unique secret in .env before starting (see .env.example).'
-  )
+/**
+ * Validated on first USE, not on import.
+ *
+ * The module-level throw looked stricter and was actually a build bug:
+ * anything that transitively imported this module — including `nuxt build`
+ * evaluating server chunks — died without JWT_SECRET in its environment,
+ * even though building needs no secrets at all. The guarantee that matters
+ * survives untouched: no token is ever signed or verified with a missing or
+ * known-default secret, because the getter below is the only way to read it.
+ */
+function requireJwtSecret(): string {
+  const jwtSecret = resolveSecret('JWT_SECRET', '')
+  if (!jwtSecret || KNOWN_DEFAULT_SECRETS.has(jwtSecret)) {
+    throw new Error(
+      'JWT_SECRET is missing or set to a known default. Set a unique secret in .env before starting (see .env.example).'
+    )
+  }
+  return jwtSecret
 }
 
 export const config = {
@@ -30,7 +43,9 @@ export const config = {
     url: resolveSecret('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/blankcode'),
   },
   jwt: {
-    secret: jwtSecret,
+    get secret(): string {
+      return requireJwtSecret()
+    },
     expiresIn: process.env['JWT_EXPIRES_IN'] ?? '7d',
   },
   api: {
