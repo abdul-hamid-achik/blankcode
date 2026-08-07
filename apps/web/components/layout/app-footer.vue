@@ -11,6 +11,12 @@ const currentYear = new Date().getFullYear()
         </div>
         <nav class="flex items-center gap-6">
           <NuxtLink
+            to="/connect"
+            class="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Use your agent
+          </NuxtLink>
+          <NuxtLink
             to="/privacy"
             class="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
           >

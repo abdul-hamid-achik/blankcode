@@ -325,7 +325,8 @@ function decreaseFontSize() {
           <p class="text-xs text-muted-foreground leading-relaxed mb-4 max-w-sm">
             Keys for practicing from your own coding agent. A token can read exercises and submit
             solutions as you — nothing else. Submissions made with one are labeled, and recall
-            exercises an agent passes stay owed on your review schedule.
+            exercises an agent passes stay owed on your review schedule. Setup lives at
+            <NuxtLink to="/connect" class="underline hover:text-foreground">/connect</NuxtLink>.
           </p>
 
           <!-- The secret, shown exactly once. -->
