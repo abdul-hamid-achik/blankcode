@@ -74,11 +74,14 @@ describe('resolveConfig', () => {
     expect(() => resolveConfig()).toThrow(/AI_GATEWAY_API_KEY is not set/)
   })
 
-  it('defaults to the cheap DeepSeek model on the gateway', () => {
+  it('defaults to a model that can actually hold the format', () => {
     process.env['AI_GATEWAY_API_KEY'] = 'vck_test'
     const config = resolveConfig()
     expect(config.model).toBe(DEFAULT_MODEL)
-    expect(config.model).toBe('deepseek/deepseek-v4-flash')
+    // Not the cheapest model. With the validator gating what gets saved,
+    // deepseek-v4-flash produced nothing usable across six attempts; Sonnet
+    // passed five for five. A model whose output cannot be used is not cheap.
+    expect(config.model).toBe('anthropic/claude-sonnet-4-5')
     expect(config.fallbackModels).toEqual([])
   })
 
@@ -127,7 +130,7 @@ describe('resolveConfig', () => {
 describe('describeConfig', () => {
   it('names the model and the gateway', () => {
     process.env['AI_GATEWAY_API_KEY'] = 'vck_test'
-    expect(describeConfig(resolveConfig())).toBe('deepseek/deepseek-v4-flash via AI Gateway')
+    expect(describeConfig(resolveConfig())).toBe('anthropic/claude-sonnet-4-5 via AI Gateway')
   })
 
   it('mentions the failover chain when one is configured', () => {
@@ -174,7 +177,7 @@ describe('complete', () => {
     expect(result.inputTokens).toBe(10)
     expect(result.outputTokens).toBe(20)
 
-    expect(captured['model']).toBe('deepseek/deepseek-v4-flash')
+    expect(captured['model']).toBe('anthropic/claude-sonnet-4-5')
     expect(captured['prompt']).toBe('hello')
     expect(captured['temperature']).toBe(0.6)
     expect(captured['maxOutputTokens']).toBe(4000)
