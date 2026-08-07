@@ -188,9 +188,14 @@ describe('track pages render on the server', () => {
     expect(page).toContain('useSeoMeta')
   })
 
-  it('is listed in the sitemap now that it has content', () => {
+  it('is listed in the sitemap, from the tracks that have content', () => {
     const sitemap = readFileSync(join(process.cwd(), 'server/routes/sitemap.xml.ts'), 'utf-8')
-    expect(sitemap).toContain('TRACK_SLUGS.map')
+    expect(sitemap).toContain('trackSlugs.map')
+    // Not TRACK_SLUGS: that is every slug the database enum accepts, which is a
+    // superset of the tracks anyone has written exercises for. Building the
+    // sitemap from it published /tracks/node, a URL with an empty page behind
+    // it — a soft 404 handed to crawlers deliberately.
+    expect(sitemap).not.toContain('TRACK_SLUGS')
   })
 })
 
