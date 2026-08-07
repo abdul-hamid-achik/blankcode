@@ -5,10 +5,18 @@ import { asc, eq } from 'drizzle-orm'
 import { Context, Effect, Layer } from 'effect'
 import { NotFoundError } from '../../api/errors.js'
 
+type TrackRow = typeof tracks.$inferSelect
+type ConceptRow = typeof concepts.$inferSelect
+
+/** A track with its published concepts. Neither carries exercise solutions. */
+export interface TrackWithConcepts extends TrackRow {
+  concepts: ConceptRow[]
+}
+
 interface TracksServiceShape {
-  readonly findAll: () => Effect.Effect<any[], NotFoundError>
-  readonly findBySlug: (slug: TrackSlug) => Effect.Effect<any, NotFoundError>
-  readonly findById: (id: string) => Effect.Effect<any, NotFoundError>
+  readonly findAll: () => Effect.Effect<TrackRow[], NotFoundError>
+  readonly findBySlug: (slug: TrackSlug) => Effect.Effect<TrackWithConcepts, NotFoundError>
+  readonly findById: (id: string) => Effect.Effect<TrackRow, NotFoundError>
 }
 
 export class TracksService extends Context.Tag('TracksService')<

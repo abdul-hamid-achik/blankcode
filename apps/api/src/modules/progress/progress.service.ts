@@ -11,19 +11,64 @@ import { and, desc, eq, gte, isNotNull, sql as rawSql } from 'drizzle-orm'
 import { Context, Effect, Layer } from 'effect'
 import { BadRequestError, NotFoundError } from '../../api/errors.js'
 
+type UserProgressRow = typeof userProgress.$inferSelect
+type ConceptMasteryRow = typeof conceptMastery.$inferSelect
+
+/**
+ * Mastery as the learner experiences it, which is not what is stored.
+ *
+ * `masteryLevel` is the decayed value; `storedMasteryLevel` is the number in
+ * the row. Naming both is the point — with `any` on the contract, a caller
+ * reading `masteryLevel` could not tell which one it was getting, and the
+ * difference is the whole feature.
+ */
+export interface DecayedMastery extends ConceptMasteryRow {
+  storedMasteryLevel: number
+}
+
+export interface ConceptProgress {
+  conceptId: string
+  conceptSlug: string
+  conceptName: string
+  mastery: DecayedMastery | null
+  totalExercises: number
+}
+
+export interface TrackSummary {
+  trackSlug: string
+  trackName: string
+  totalExercises: number
+  completedExercises: number
+  masteryLevel: number
+}
+
+export interface ProgressStats {
+  totalExercisesCompleted: number
+  currentStreak: number
+  longestStreak: number
+  totalSubmissions: number
+  lastActivityDate: string | null
+}
+
+export interface ActivityDay {
+  date: string
+  submissions: number
+  exercisesCompleted: number
+}
+
 interface ProgressServiceShape {
   readonly getExerciseProgress: (
     userId: string,
     exerciseId: string
-  ) => Effect.Effect<any, NotFoundError>
+  ) => Effect.Effect<UserProgressRow | null, NotFoundError>
   readonly getConceptMastery: (
     userId: string,
     conceptId: string
-  ) => Effect.Effect<any, NotFoundError>
+  ) => Effect.Effect<DecayedMastery | null, NotFoundError>
   readonly getTrackProgress: (
     userId: string,
     trackSlug: string
-  ) => Effect.Effect<any[], NotFoundError>
+  ) => Effect.Effect<ConceptProgress[], NotFoundError>
   readonly markExerciseCompleted: (
     userId: string,
     exerciseId: string,
@@ -33,9 +78,9 @@ interface ProgressServiceShape {
     userId: string,
     exerciseId: string
   ) => Effect.Effect<void, BadRequestError>
-  readonly getSummary: (userId: string) => Effect.Effect<any[], NotFoundError>
-  readonly getStats: (userId: string) => Effect.Effect<any, NotFoundError>
-  readonly getActivityTimeline: (userId: string) => Effect.Effect<any[], NotFoundError>
+  readonly getSummary: (userId: string) => Effect.Effect<TrackSummary[], NotFoundError>
+  readonly getStats: (userId: string) => Effect.Effect<ProgressStats, NotFoundError>
+  readonly getActivityTimeline: (userId: string) => Effect.Effect<ActivityDay[], NotFoundError>
   readonly updateConceptMastery: (
     userId: string,
     exerciseId: string

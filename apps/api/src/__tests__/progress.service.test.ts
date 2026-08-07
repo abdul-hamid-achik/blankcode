@@ -109,8 +109,8 @@ describe('ProgressService', () => {
       )
 
       expect(result).toEqual(mockProgress)
-      expect(result.isCompleted).toBe(true)
-      expect(result.attempts).toBe(3)
+      expect(result?.isCompleted).toBe(true)
+      expect(result?.attempts).toBe(3)
     })
 
     it('returns null when no progress exists', async () => {
@@ -155,7 +155,7 @@ describe('ProgressService', () => {
         ...mockMastery,
         storedMasteryLevel: 0.75,
       })
-      expect(result.masteryLevel).toBe(0.75)
+      expect(result?.masteryLevel).toBe(0.75)
     })
 
     it('returns null when no mastery exists', async () => {
@@ -355,11 +355,11 @@ describe('ProgressService', () => {
         testLayer
       )
 
-      expect(result.totalExercisesCompleted).toBe(3)
-      expect(result.totalSubmissions).toBe(5)
-      expect(result.currentStreak).toBe(3)
-      expect(result.longestStreak).toBe(3)
-      expect(result.lastActivityDate).toBe(new Date('2026-02-03T10:00:00Z').toISOString())
+      expect(result?.totalExercisesCompleted).toBe(3)
+      expect(result?.totalSubmissions).toBe(5)
+      expect(result?.currentStreak).toBe(3)
+      expect(result?.longestStreak).toBe(3)
+      expect(result?.lastActivityDate).toBe(new Date('2026-02-03T10:00:00Z').toISOString())
     })
 
     it('returns longest streak longer than current streak', async () => {
@@ -387,8 +387,8 @@ describe('ProgressService', () => {
         testLayer
       )
 
-      expect(result.currentStreak).toBe(1)
-      expect(result.longestStreak).toBe(5)
+      expect(result?.currentStreak).toBe(1)
+      expect(result?.longestStreak).toBe(5)
     })
 
     it('returns zero streaks with no activity', async () => {
@@ -403,11 +403,11 @@ describe('ProgressService', () => {
         testLayer
       )
 
-      expect(result.totalExercisesCompleted).toBe(0)
-      expect(result.totalSubmissions).toBe(0)
-      expect(result.currentStreak).toBe(0)
-      expect(result.longestStreak).toBe(0)
-      expect(result.lastActivityDate).toBeNull()
+      expect(result?.totalExercisesCompleted).toBe(0)
+      expect(result?.totalSubmissions).toBe(0)
+      expect(result?.currentStreak).toBe(0)
+      expect(result?.longestStreak).toBe(0)
+      expect(result?.lastActivityDate).toBeNull()
     })
   })
 

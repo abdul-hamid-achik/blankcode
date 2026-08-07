@@ -336,19 +336,37 @@ const MockProgressService = Layer.succeed(ProgressService, {
       totalSubmissions: 15,
       lastActivityDate: new Date().toISOString(),
     }),
+  // Complete rows. Both of these used to return a handful of fields, so the
+  // handlers under test were reading a shape the service never produces.
   getExerciseProgress: (_userId, exerciseId) => {
     if (exerciseId !== 'exercise-1')
       return Effect.fail(new NotFoundError({ resource: 'ExerciseProgress', id: exerciseId }))
-    return Effect.succeed({ userId: 'user-1', exerciseId, isCompleted: true, attempts: 3 })
+    return Effect.succeed({
+      id: 'progress-1',
+      userId: 'user-1',
+      exerciseId,
+      isCompleted: true,
+      attempts: 3,
+      bestSubmissionId: null,
+      completedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
   },
   getConceptMastery: (_userId, conceptId) => {
     if (conceptId !== 'concept-1')
       return Effect.fail(new NotFoundError({ resource: 'ConceptMastery', id: conceptId }))
     return Effect.succeed({
+      id: 'mastery-1',
+      userId: 'user-1',
       conceptId,
       masteryLevel: 0.5,
+      storedMasteryLevel: 0.5,
       exercisesCompleted: 2,
       exercisesTotal: 4,
+      lastPracticedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     })
   },
   getTrackProgress: () =>

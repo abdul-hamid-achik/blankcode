@@ -5,13 +5,38 @@ import { eq } from 'drizzle-orm'
 import { Context, Effect, Layer } from 'effect'
 import { BadRequestError, NotFoundError } from '../../api/errors.js'
 
+type UserRow = typeof users.$inferSelect
+
+/**
+ * What the caller gets back, spelled out.
+ *
+ * The point is what is *absent*: `passwordHash` is on the row and on none of
+ * these. The queries already select explicit columns, but with `any` on the
+ * contract nothing stopped a later `columns:` change — or a `findFirst` with no
+ * `columns` at all — from widening the response, and no test would have
+ * noticed. Naming the fields makes that a compile error.
+ */
+export type PublicUser = Pick<
+  UserRow,
+  'id' | 'email' | 'username' | 'displayName' | 'avatarUrl' | 'createdAt'
+>
+
+/** A profile someone else can see: no email. */
+export type PublicProfile = Pick<
+  UserRow,
+  'id' | 'username' | 'displayName' | 'avatarUrl' | 'createdAt'
+>
+
 interface UsersServiceShape {
-  readonly findById: (id: string) => Effect.Effect<any, NotFoundError>
-  readonly findByUsername: (username: string) => Effect.Effect<any, NotFoundError>
+  readonly findById: (id: string) => Effect.Effect<PublicUser, NotFoundError>
+  readonly findByUsername: (username: string) => Effect.Effect<PublicProfile, NotFoundError>
   readonly update: (
     id: string,
     input: UserUpdateInput
-  ) => Effect.Effect<any, NotFoundError | BadRequestError>
+  ) => Effect.Effect<
+    Pick<UserRow, 'id' | 'email' | 'username' | 'displayName' | 'avatarUrl'>,
+    NotFoundError | BadRequestError
+  >
 }
 
 export class UsersService extends Context.Tag('UsersService')<UsersService, UsersServiceShape>() {}
