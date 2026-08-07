@@ -1,8 +1,8 @@
 import { Drizzle } from '@blankcode/db/client'
-import { exercises, submissions } from '@blankcode/db/schema'
+import { exercises, submissions, users } from '@blankcode/db/schema'
 import type { SubmissionCreateInput } from '@blankcode/shared'
-import { and, desc, eq } from 'drizzle-orm'
-import { type BlankRegionInStarter, gradeBlanks } from '@blankcode/shared'
+import { and, count, desc, eq, gte } from 'drizzle-orm'
+import { type BlankRegionInStarter, gradeBlanks, limitsFor, mayUse } from '@blankcode/shared'
 import { Context, Effect, Layer } from 'effect'
 import { BadRequestError, InvalidTransitionError, NotFoundError } from '../../api/errors.js'
 import { redactExercise } from '../exercises/redact.js'
@@ -132,6 +132,62 @@ export const SubmissionsServiceLive = Layer.effect(
             return yield* Effect.fail(
               new NotFoundError({ resource: 'Exercise', id: input.exerciseId })
             )
+          }
+
+          /*
+           * The daily cap, checked before anything is written.
+           *
+           * A submission is the only part of this product with a real marginal
+           * cost — each one boots a microVM — so this is where the free tier is
+           * actually a tier. Counted from the submissions table rather than a
+           * counter: the rows already carry a user and a timestamp, and a
+           * second record of one fact eventually disagrees with the first.
+           *
+           * A failed count allows the request. This limits spend, not access,
+           * and a database blip should not stop everyone from practising.
+           */
+          // Unreadable is not the same as absent: the caller is authenticated,
+          // so the row exists. Failing the submission over a lookup that did
+          // not answer would turn a database blip into "you cannot practise".
+          const user = yield* Effect.tryPromise({
+            try: () =>
+              db.query.users.findFirst({
+                where: eq(users.id, userId),
+                columns: { subscriptionStatus: true, subscriptionEndsAt: true },
+              }),
+            catch: () => new Error('unreadable'),
+          }).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
+
+          const limits = limitsFor(
+            {
+              subscriptionStatus: user?.subscriptionStatus ?? null,
+              subscriptionEndsAt: user?.subscriptionEndsAt ?? null,
+            },
+            new Date()
+          )
+
+          if (!limits.paid) {
+            const usedToday = yield* Effect.tryPromise({
+              try: async () => {
+                const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+                const [row] = await db
+                  .select({ n: count() })
+                  .from(submissions)
+                  .where(and(eq(submissions.userId, userId), gte(submissions.createdAt, since)))
+                return row?.n ?? 0
+              },
+              // Null, not zero: a caller has to be able to tell "used none"
+              // from "could not count".
+              catch: () => null,
+            }).pipe(Effect.catchAll(() => Effect.succeed(null)))
+
+            if (!mayUse(limits, 'submission', usedToday)) {
+              return yield* Effect.fail(
+                new BadRequestError({
+                  message: `You have used today's ${limits.submissionsPerDay} free submissions. They reset 24 hours after each one.`,
+                })
+              )
+            }
           }
 
           const submission = yield* Effect.tryPromise({

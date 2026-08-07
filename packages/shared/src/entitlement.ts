@@ -30,9 +30,20 @@ export interface BillingState {
   readonly subscriptionEndsAt: Date | null
 }
 
-/** What a free account may do in a day. A decision, not a guess. */
-export const FREE_DAILY_SUBMISSIONS = 20
-export const FREE_DAILY_EXPLANATIONS = 5
+/**
+ * What a free account may do in a day.
+ *
+ * Ten, from the measured cost of a run rather than a feeling: a submission
+ * costs ~$0.00082 (one vCPU, and provisioned memory billed with a one-minute
+ * minimum is most of it), so someone who maxes this out every day of the month
+ * costs $0.25. Ten is a full practice session and is not a CI runner.
+ *
+ * These are a cap, not an abuse control. Thirty an hour would be within this
+ * limit and is not a person practising; that belongs in a rate limit, which is
+ * a different mechanism answering a different question.
+ */
+export const FREE_DAILY_SUBMISSIONS = 10
+export const FREE_DAILY_EXPLANATIONS = 3
 
 export interface Limits {
   readonly submissionsPerDay: number

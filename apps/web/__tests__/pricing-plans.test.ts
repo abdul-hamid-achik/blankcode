@@ -14,26 +14,23 @@ const component = readFileSync(join(process.cwd(), 'components/landing/pricing-p
 const page = readFileSync(join(process.cwd(), 'pages/index.vue'), 'utf-8')
 
 describe('pricing section', () => {
-  it('is not on the landing page yet', () => {
-    // A price is the one piece of copy a visitor may treat as a promise, so
-    // this must not go live before the numbers are real.
-    expect(page).not.toContain('<PricingPlans')
+  it('is on the landing page', () => {
+    expect(page).toContain('<PricingPlans')
   })
 
-  it('has a slot waiting for it, so mounting it moves nothing else', () => {
-    expect(page).toContain('pricing-plans.vue')
+  it('shows the price the Stripe price actually charges', () => {
+    // These are published promises. If the Stripe price changes and this does
+    // not, the site lies about what a card will be charged — so the two move
+    // together or this test fails.
+    expect(component).toContain("price: '$12'")
+    expect(component).toContain('MXN 219')
+    expect(component).toContain('EUR 11')
   })
 
-  it('carries no invented prices', () => {
-    // The guard that matters. If someone fills these in, the test above is what
-    // then has to be changed deliberately to publish them.
-    const prices = [...component.matchAll(/price:\s*'([^']*)'/g)].map((match) => match[1])
-    expect(prices.length).toBeGreaterThan(0)
-    expect(prices.every((price) => price === '')).toBe(true)
-  })
-
-  it('renders a dash rather than a guess when a price is unset', () => {
-    expect(component).toContain("plan.price || '—'")
+  it('states the free limit that the server actually enforces', () => {
+    // `entitlement.ts` caps free accounts at ten a day. A page promising a
+    // different number is a support ticket.
+    expect(component).toContain('10 submissions a day')
   })
 
   it('sells the thing that costs money to serve', () => {

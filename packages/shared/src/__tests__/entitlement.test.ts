@@ -7,7 +7,7 @@ import {
   hasPaidAccess,
   limitsFor,
   mayUse,
-} from '../server/utils/entitlement'
+} from '../entitlement'
 
 const NOW = new Date('2026-08-07T12:00:00Z')
 const LATER = new Date('2026-09-01T00:00:00Z')
@@ -72,6 +72,14 @@ describe('limitsFor', () => {
     expect(limits.paid).toBe(false)
     expect(limits.submissionsPerDay).toBe(FREE_DAILY_SUBMISSIONS)
     expect(limits.explanationsPerDay).toBe(FREE_DAILY_EXPLANATIONS)
+  })
+
+  it('keeps the free tier at a cost that was actually computed', () => {
+    // A submission costs ~$0.00082. These caps put a maxed-out free account at
+    // about $0.25 a month; changing them changes what free users cost, so the
+    // number should move deliberately rather than by drifting.
+    expect(FREE_DAILY_SUBMISSIONS).toBe(10)
+    expect(FREE_DAILY_EXPLANATIONS).toBe(3)
   })
 
   it('lifts them for a paid account', () => {

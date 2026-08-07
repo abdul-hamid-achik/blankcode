@@ -12,15 +12,19 @@ import Button from '~/components/ui/button.vue'
  * To turn it on: import it in `pages/index.vue`, put `<PricingPlans />` in the
  * gap, and fill in the two `price` fields below. Nothing else has to move.
  *
- * The shape encodes the recommendation in the monetisation note: a free tier
- * with a real limit, and a paid tier whose entire pitch is removing that limit.
- * The limit is what costs money to serve — submissions run a microVM each —
- * so the thing being sold is the thing being spent, rather than a seat.
+ * The numbers were computed, not chosen: a submission costs ~$0.00082 (one
+ * vCPU, and provisioned memory billed with a one-minute minimum is most of it),
+ * so ten a day puts a maxed-out free account at about $0.25 a month. Stripe in
+ * Mexico takes 3.6% + MXN 3.00, +0.5% on international cards, +0.7% for
+ * Billing, all before IVA — which is why the paid tier is 12 and not 10.
+ *
+ * Three currencies are shown because the Stripe price carries an exact amount
+ * for each. Everywhere else Adaptive Pricing converts at checkout, so what a
+ * visitor in Ankara pays is close to the USD figure rather than any of these.
  */
 
 interface Plan {
   readonly name: string
-  /** Fill in when decided. Empty renders as "—", never as a guess. */
   readonly price: string
   readonly cadence: string
   readonly summary: string
@@ -32,13 +36,13 @@ interface Plan {
 const PLANS: readonly Plan[] = [
   {
     name: 'Free',
-    price: '',
+    price: '$0',
     cadence: 'forever',
     summary: 'Enough to find out whether this works for you, without a card.',
     includes: [
       'Every track and every exercise',
       'Real tests in a sandbox on each submission',
-      'A daily submission limit',
+      '10 submissions a day',
       'Spaced repetition on what you have finished',
     ],
     cta: 'Create an account',
@@ -46,7 +50,7 @@ const PLANS: readonly Plan[] = [
   },
   {
     name: 'Unlimited',
-    price: '',
+    price: '$12',
     cadence: 'per month',
     summary: 'For when you hit the daily limit and want to keep going.',
     includes: [
@@ -89,6 +93,10 @@ const PLANS: readonly Plan[] = [
           </p>
 
           <p class="text-sm text-muted-foreground leading-relaxed mb-6">{{ plan.summary }}</p>
+
+          <p v-if="plan.featured" class="font-mono text-xs text-muted-foreground mb-6">
+            MXN 219 &middot; EUR 11 &middot; local currency elsewhere
+          </p>
 
           <ul class="space-y-2.5 mb-8 flex-1">
             <li
