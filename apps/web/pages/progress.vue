@@ -26,11 +26,15 @@ const overallPercent = computed(() =>
   totals.value.total > 0 ? Math.round((totals.value.completed / totals.value.total) * 100) : 0
 )
 
+// Presence replaced streaks here too — see the dashboard for the argument.
 const stats = computed(() => [
-  { label: 'completed', value: progressStore.totalCompleted },
-  { label: 'current streak', value: `${progressStore.currentStreak}d` },
-  { label: 'longest streak', value: `${progressStore.userStats?.longestStreak ?? 0}d` },
-  { label: 'submissions', value: progressStore.userStats?.totalSubmissions ?? 0 },
+  { label: 'completed', value: String(progressStore.totalCompleted) },
+  {
+    label: 'practiced',
+    value: `${progressStore.presence.practiced} of last ${progressStore.presence.window} days`,
+    strip: progressStore.presence.days,
+  },
+  { label: 'submissions', value: String(progressStore.userStats?.totalSubmissions ?? 0) },
 ])
 </script>
 
@@ -45,12 +49,13 @@ const stats = computed(() => [
     </div>
 
     <template v-else>
-      <dl class="grid grid-cols-2 gap-px border border-rule bg-rule sm:grid-cols-4 mb-12">
+      <dl class="grid grid-cols-2 gap-px border border-rule bg-rule sm:grid-cols-3 mb-12">
         <ProgressCard
           v-for="stat in stats"
           :key="stat.label"
           :label="stat.label"
           :value="stat.value"
+          :strip="stat.strip"
         />
       </dl>
 

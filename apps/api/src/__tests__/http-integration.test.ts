@@ -336,8 +336,7 @@ const MockProgressService = Layer.succeed(ProgressService, {
   getStats: () =>
     Effect.succeed({
       totalExercisesCompleted: 3,
-      currentStreak: 2,
-      longestStreak: 5,
+      presence: { window: 7, days: [false, false, true, true, false, true, true], practiced: 4 },
       totalSubmissions: 15,
       lastActivityDate: new Date().toISOString(),
     }),
@@ -849,7 +848,7 @@ describe('HTTP Integration Tests', () => {
           expect(response.status).toBe(200)
           const body = (yield* response.json) as any
           expect(body.totalExercisesCompleted).toBe(3)
-          expect(body.currentStreak).toBe(2)
+          expect(body.presence.practiced).toBe(4)
         })
       ))
 

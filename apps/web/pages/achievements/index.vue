@@ -5,6 +5,15 @@ import Button from '~/components/ui/button.vue'
 import Card from '~/components/ui/card.vue'
 import { useAsync } from '~/composables/useAsync'
 
+/**
+ * Marks, not trophies. The old page was a gradient bar, a row of padlock
+ * emoji, and "Achievement Showcase" — the voice of a product that needs you
+ * excited. These are records of things that happened: what each one means,
+ * when it happened, and for the rest, what would make it happen. Locked
+ * cards used to print the raw requirement enum ("perfect_score (5)"); now
+ * the description does the talking, which is what it is for.
+ */
+
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
 
 const api = useApi()
@@ -16,188 +25,86 @@ const {
 
 onMounted(loadAchievements)
 
-const allAchievements = computed(() => {
-  return Object.values(ACHIEVEMENTS)
-})
+const allAchievements = computed(() => Object.values(ACHIEVEMENTS))
 
-const earnedAchievements = computed(() => {
-  if (!achievements.value) return []
-  return achievements.value
-})
-
-const earnedTypes = computed(() => {
-  return new Set(earnedAchievements.value.map((a) => a.achievementType))
-})
-
-const progress = computed(() => {
-  const total = allAchievements.value.length
-  const earned = earnedAchievements.value.length
-  return { total, earned, percentage: total > 0 ? Math.round((earned / total) * 100) : 0 }
-})
-
-const groupedAchievements = computed(() => {
-  // Typed as fixed keys rather than a Record so `earned`/`locked` are always
-  // defined — an index signature makes every lookup possibly-undefined.
-  const groups: { earned: any[]; locked: any[] } = {
-    earned: [],
-    locked: [],
+const earnedByType = computed(() => {
+  // Dates arrive as ISO strings over JSON regardless of what the type says.
+  const map = new Map<string, { earnedAt?: string | Date }>()
+  for (const achievement of achievements.value ?? []) {
+    map.set(achievement.achievementType, achievement)
   }
-
-  for (const achievement of allAchievements.value) {
-    if (earnedTypes.value.has(achievement.type)) {
-      groups.earned.push({
-        ...achievement,
-        earnedAt: earnedAchievements.value.find((a) => a.achievementType === achievement.type)
-          ?.earnedAt,
-      })
-    } else {
-      groups.locked.push(achievement)
-    }
-  }
-
-  return groups
+  return map
 })
+
+const earned = computed(() =>
+  allAchievements.value
+    .filter((a) => earnedByType.value.has(a.type))
+    .map((a) => ({ ...a, earnedAt: earnedByType.value.get(a.type)?.earnedAt }))
+)
+
+const remaining = computed(() =>
+  allAchievements.value.filter((a) => !earnedByType.value.has(a.type))
+)
 </script>
 
 <template>
-  <div class="min-h-screen">
-    <!-- Hero Section -->
-    <div class="border-b border-rule">
-      <div class="container py-16">
-        <div class="max-w-3xl">
-          <div class="eyebrow mb-4 inline-flex items-center gap-2">
-            <span>🏅</span>
-            <span>Your Achievements</span>
-          </div>
-          <h1 class="display text-2xl md:text-3xl mb-4">Achievement Showcase</h1>
-          <p class="text-lg text-muted-foreground mb-6">
-            Track your progress and earn badges as you complete challenges and master new skills.
-          </p>
+  <div class="container max-w-3xl py-10 md:py-14">
+    <p class="eyebrow mb-2">achievements</p>
+    <h1 class="display text-2xl md:text-3xl mb-2">Things that have happened.</h1>
+    <p class="mb-10 font-mono text-sm text-muted-foreground">
+      {{ earned.length }} of {{ allAchievements.length }} — the rest are listed with what would make
+      them happen.
+    </p>
 
-          <!-- Progress Bar -->
-          <div class="bg-muted rounded-full h-4 mb-4 overflow-hidden">
-            <div
-              class="h-full bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 transition-all duration-500"
-              :style="{ width: `${progress.percentage}%` }"
-            ></div>
-          </div>
-          <div class="flex justify-between text-sm text-muted-foreground">
-            <span>{{ progress.earned }} of {{ progress.total }} achievements earned</span>
-            <span>{{ progress.percentage }}%</span>
-          </div>
-        </div>
-      </div>
+    <div v-if="isLoading" role="status">
+      <div class="h-20 animate-pulse rounded border border-rule bg-muted/50" aria-hidden="true" />
+      <span class="sr-only">Loading achievements…</span>
     </div>
 
-    <div class="container py-8">
-      <div v-if="isLoading" class="flex items-center justify-center py-12">
-        <div
-          class="animate-spin h-6 w-6 border-2 border-rule-strong border-t-signal rounded-full"
-        ></div>
-      </div>
-
-      <div v-else>
-        <!-- Earned Achievements -->
-        <div class="mb-12">
-          <h2 class="display text-xl md:text-2xl mb-6 flex items-center gap-2">
-            <span class="text-3xl">🏆</span>
-            Earned Achievements
-            <span class="text-sm font-normal text-muted-foreground"
-              >({{ groupedAchievements.earned.length }})</span
-            >
-          </h2>
-
+    <template v-else>
+      <template v-if="earned.length > 0">
+        <p class="eyebrow mb-3">earned</p>
+        <div class="mb-10 border border-rule">
           <div
-            v-if="groupedAchievements.earned.length === 0"
-            class="text-center py-12 bg-muted/50 rounded-lg"
+            v-for="achievement in earned"
+            :key="achievement.type"
+            class="flex items-baseline gap-4 border-b border-rule px-4 py-3 last:border-b-0"
           >
-            <div class="text-6xl mb-4">🔜</div>
-            <h3 class="display text-lg mb-2">No achievements yet</h3>
-            <p class="text-muted-foreground mb-4">
-              Complete challenges to earn your first achievement!
-            </p>
-            <NuxtLink to="/challenges">
-              <Button>Browse Challenges</Button>
-            </NuxtLink>
-          </div>
-
-          <div v-else class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card
-              v-for="achievement in groupedAchievements.earned"
-              :key="achievement.type"
-              class="border-green-500/20 bg-green-500/5"
-            >
-              <div class="p-6">
-                <div class="flex items-start justify-between mb-3">
-                  <div class="text-5xl">{{ achievement.icon }}</div>
-                  <span
-                    class="text-xs font-medium px-2 py-1 rounded-full bg-green-500/20 text-green-400"
-                  >
-                    Earned
-                  </span>
-                </div>
-
-                <h3 class="display text-base mb-1">
-                  {{ achievement.title }}
-                </h3>
-
-                <p class="text-sm text-muted-foreground mb-3">
-                  {{ achievement.description }}
-                </p>
-
-                <div class="text-xs text-muted-foreground">
-                  Earned {{ new Date(achievement.earnedAt!).toLocaleDateString() }}
-                </div>
-              </div>
-            </Card>
+            <span class="shrink-0 text-lg" aria-hidden="true">{{ achievement.icon }}</span>
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium">{{ achievement.title }}</p>
+              <p class="text-xs text-muted-foreground">{{ achievement.description }}</p>
+            </div>
+            <span v-if="achievement.earnedAt" class="shrink-0 font-mono text-xs text-pass">
+              {{ new Date(achievement.earnedAt).toLocaleDateString() }}
+            </span>
           </div>
         </div>
+      </template>
 
-        <!-- Locked Achievements -->
-        <div>
-          <h2 class="display text-xl md:text-2xl mb-6 flex items-center gap-2">
-            <span class="text-3xl">🔒</span>
-            Locked Achievements
-            <span class="text-sm font-normal text-muted-foreground"
-              >({{ groupedAchievements.locked.length }})</span
-            >
-          </h2>
+      <div v-else class="mb-10 max-w-md">
+        <p class="mb-4 text-sm leading-relaxed text-muted-foreground">
+          Nothing yet — these arrive on their own while you practice, which is the only way they
+          mean anything.
+        </p>
+        <NuxtLink to="/tracks"><Button size="sm">Practice something</Button></NuxtLink>
+      </div>
 
-          <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card
-              v-for="achievement in groupedAchievements.locked"
-              :key="achievement.type"
-              class="opacity-60 grayscale hover:opacity-100 hover:grayscale-0 transition-all"
-            >
-              <div class="p-6">
-                <div class="flex items-start justify-between mb-3">
-                  <div class="text-5xl filter grayscale">{{ achievement.icon }}</div>
-                  <span
-                    class="text-xs font-medium px-2 py-1 rounded-full bg-muted text-muted-foreground"
-                  >
-                    🔒 Locked
-                  </span>
-                </div>
-
-                <h3 class="display text-base mb-1">
-                  {{ achievement.title }}
-                </h3>
-
-                <p class="text-sm text-muted-foreground mb-3">
-                  {{ achievement.description }}
-                </p>
-
-                <div class="text-xs text-muted-foreground">
-                  Requirement: {{ achievement.requirement.type.replace('_', ' ') }}
-                  <span v-if="achievement.requirement.count">
-                    ({{ achievement.requirement.count }})
-                  </span>
-                </div>
-              </div>
-            </Card>
+      <p class="eyebrow mb-3">not yet</p>
+      <div class="border border-rule">
+        <div
+          v-for="achievement in remaining"
+          :key="achievement.type"
+          class="flex items-baseline gap-4 border-b border-rule px-4 py-3 last:border-b-0"
+        >
+          <span class="shrink-0 text-lg opacity-40" aria-hidden="true">{{ achievement.icon }}</span>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm text-muted-foreground">{{ achievement.title }}</p>
+            <!-- The description IS the requirement, in words. -->
+            <p class="text-xs text-muted-foreground/70">{{ achievement.description }}</p>
           </div>
         </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>

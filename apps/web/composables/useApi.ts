@@ -205,8 +205,7 @@ export function useApi() {
       getStats: () =>
         request<{
           totalExercisesCompleted: number
-          currentStreak: number
-          longestStreak: number
+          presence: { window: number; days: boolean[]; practiced: number }
           totalSubmissions: number
           lastActivityDate: string | null
         }>('/progress/stats'),

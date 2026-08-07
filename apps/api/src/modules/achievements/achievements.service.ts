@@ -237,9 +237,6 @@ async function checkAchievement(
       return langCount >= (req.count || 0)
     }
 
-    case 'streak':
-      return progress.currentStreak >= (req.count || 0)
-
     case 'perfect_score':
       return progress.perfectScores >= (req.count || 0)
 

@@ -10,8 +10,8 @@ interface TrackProgress {
 
 interface UserStats {
   totalExercisesCompleted: number
-  currentStreak: number
-  longestStreak: number
+  /** Windowed presence — the streak's honest replacement. Days run oldest → today. */
+  presence: { window: number; days: boolean[]; practiced: number }
   totalSubmissions: number
   lastActivityDate: string | null
 }
@@ -33,7 +33,9 @@ export const useProgressStore = defineStore('progress', () => {
   const error = ref<string | null>(null)
 
   const totalCompleted = computed(() => userStats.value?.totalExercisesCompleted ?? 0)
-  const currentStreak = computed(() => userStats.value?.currentStreak ?? 0)
+  const presence = computed(
+    () => userStats.value?.presence ?? { window: 7, days: Array(7).fill(false), practiced: 0 }
+  )
 
   async function loadStats() {
     const api = useApi()
@@ -86,7 +88,7 @@ export const useProgressStore = defineStore('progress', () => {
     isLoading,
     error,
     totalCompleted,
-    currentStreak,
+    presence,
     loadStats,
     loadAllTracksProgress,
     loadTrackProgress,

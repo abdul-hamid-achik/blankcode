@@ -67,9 +67,44 @@ watch(
     if (status === 'passed') {
       void loadWhatsNext()
       void loadConceptTutorial()
+      void checkAchievements()
     }
   }
 )
+
+/**
+ * Award at the earning moment. The award check used to run only when
+ * someone happened to visit the achievements page — and the toast that
+ * layouts mount everywhere had no caller at all, so earning one was
+ * silent. The pass is the event; this is its handler.
+ */
+const { showAchievementUnlocked } = useAchievementNotifications()
+
+async function checkAchievements() {
+  try {
+    const api = useApi()
+    const mine = await api.achievements.getMine()
+    for (const achievement of mine) {
+      const a = achievement as {
+        isNew?: boolean
+        title?: string
+        description?: string
+        icon?: string
+        color?: string
+      }
+      if (a.isNew && a.title) {
+        showAchievementUnlocked({
+          title: a.title,
+          description: a.description ?? '',
+          icon: a.icon ?? '·',
+          color: a.color ?? 'var(--signal)',
+        })
+      }
+    }
+  } catch {
+    // Missing a toast costs nothing; the achievements page still shows it.
+  }
+}
 
 /**
  * The tutorial behind this concept, when one exists — the other half of the

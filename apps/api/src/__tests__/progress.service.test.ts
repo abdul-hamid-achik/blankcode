@@ -330,7 +330,7 @@ describe('ProgressService', () => {
   })
 
   describe('getStats', () => {
-    it('returns stats with streak calculation', async () => {
+    it('reports windowed presence from submission days', async () => {
       vi.useFakeTimers()
       vi.setSystemTime(new Date('2026-02-03T12:00:00Z'))
 
@@ -339,12 +339,12 @@ describe('ProgressService', () => {
         { completedAt: new Date('2026-02-02T15:00:00Z') },
         { completedAt: new Date('2026-02-01T09:00:00Z') },
       ])
+      // Presence counts submission DAYS, not completions: showing up and
+      // failing is practice. Two submissions on Feb 3, one attempt on Feb 1.
       mockDb.query.submissions.findMany.mockResolvedValue([
-        { id: 'sub-1' },
-        { id: 'sub-2' },
-        { id: 'sub-3' },
-        { id: 'sub-4' },
-        { id: 'sub-5' },
+        { createdAt: new Date('2026-02-03T10:00:00Z') },
+        { createdAt: new Date('2026-02-03T11:00:00Z') },
+        { createdAt: new Date('2026-02-01T09:00:00Z') },
       ])
 
       const result = await runService(
@@ -356,42 +356,15 @@ describe('ProgressService', () => {
       )
 
       expect(result?.totalExercisesCompleted).toBe(3)
-      expect(result?.totalSubmissions).toBe(5)
-      expect(result?.currentStreak).toBe(3)
-      expect(result?.longestStreak).toBe(3)
+      expect(result?.totalSubmissions).toBe(3)
+      expect(result?.presence.window).toBe(7)
+      expect(result?.presence.practiced).toBe(2)
+      // Oldest → today: only Feb 1 and Feb 3 saw work.
+      expect(result?.presence.days).toEqual([false, false, false, false, true, false, true])
       expect(result?.lastActivityDate).toBe(new Date('2026-02-03T10:00:00Z').toISOString())
     })
 
-    it('returns longest streak longer than current streak', async () => {
-      vi.useFakeTimers()
-      vi.setSystemTime(new Date('2026-02-10T12:00:00Z'))
-
-      mockDb.query.userProgress.findMany.mockResolvedValue([
-        // Current streak: 1 day (today)
-        { completedAt: new Date('2026-02-10T10:00:00Z') },
-        // Gap on Feb 9
-        // Old streak: 5 days (Feb 3-7)
-        { completedAt: new Date('2026-02-07T10:00:00Z') },
-        { completedAt: new Date('2026-02-06T10:00:00Z') },
-        { completedAt: new Date('2026-02-05T10:00:00Z') },
-        { completedAt: new Date('2026-02-04T10:00:00Z') },
-        { completedAt: new Date('2026-02-03T10:00:00Z') },
-      ])
-      mockDb.query.submissions.findMany.mockResolvedValue([])
-
-      const result = await runService(
-        Effect.gen(function* () {
-          const svc = yield* ProgressService
-          return yield* svc.getStats('user-1')
-        }),
-        testLayer
-      )
-
-      expect(result?.currentStreak).toBe(1)
-      expect(result?.longestStreak).toBe(5)
-    })
-
-    it('returns zero streaks with no activity', async () => {
+    it('shows empty presence with no activity', async () => {
       mockDb.query.userProgress.findMany.mockResolvedValue([])
       mockDb.query.submissions.findMany.mockResolvedValue([])
 
@@ -405,9 +378,31 @@ describe('ProgressService', () => {
 
       expect(result?.totalExercisesCompleted).toBe(0)
       expect(result?.totalSubmissions).toBe(0)
-      expect(result?.currentStreak).toBe(0)
-      expect(result?.longestStreak).toBe(0)
+      expect(result?.presence.practiced).toBe(0)
+      expect(result?.presence.days).toEqual(Array(7).fill(false))
       expect(result?.lastActivityDate).toBeNull()
+    })
+
+    it('a day outside the window does not count', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-02-10T12:00:00Z'))
+
+      mockDb.query.userProgress.findMany.mockResolvedValue([])
+      mockDb.query.submissions.findMany.mockResolvedValue([
+        // Eight days ago — one past the seven-day window.
+        { createdAt: new Date('2026-02-02T10:00:00Z') },
+        { createdAt: new Date('2026-02-10T10:00:00Z') },
+      ])
+
+      const result = await runService(
+        Effect.gen(function* () {
+          const svc = yield* ProgressService
+          return yield* svc.getStats('user-1')
+        }),
+        testLayer
+      )
+
+      expect(result?.presence.practiced).toBe(1)
     })
   })
 

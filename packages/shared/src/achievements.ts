@@ -87,17 +87,11 @@ export const ACHIEVEMENTS: Record<string, import('@blankcode/shared').Achievemen
       count: 5,
     },
   },
-  marathon: {
-    type: 'marathon',
-    title: 'Marathon',
-    description: 'Complete challenges 7 days in a row',
-    icon: '🔥',
-    color: '#ec4899',
-    requirement: {
-      type: 'streak',
-      count: 7,
-    },
-  },
+  // `marathon` (7 days in a row) was removed on purpose, not lost: a daily
+  // streak contradicts the product's own scheduler. SM-2 exists to tell you
+  // NOT to come back until it is time, so the obedient learner has empty
+  // days by design — a streak either breaks on them or manufactures
+  // busywork. Presence ("4 of the last 7 days") replaced it in stats.
   language_specialist_ts: {
     type: 'language_specialist',
     title: 'TypeScript Specialist',

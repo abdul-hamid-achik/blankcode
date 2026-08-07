@@ -68,14 +68,23 @@ const name = computed(() => authStore.user?.displayName || authStore.user?.usern
 const dueCount = computed(() => reviewStore.dueCount)
 const nextBatch = computed(() => speakNextBatch(upcoming.value?.next ?? null))
 
+/*
+ * Presence replaced the streak. A daily streak contradicts the product's own
+ * scheduler — SM-2 exists to say "not yet", so the obedient learner has
+ * empty days by design, and a streak either punishes obeying the calendar
+ * or manufactures busywork to protect a number.
+ */
 const stats = computed(() => [
   { label: 'completed', value: String(progressStore.totalCompleted) },
-  { label: 'streak', value: `${progressStore.currentStreak}d` },
+  {
+    label: 'practiced',
+    value: `${progressStore.presence.practiced} of last ${progressStore.presence.window} days`,
+    strip: progressStore.presence.days,
+  },
   {
     label: 'submissions',
     value: String(progressStore.userStats?.totalSubmissions ?? submissions.value?.length ?? 0),
   },
-  { label: 'longest streak', value: `${progressStore.userStats?.longestStreak ?? 0}d` },
 ])
 
 function relativeDay(iso: string): string {
@@ -125,10 +134,21 @@ function statusTone(status: string): string {
     </div>
 
     <!-- Numbers are context, not the headline. One dense strip. -->
-    <dl class="grid grid-cols-2 gap-px border border-rule bg-rule sm:grid-cols-4 mb-12">
+    <dl class="grid grid-cols-2 gap-px border border-rule bg-rule sm:grid-cols-3 mb-12">
       <div v-for="stat in stats" :key="stat.label" class="bg-background px-4 py-3">
         <dt class="eyebrow">{{ stat.label }}</dt>
-        <dd class="display mt-1 text-xl">{{ stat.value }}</dd>
+        <dd class="display mt-1" :class="stat.strip ? 'text-sm' : 'text-xl'">
+          {{ stat.value }}
+        </dd>
+        <!-- Seven cells, oldest to today. Empty days are the schedule working. -->
+        <div v-if="stat.strip" class="mt-2 flex gap-1" aria-hidden="true">
+          <span
+            v-for="(practiced, i) in stat.strip"
+            :key="i"
+            class="inline-block h-2 w-5 rounded-sm"
+            :class="practiced ? 'bg-signal' : 'border border-rule bg-transparent'"
+          />
+        </div>
       </div>
     </dl>
 

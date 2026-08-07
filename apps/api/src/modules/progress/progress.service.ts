@@ -44,8 +44,16 @@ export interface TrackSummary {
 
 export interface ProgressStats {
   totalExercisesCompleted: number
-  currentStreak: number
-  longestStreak: number
+  /**
+   * Windowed presence, which replaced the daily streak. A streak contradicts
+   * the product's own scheduler: SM-2 exists to tell you NOT to come back
+   * until it is time, so the obedient learner has empty days by design — a
+   * streak either breaks on them (punishing obedience) or pushes busywork.
+   * "Practiced 4 of the last 7 days" states the same fact without the whip.
+   * `days` runs oldest → today; a day counts if anything was submitted —
+   * showing up and failing is practice.
+   */
+  presence: { window: number; days: boolean[]; practiced: number }
   totalSubmissions: number
   lastActivityDate: string | null
 }
@@ -120,59 +128,6 @@ export const ProgressServiceLive = Layer.effect(
       return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
         .toISOString()
         .slice(0, 10)
-    }
-
-    function calculateStreak(completedProgress: { completedAt: Date | null }[]) {
-      if (completedProgress.length === 0) {
-        return { currentStreak: 0, longestStreak: 0 }
-      }
-
-      const dates = completedProgress
-        .map((p) => p.completedAt)
-        .filter((d): d is Date => d !== null)
-        .map((d) => {
-          const date = new Date(d)
-          date.setHours(0, 0, 0, 0)
-          return date.getTime()
-        })
-        .filter((d, i, arr) => arr.indexOf(d) === i)
-        .sort((a, b) => b - a)
-
-      if (dates.length === 0) {
-        return { currentStreak: 0, longestStreak: 0 }
-      }
-
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      const todayTime = today.getTime()
-      const oneDay = 24 * 60 * 60 * 1000
-
-      let currentStreak = 0
-      let longestStreak = 0
-      let tempStreak = 1
-
-      if (dates[0] === todayTime || dates[0] === todayTime - oneDay) {
-        currentStreak = 1
-        for (let i = 1; i < dates.length; i++) {
-          if (dates[i - 1]! - dates[i]! === oneDay) {
-            currentStreak++
-          } else {
-            break
-          }
-        }
-      }
-
-      for (let i = 1; i < dates.length; i++) {
-        if (dates[i - 1]! - dates[i]! === oneDay) {
-          tempStreak++
-        } else {
-          longestStreak = Math.max(longestStreak, tempStreak)
-          tempStreak = 1
-        }
-      }
-      longestStreak = Math.max(longestStreak, tempStreak, currentStreak)
-
-      return { currentStreak, longestStreak }
     }
 
     function updateConceptMasteryFn(userId: string, exerciseId: string) {
@@ -449,14 +404,27 @@ export const ProgressServiceLive = Layer.effect(
           const totalExercisesCompleted = completedProgress.length
           const totalSubmissions = userSubmissions.length
 
-          const { currentStreak, longestStreak } = calculateStreak(completedProgress)
+          // Presence over streaks: which of the last 7 local-UTC days saw a
+          // submission. Attempts count — showing up and failing is practice.
+          const WINDOW = 7
+          const submittedDays = new Set(
+            userSubmissions.map((submission) => toDateKey(submission.createdAt))
+          )
+          const days: boolean[] = []
+          for (let offset = WINDOW - 1; offset >= 0; offset--) {
+            const day = new Date(Date.now() - offset * 24 * 60 * 60 * 1000)
+            days.push(submittedDays.has(toDateKey(day)))
+          }
 
           const lastActivityDate = completedProgress[0]?.completedAt ?? null
 
           return {
             totalExercisesCompleted,
-            currentStreak,
-            longestStreak,
+            presence: {
+              window: WINDOW,
+              days,
+              practiced: days.filter(Boolean).length,
+            },
             totalSubmissions,
             lastActivityDate: lastActivityDate?.toISOString() ?? null,
           }
