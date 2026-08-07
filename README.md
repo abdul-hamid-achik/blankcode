@@ -76,6 +76,28 @@ blankcode/
 
 ## Development
 
+### Against the preview database and real sandboxes
+
+```bash
+bash scripts/dev-against-preview.sh
+bun run dev
+```
+
+This writes `.env.development.local` (gitignored) pointing at the **preview**
+Neon branch, with `EXECUTION_BACKEND=vercel-sandbox` and the OIDC token that
+authenticates `Sandbox.create()` off-platform — so a submission runs in a real
+microVM without Docker. Production is never touched.
+
+The OIDC token is short lived; re-run the script when sandboxes start answering
+401. `DATABASE_URL` comes from `neonctl` rather than the pull, and `JWT_SECRET`
+is generated per machine so a local token cannot authenticate against preview.
+
+The snapshot ids are stored Sensitive in Vercel, which means nobody can read
+them back. Until they are re-added without that flag, running an exercise
+locally fails with `MissingSnapshotError`; the script says so and prints the
+one-time recovery. They are ids, not secrets.
+
+
 ```bash
 bun run dev          # app on :3001, with the API mounted at /api
 bun run story        # Histoire component workshop (:6006)
