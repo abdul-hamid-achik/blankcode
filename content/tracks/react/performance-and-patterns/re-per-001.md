@@ -161,16 +161,14 @@ describe('React.memo Performance Optimization', () => {
   });
 
   it('should have memoized components', () => {
-    // This test verifies that React.memo was used
-    const AppModule = require('./solution');
-    const component = AppModule.default;
-    
-    // Render and check that the optimization prevents renders
+    // `App` is already imported at the top of this file. Reaching for
+    // `require` here fails in an ES module, which made this test report a
+    // missing optimization when the real problem was the import.
     const consoleSpy = vi.spyOn(console, 'log');
-    const { rerender } = render(React.createElement(component));
+    const { rerender } = render(React.createElement(App));
     
     consoleSpy.mockClear();
-    rerender(React.createElement(component));
+    rerender(React.createElement(App));
     
     // After a rerender with same props, memoized components shouldn't log
     const allRenders = consoleSpy.mock.calls.filter(

@@ -444,6 +444,49 @@ function checkDifficulty(
   }
 }
 
+/**
+ * A challenge must carry a reference solution in a `## Solution` section.
+ *
+ * Without one there is nothing to check the tests against, so nobody knows the
+ * exercise is solvable — and a learner who gets stuck on a broken one has no
+ * way to tell whose fault it is. Fatal because the exercise imports fine and
+ * looks complete; the defect is invisible until someone tries to solve it.
+ *
+ * Blank exercises are exempt: their first code block *is* the annotated
+ * solution, so they have always had one.
+ */
+function checkChallengeSolution(
+  collect: FindingCollector,
+  text: string,
+  exerciseType: string,
+  bodyStart: number
+): void {
+  if (exerciseType !== 'challenge') return
+
+  const heading = /^##\s+Solution\s*$/im.exec(text)
+  if (!heading) {
+    collect.at(
+      'fatal',
+      'challenge-no-solution',
+      bodyStart,
+      'Challenge has no `## Solution` section, so its reference solution is the empty starter stub and nothing can verify the exercise is solvable. Add the section and check it with `bun run content:verify`.'
+    )
+    return
+  }
+
+  const after = text.slice(heading.index + heading[0].length)
+  const nextHeading = after.search(/^##\s+/m)
+  const section = nextHeading === -1 ? after : after.slice(0, nextHeading)
+  if (!/```[\w]*\n[\s\S]*?```/.test(section)) {
+    collect.at(
+      'fatal',
+      'challenge-no-solution',
+      heading.index,
+      '`## Solution` section contains no fenced code block, so the reference solution parses as empty.'
+    )
+  }
+}
+
 export function validateExerciseSource(source: ExerciseSource): Finding[] {
   const { file, text } = source
   const index = indexSource(text)
@@ -471,6 +514,7 @@ export function validateExerciseSource(source: ExerciseSource): Finding[] {
       )
     }
     checkMarkerPlacement(collect, text, starter)
+    checkChallengeSolution(collect, text, exerciseType, bodyStart)
     const blankCount = checkBlanks(collect, starter, exerciseType, lang)
     if (exerciseType !== 'challenge') checkRoundTrip(collect, starter)
     checkTestsSection(collect, text, lang)

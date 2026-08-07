@@ -65,7 +65,7 @@ Write your complete implementation below:
 
 ```typescript
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { DebouncedSearch } from './DebouncedSearch'
 
 vi.useFakeTimers()
@@ -104,7 +104,7 @@ describe('DebouncedSearch', () => {
     const input = wrapper.find('input')
     
     await input.setValue('test')
-    await vi.advanceTimersByTime(300)
+    await vi.advanceTimersByTimeAsync(300)
     
     expect(mockSearchFn).toHaveBeenCalledWith('test')
   })
@@ -120,7 +120,7 @@ describe('DebouncedSearch', () => {
     const input = wrapper.find('input')
     
     await input.setValue('test')
-    await vi.advanceTimersByTime(300)
+    await vi.advanceTimersByTimeAsync(300)
     
     expect(wrapper.text()).toContain('Loading...')
   })
@@ -137,8 +137,8 @@ describe('DebouncedSearch', () => {
     const input = wrapper.find('input')
     
     await input.setValue('test')
-    await vi.advanceTimersByTime(300)
-    await vi.runAllTimers()
+    await vi.advanceTimersByTimeAsync(300)
+    await flushPromises()
     
     expect(wrapper.text()).toContain('Result 1')
     expect(wrapper.text()).toContain('Result 2')
@@ -154,8 +154,8 @@ describe('DebouncedSearch', () => {
     const input = wrapper.find('input')
     
     await input.setValue('test')
-    await vi.advanceTimersByTime(300)
-    await vi.runAllTimers()
+    await vi.advanceTimersByTimeAsync(300)
+    await flushPromises()
     
     expect(wrapper.emitted('results')).toBeDefined()
     expect(wrapper.emitted('results')?.[0]).toEqual([results])
@@ -170,8 +170,8 @@ describe('DebouncedSearch', () => {
     const input = wrapper.find('input')
     
     await input.setValue('test')
-    await vi.advanceTimersByTime(300)
-    await vi.runAllTimers()
+    await vi.advanceTimersByTimeAsync(300)
+    await flushPromises()
     
     expect(wrapper.text()).toContain('Error: Search failed')
   })
@@ -186,8 +186,8 @@ describe('DebouncedSearch', () => {
     const input = wrapper.find('input')
     
     await input.setValue('test')
-    await vi.advanceTimersByTime(300)
-    await vi.runAllTimers()
+    await vi.advanceTimersByTimeAsync(300)
+    await flushPromises()
     
     expect(wrapper.emitted('error')).toBeDefined()
     expect(wrapper.emitted('error')?.[0]).toEqual([error])
@@ -202,8 +202,8 @@ describe('DebouncedSearch', () => {
     const input = wrapper.find('input')
     
     await input.setValue('test')
-    await vi.advanceTimersByTime(300)
-    await vi.runAllTimers()
+    await vi.advanceTimersByTimeAsync(300)
+    await flushPromises()
     
     const clearButton = wrapper.find('button')
     await clearButton.trigger('click')
@@ -218,7 +218,7 @@ describe('DebouncedSearch', () => {
     const input = wrapper.find('input')
     
     await input.setValue('')
-    await vi.advanceTimersByTime(300)
+    await vi.advanceTimersByTimeAsync(300)
     
     expect(mockSearchFn).not.toHaveBeenCalled()
   })
@@ -230,11 +230,107 @@ describe('DebouncedSearch', () => {
     const input = wrapper.find('input')
     
     await input.setValue('test')
-    await vi.advanceTimersByTime(400)
+    await vi.advanceTimersByTimeAsync(400)
     expect(mockSearchFn).not.toHaveBeenCalled()
     
-    await vi.advanceTimersByTime(100)
+    await vi.advanceTimersByTimeAsync(100)
     expect(mockSearchFn).toHaveBeenCalled()
   })
 })
+```
+
+## Solution
+
+```vue
+<script setup lang="ts">
+import { ref, watch } from 'vue'
+
+interface SearchResult {
+  id: string
+  title: string
+}
+
+const props = withDefaults(
+  defineProps<{
+    searchFn?: (query: string) => Promise<SearchResult[]>
+    placeholder?: string
+    debounceMs?: number
+  }>(),
+  { placeholder: 'Search...', debounceMs: 300 }
+)
+
+const emit = defineEmits<{
+  search: [query: string]
+  results: [results: SearchResult[]]
+  error: [error: Error]
+}>()
+
+const query = ref('')
+const results = ref<SearchResult[]>([])
+const loading = ref(false)
+const error = ref<string | null>(null)
+
+let timer: ReturnType<typeof setTimeout> | undefined
+// Identifies the newest search so a slow earlier one cannot overwrite the
+// results of a later, faster one.
+let latest = 0
+
+watch(query, (value) => {
+  clearTimeout(timer)
+
+  if (value.trim() === '') {
+    results.value = []
+    loading.value = false
+    error.value = null
+    return
+  }
+
+  loading.value = true
+  error.value = null
+
+  timer = setTimeout(() => {
+    const id = ++latest
+    emit('search', value)
+
+    props
+      .searchFn?.(value)
+      .then((found) => {
+        if (id !== latest) return
+        results.value = found
+        loading.value = false
+        emit('results', found)
+      })
+      .catch((cause: unknown) => {
+        if (id !== latest) return
+        const failure = cause instanceof Error ? cause : new Error(String(cause))
+        error.value = failure.message
+        loading.value = false
+        emit('error', failure)
+      })
+  }, props.debounceMs)
+})
+
+function clear() {
+  clearTimeout(timer)
+  latest++
+  query.value = ''
+  results.value = []
+  error.value = null
+  loading.value = false
+}
+</script>
+
+<template>
+  <div>
+    <input v-model="query" type="text" :placeholder="placeholder" />
+    <button type="button" @click="clear">Clear</button>
+
+    <div v-if="loading">Loading...</div>
+    <div v-if="error">Error: {{ error }}</div>
+
+    <ul>
+      <li v-for="result in results" :key="result.id">{{ result.title }}</li>
+    </ul>
+  </div>
+</template>
 ```

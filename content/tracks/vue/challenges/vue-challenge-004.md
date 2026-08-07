@@ -309,3 +309,148 @@ describe('useForm', () => {
   })
 })
 ```
+
+## Solution
+
+```typescript
+import { computed, ref, type Ref } from 'vue'
+
+export type ValidationRule =
+  | { type: 'required'; message: string }
+  | { type: 'email'; message: string }
+  | { type: 'minLength'; value: number; message: string }
+  | { type: 'maxLength'; value: number; message: string }
+  | { type: 'pattern'; pattern: RegExp; message: string }
+  | { type: 'custom'; validator: (value: any) => boolean; message: string }
+  | { type: 'async'; validator: (value: any) => Promise<boolean>; message: string }
+
+export interface UseFormOptions<T extends Record<string, any>> {
+  initialValues: T
+  validationRules: Partial<Record<keyof T, ValidationRule[]>>
+  validateOnChange?: boolean
+}
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** Runs the rules that can answer immediately. Async rules wait for submit. */
+function firstSyncError(value: any, rules: ValidationRule[]): string | undefined {
+  for (const rule of rules) {
+    switch (rule.type) {
+      case 'required':
+        if (value === undefined || value === null || String(value).trim() === '') return rule.message
+        break
+      case 'email':
+        if (!EMAIL.test(String(value))) return rule.message
+        break
+      case 'minLength':
+        if (String(value).length < rule.value) return rule.message
+        break
+      case 'maxLength':
+        if (String(value).length > rule.value) return rule.message
+        break
+      case 'pattern':
+        if (!rule.pattern.test(String(value))) return rule.message
+        break
+      case 'custom':
+        if (!rule.validator(value)) return rule.message
+        break
+      case 'async':
+        break
+    }
+  }
+  return undefined
+}
+
+export function useForm<T extends Record<string, any>>({
+  initialValues,
+  validationRules,
+  validateOnChange = false,
+}: UseFormOptions<T>) {
+  // Refs update synchronously, so "set it, then submit it" in the same tick
+  // reads the value that was just written — no mirror needed.
+  const values = ref({ ...initialValues }) as Ref<T>
+  const errors = ref<Partial<Record<keyof T, string>>>({})
+  const touched = ref<Partial<Record<keyof T, boolean>>>({})
+  const isSubmitting = ref(false)
+
+  function setFieldValue(name: keyof T, value: any) {
+    values.value = { ...values.value, [name]: value }
+    if (validateOnChange) {
+      errors.value = {
+        ...errors.value,
+        [name]: firstSyncError(value, validationRules[name] ?? []),
+      }
+    }
+  }
+
+  function register(name: keyof T) {
+    return {
+      name,
+      get value() {
+        return values.value[name]
+      },
+      onChange: (value: any) => setFieldValue(name, value),
+      onBlur: () => {
+        touched.value = { ...touched.value, [name]: true }
+      },
+    }
+  }
+
+  function handleSubmit(onSubmit: (data: T) => void | Promise<void>) {
+    return async (event?: Event) => {
+      event?.preventDefault?.()
+
+      const current = values.value
+      const found: Partial<Record<keyof T, string>> = {}
+
+      // Synchronous, so a caller that submits and immediately reads `errors`
+      // sees the result rather than an empty object.
+      for (const key of Object.keys(validationRules) as (keyof T)[]) {
+        const message = firstSyncError(current[key], validationRules[key] ?? [])
+        if (message) found[key] = message
+      }
+
+      errors.value = found
+      if (Object.keys(found).length > 0) return
+
+      isSubmitting.value = true
+
+      // Async rules run only once the cheap ones pass — no point paying for a
+      // round trip to reject a field that is already wrong.
+      for (const key of Object.keys(validationRules) as (keyof T)[]) {
+        for (const rule of validationRules[key] ?? []) {
+          if (rule.type !== 'async') continue
+          if (!(await rule.validator(current[key]))) found[key] = rule.message
+        }
+      }
+
+      if (Object.keys(found).length > 0) {
+        errors.value = { ...found }
+        isSubmitting.value = false
+        return
+      }
+
+      try {
+        await onSubmit(current)
+      } finally {
+        isSubmitting.value = false
+      }
+    }
+  }
+
+  function resetForm() {
+    values.value = { ...initialValues }
+    errors.value = {}
+    touched.value = {}
+    isSubmitting.value = false
+  }
+
+  const isValid = computed(() =>
+    (Object.keys(validationRules) as (keyof T)[]).every(
+      (key) => firstSyncError(values.value[key], validationRules[key] ?? []) === undefined
+    )
+  )
+
+  return { values, errors, touched, isSubmitting, isValid, register, handleSubmit, setFieldValue, resetForm }
+}
+```

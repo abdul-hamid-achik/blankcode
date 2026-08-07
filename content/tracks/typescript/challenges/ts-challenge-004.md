@@ -189,6 +189,14 @@ describe('EventEmitter', () => {
 
     // @ts-expect-error - Missing argument
     emitter.emit('simple')
+
+    // The `@ts-expect-error` comments are the real subject here — the typecheck
+    // gate fails if either call turns out to be legal. These assertions cover
+    // the other half: rejecting a call at compile time must not change what the
+    // emitter does at runtime, or the types would be lying about the behaviour.
+    expect(listener).toHaveBeenCalledTimes(2)
+    expect(listener).toHaveBeenNthCalledWith(1, 123)
+    expect(listener).toHaveBeenNthCalledWith(2)
   })
 })
 ```

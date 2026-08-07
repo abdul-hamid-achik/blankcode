@@ -139,3 +139,52 @@ describe('useLocalStorage', () => {
   })
 })
 ```
+
+## Solution
+
+```typescript
+import { ref, watch, type Ref } from 'vue'
+
+export function useLocalStorage<T>(key: string, initialValue: T): Ref<T> {
+  const read = (): T => {
+    try {
+      const stored = window.localStorage.getItem(key)
+      return stored === null ? initialValue : (JSON.parse(stored) as T)
+    } catch {
+      // Corrupt JSON or a blocked storage API is not a reason to fail; the
+      // default is a perfectly good answer.
+      return initialValue
+    }
+  }
+
+  const value = ref(read()) as Ref<T>
+
+  watch(
+    value,
+    (next) => {
+      try {
+        window.localStorage.setItem(key, JSON.stringify(next))
+      } catch {
+        // A full quota must not break the ref. The value is still correct in
+        // memory; only its persistence was lost.
+      }
+    },
+    { deep: true }
+  )
+
+  // Another tab writing the same key is a change to the same state, so the ref
+  // has to hear about it — otherwise two open tabs quietly disagree.
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', (event: StorageEvent) => {
+      if (event.key !== key || event.newValue === null) return
+      try {
+        value.value = JSON.parse(event.newValue) as T
+      } catch {
+        // Ignore a malformed write from elsewhere rather than adopting it.
+      }
+    })
+  }
+
+  return value
+}
+```

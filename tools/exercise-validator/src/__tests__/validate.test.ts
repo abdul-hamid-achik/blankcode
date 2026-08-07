@@ -370,3 +370,80 @@ describe('formatReport', () => {
     expect(payload.findings[0]?.file).toBe('content/tracks/go/basics/go-bas-001.md')
   })
 })
+
+/**
+ * A challenge without a `## Solution` section has no reference solution: the
+ * parser falls back to the learner's empty stub, so nothing can establish that
+ * the exercise is solvable at all. That was true of all 31 challenges until the
+ * section existed, and none of the other rules could see it.
+ */
+describe('challenge-no-solution', () => {
+  const challenge = (extra: string) => `---
+slug: demo
+title: 'Challenge: Demo'
+description: A demo.
+difficulty: beginner
+type: challenge
+---
+
+# Demo
+
+\`\`\`ts
+// Your implementation here
+\`\`\`
+
+## Tests
+
+\`\`\`ts
+import { expect, it } from 'vitest'
+it('works', () => expect(1).toBe(1))
+\`\`\`
+${extra}`
+
+  it('is fatal when the section is missing', () => {
+    const findings = validateExerciseSource({ file: 'demo.md', text: challenge('') })
+    const finding = findings.find((f) => f.rule === 'challenge-no-solution')
+    expect(finding).toBeDefined()
+    expect(finding?.severity).toBe('fatal')
+  })
+
+  it('is fatal when the section has no code block', () => {
+    const findings = validateExerciseSource({
+      file: 'demo.md',
+      text: challenge('\n## Solution\n\nComing soon.\n'),
+    })
+    expect(findings.some((f) => f.rule === 'challenge-no-solution')).toBe(true)
+  })
+
+  it('passes when the section has a solution', () => {
+    const findings = validateExerciseSource({
+      file: 'demo.md',
+      text: challenge('\n## Solution\n\n```ts\nexport const answer = 1\n```\n'),
+    })
+    expect(findings.some((f) => f.rule === 'challenge-no-solution')).toBe(false)
+  })
+
+  it('does not fire for a blank exercise, whose first block is the solution', () => {
+    const blank = `---
+slug: demo-blank
+title: Demo
+description: A demo.
+difficulty: beginner
+type: blank
+---
+
+\`\`\`ts
+const x = ___blank_start___42___blank_end___
+\`\`\`
+
+## Tests
+
+\`\`\`ts
+import { expect, it } from 'vitest'
+it('works', () => expect(x).toBe(42))
+\`\`\`
+`
+    const findings = validateExerciseSource({ file: 'blank.md', text: blank })
+    expect(findings.some((f) => f.rule === 'challenge-no-solution')).toBe(false)
+  })
+})

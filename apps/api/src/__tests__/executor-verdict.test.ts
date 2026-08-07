@@ -47,3 +47,36 @@ describe('executor verdicts', () => {
     expect(between).toContain('success: false')
   })
 })
+
+/**
+ * The typecheck gate concatenates the solution and the test into one module, so
+ * a binding imported by both would be declared twice. Dropping the test's whole
+ * import statement fixes that and breaks something worse: a test importing
+ * `nextTick` from 'vue' loses it because the solution imported `ref` from the
+ * same module, and the exercise fails with "Cannot find name 'nextTick'" —
+ * which reads as a broken exercise rather than a broken harness.
+ */
+describe('import dedupe for the typecheck gate', () => {
+  const source = readFileSync(
+    join(process.cwd(), 'src/services/execution/executors/typescript.executor.ts'),
+    'utf-8'
+  )
+
+  it('keeps bindings the solution did not import', () => {
+    // The rewrite must reconstruct the statement from the surviving names
+    // rather than return the line unchanged or drop it.
+    expect(source).toContain('kept.length === 0')
+    expect(source).toContain('kept.join')
+  })
+
+  it('still drops a binding both sides import', () => {
+    expect(source).toContain('already.has(name)')
+  })
+
+  it('handles `type` and `as` in a clause', () => {
+    // `import { type Ref }` and `import { ref as r }` name `Ref` and `ref`;
+    // comparing the raw text would miss both.
+    expect(source).toContain("replace(/^type\\s+/, '')")
+    expect(source).toContain('split(/\\sas\\s/)')
+  })
+})

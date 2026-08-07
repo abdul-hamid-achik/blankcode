@@ -57,21 +57,68 @@ export function rewriteVueTestImports(testCode: string, isSfc: boolean): string 
 }
 
 /**
- * Removes any bare (non-relative) import from `testCode` whose module specifier
- * the solution already imports. Only used when the two are concatenated into a
- * single module for the typecheck gate.
+ * Removes the bindings a test imports that the solution has already imported
+ * from the same module, so concatenating the two for the typecheck gate does
+ * not redeclare them.
+ *
+ * Only the duplicated *bindings* are dropped, never the whole statement. A test
+ * that imports `{ nextTick }` from 'vue' while the solution imports `{ ref }`
+ * shares a module but not a name, and deleting its import line left `nextTick`
+ * undefined — which looked like a mistake in the exercise rather than in here.
  */
 function dedupeImportsAgainst(testCode: string, solutionCode: string): string {
-  const solutionModules = new Set<string>()
-  for (const match of solutionCode.matchAll(/^\s*import\s[^\n]*?from\s*['"]([^'"]+)['"]/gm)) {
-    if (match[1]) solutionModules.add(match[1])
-  }
-  if (solutionModules.size === 0) return testCode
+  const IMPORT = /^\s*import\s+([^;\n]*?)\s+from\s*['"]([^'"]+)['"]\s*;?[ \t]*\n?/gm
 
-  return testCode.replace(
-    /^\s*import\s[^\n]*?from\s*['"]([^'"]+)['"]\s*;?[ \t]*\n?/gm,
-    (line, specifier: string) => (solutionModules.has(specifier) ? '' : line)
-  )
+  /** Named bindings the solution already brings in, per module. */
+  const taken = new Map<string, Set<string>>()
+  const namesOf = (clause: string): string[] => {
+    const braces = /\{([^}]*)\}/.exec(clause)
+    if (!braces?.[1]) return []
+    return braces[1]
+      .split(',')
+      .map(
+        (part) =>
+          part
+            .replace(/^\s*type\s+/, '')
+            .split(/\sas\s/)[0]
+            ?.trim() ?? ''
+      )
+      .filter(Boolean)
+  }
+
+  for (const match of solutionCode.matchAll(IMPORT)) {
+    const [, clause = '', specifier = ''] = match
+    const names = taken.get(specifier) ?? new Set<string>()
+    for (const name of namesOf(clause)) names.add(name)
+    taken.set(specifier, names)
+  }
+  if (taken.size === 0) return testCode
+
+  return testCode.replace(IMPORT, (line, clause: string, specifier: string) => {
+    const already = taken.get(specifier)
+    if (!already) return line
+
+    const braces = /\{([^}]*)\}/.exec(clause)
+    // A default or namespace import shares no name with a named one, and the
+    // solution's default is the thing under test — drop it either way.
+    if (!braces) return ''
+
+    const kept = braces[1]!
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .filter((part) => {
+        const name =
+          part
+            .replace(/^type\s+/, '')
+            .split(/\sas\s/)[0]
+            ?.trim() ?? ''
+        return !already.has(name)
+      })
+
+    if (kept.length === 0) return ''
+    return `import { ${kept.join(', ')} } from '${specifier}'\n`
+  })
 }
 
 export class TypeScriptExecutor implements LanguageExecutor {
