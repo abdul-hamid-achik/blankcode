@@ -10,14 +10,6 @@ const currentYear = new Date().getFullYear()
           {{ currentYear }} &middot; BlankCode
         </div>
         <nav class="flex items-center gap-6">
-          <a
-            href="https://github.com/abdul-hamid-achik/blankcode"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-          >
-            GitHub
-          </a>
           <NuxtLink
             to="/privacy"
             class="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"

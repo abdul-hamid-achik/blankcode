@@ -2,6 +2,7 @@
 import LanguageShowcase from '~/components/landing/language-showcase.vue'
 import PracticeHero from '~/components/landing/practice-hero.vue'
 import PracticeLoop from '~/components/landing/practice-loop.vue'
+import ProductFrame from '~/components/landing/product-frame.vue'
 import StartPractising from '~/components/landing/start-practising.vue'
 
 useHead({
@@ -10,7 +11,7 @@ useHead({
     {
       name: 'description',
       content:
-        "Fill in the blanks in working code, run the exercise's real test suite in a sandbox, and let spaced repetition bring it back before you forget. Seven languages, nothing to install.",
+        "Read almost-finished code, fill in the blanks, and run the exercise's real test suite in an isolated sandbox. Spaced repetition brings each exercise back before you forget it. Nothing to install.",
     },
   ],
 })
@@ -19,8 +20,14 @@ useHead({
 <template>
   <div>
     <PracticeHero />
+    <ProductFrame />
     <PracticeLoop />
     <LanguageShowcase />
+    <!--
+      Pricing slots in here when plans exist: everything above says what the
+      product is, everything below closes on the account. Mount a
+      `landing/pricing-plans.vue` in this gap and neither neighbour moves.
+    -->
     <StartPractising />
   </div>
 </template>

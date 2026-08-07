@@ -2,15 +2,23 @@
 import Button from '~/components/ui/button.vue'
 
 /**
- * The closing section. It used to tell the reader to clone the repository and
- * run three commands, from when BlankCode was something you hosted. It is a
- * service now, so the only call to action is to start — running it yourself is
- * not on offer, and copy implying otherwise trades a signup for nothing.
+ * The close. The page has shown the gesture (hero), the screen (frame), the
+ * system (loop), and the breadth (tracks); what is left to say is what an
+ * account adds — the memory. The card lists exactly that, nothing else.
  */
-const STEPS = [
-  'Pick a track — seven languages',
-  'Fill in the blanks in working code',
-  'Real tests run in a sandbox and answer immediately',
+const KEEPS = [
+  {
+    term: 'progress',
+    detail: 'Where you are in every track and learning path, per concept.',
+  },
+  {
+    term: 'schedule',
+    detail: 'A review date per exercise, pushed out on every pass and reset by a fail.',
+  },
+  {
+    term: 'record',
+    detail: 'Streaks and achievements as the practice accumulates.',
+  },
 ]
 </script>
 
@@ -21,11 +29,12 @@ const STEPS = [
         <div>
           <p class="eyebrow mb-3">start practising</p>
           <h2 class="display text-2xl md:text-3xl mb-4 max-w-md">
-            Nothing to install. Nothing to configure.
+            Nothing to install. The account does the remembering.
           </h2>
           <p class="text-muted-foreground leading-relaxed max-w-md mb-8">
-            Your code runs in an isolated microVM that exists for the length of one submission and
-            is destroyed after it. You get the real test output, not a similarity score.
+            Exercises run in the browser against a microVM that exists for one submission and is
+            destroyed after it. What persists is yours: where you are, and when each exercise comes
+            back.
           </p>
 
           <div class="flex flex-wrap items-center gap-3">
@@ -40,20 +49,14 @@ const STEPS = [
 
         <div class="rounded border border-rule-strong bg-card overflow-hidden">
           <div class="border-b border-rule px-4 py-2.5 bg-muted/40">
-            <span class="eyebrow">how a session goes</span>
+            <span class="eyebrow">what an account holds</span>
           </div>
-          <div class="p-5">
-            <ol class="space-y-4">
-              <li
-                v-for="(step, index) in STEPS"
-                :key="step"
-                class="flex gap-3 text-sm leading-relaxed text-muted-foreground"
-              >
-                <span class="font-mono text-signal select-none">{{ index + 1 }}</span>
-                <span>{{ step }}</span>
-              </li>
-            </ol>
-          </div>
+          <dl class="p-5 space-y-5">
+            <div v-for="keep in KEEPS" :key="keep.term" class="flex gap-4">
+              <dt class="eyebrow text-signal w-20 shrink-0 pt-0.5">{{ keep.term }}</dt>
+              <dd class="text-sm leading-relaxed text-muted-foreground">{{ keep.detail }}</dd>
+            </div>
+          </dl>
         </div>
       </div>
     </div>

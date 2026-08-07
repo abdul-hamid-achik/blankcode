@@ -17,7 +17,7 @@ const STEPS = [
   {
     label: 'run',
     title: 'Run the real test suite',
-    body: 'Your answer executes in a Docker sandbox with no network and hard memory, CPU, and time limits. The output you see is the test runner’s.',
+    body: 'Your answer executes in a sandboxed microVM created for that submission, destroyed after it, and cut off at a hard time limit. The output you see is the test runner’s.',
   },
   {
     label: 'return',

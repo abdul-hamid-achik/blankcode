@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import Button from '~/components/ui/button.vue'
+import { EXERCISE_COUNT, LANDING_TRACKS } from '~/utils/landing-tracks'
 
 /**
  * The hero is a real exercise, not a mockup of one.
@@ -104,13 +105,18 @@ const resultLine = computed(() => {
           </p>
 
           <div class="flex flex-wrap items-center gap-3">
-            <NuxtLink to="/tracks">
-              <Button size="lg">Browse tracks</Button>
+            <NuxtLink to="/register">
+              <Button size="lg">Create an account</Button>
             </NuxtLink>
-            <NuxtLink to="/review">
-              <Button variant="outline" size="lg">What's due today</Button>
+            <NuxtLink to="/tracks">
+              <Button variant="outline" size="lg">Browse the tracks</Button>
             </NuxtLink>
           </div>
+
+          <p class="mt-6 font-mono text-xs text-muted-foreground">
+            {{ EXERCISE_COUNT }} exercises · {{ LANDING_TRACKS.length }} language tracks · nothing
+            to install
+          </p>
         </div>
 
         <!-- Right: the signature. A working exercise, in the page. -->
@@ -197,9 +203,21 @@ const resultLine = computed(() => {
             </div>
           </div>
 
+          <!-- The caption converts only after the visitor has done the thing. -->
           <p class="mt-3 font-mono text-xs text-muted-foreground">
-            Try it — the answers are 1 and 2.
-            <span class="hidden md:inline">⌘↵ runs the tests.</span>
+            <template v-if="state === 'passed'">
+              That was the whole loop.
+              <NuxtLink
+                to="/register"
+                class="text-foreground underline decoration-signal/60 underline-offset-2 hover:decoration-signal"
+                >Create an account</NuxtLink
+              >
+              and the next rep gets scheduled.
+            </template>
+            <template v-else>
+              Try it — the answers are 1 and 2.
+              <span class="hidden md:inline">⌘↵ runs the tests.</span>
+            </template>
           </p>
         </div>
       </div>
