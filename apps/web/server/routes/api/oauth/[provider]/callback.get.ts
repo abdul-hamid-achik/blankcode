@@ -57,6 +57,10 @@ export default defineEventHandler(async (event) => {
   const provider = PROVIDERS[name]
   const site = (useRuntimeConfig().public['siteUrl'] as string).replace(/\/+$/, '')
 
+  // The PKCE verifier set at start, for the provider that supports it.
+  const verifier = name === 'google' ? getCookie(event, 'oauth-verifier-google') : undefined
+  if (name === 'google') deleteCookie(event, 'oauth-verifier-google')
+
   // Exchange the one-time code for an access token.
   let accessToken: string
   try {
@@ -69,6 +73,7 @@ export default defineEventHandler(async (event) => {
         code,
         redirect_uri: `${site}/api/oauth/${name}/callback`,
         grant_type: 'authorization_code',
+        ...(verifier ? { code_verifier: verifier } : {}),
       },
     })
     const token = response['access_token']
