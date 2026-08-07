@@ -36,6 +36,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiUrl: process.env.NUXT_PUBLIC_API_URL ?? '/api',
+      // Canonical origin for canonical tags, OG urls and the sitemap. Set this
+      // per environment so a preview never claims to be the production site.
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL ?? 'https://blankcode.dev',
     },
   },
 

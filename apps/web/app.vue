@@ -7,7 +7,12 @@ useThemeClass()
 // function form lives here rather than in nuxt.config, which only takes a
 // string template and so cannot express "no suffix when there is no title".
 useHead({
-  titleTemplate: (title?: string) => (title ? `${title} · BlankCode` : 'BlankCode'),
+  titleTemplate: (title?: string) => {
+    if (!title) return 'BlankCode'
+    // The landing page names the product in its own title; appending it again
+    // gives 'BlankCode — … · BlankCode'.
+    return title.includes('BlankCode') ? title : `${title} · BlankCode`
+  },
 })
 </script>
 

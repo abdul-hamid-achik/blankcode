@@ -1,7 +1,7 @@
 ---
 title: Why you forget how to code, and what actually brings it back
 description: Skills you built over years fade in months once you stop using them. The fix is not re-reading tutorials — it is being asked to recall the thing right before you would have forgotten it.
-date: 2026-08-06
+date: '2026-08-06'
 author: BlankCode
 tags:
   - learning

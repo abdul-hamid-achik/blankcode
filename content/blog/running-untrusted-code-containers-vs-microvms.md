@@ -1,7 +1,7 @@
 ---
-title: Running untrusted code: containers versus microVMs
+title: 'Running untrusted code: containers versus microVMs'
 description: A container shares the host kernel, so a kernel bug is a host compromise. A microVM does not. Here is what changed when BlankCode moved submission execution from Docker to Firecracker, and what it cost in latency.
-date: 2026-08-06
+date: '2026-08-06'
 author: BlankCode
 tags:
   - security
