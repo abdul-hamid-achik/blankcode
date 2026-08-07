@@ -56,11 +56,31 @@ export const users = pgTable(
     passwordHash: text('password_hash').notNull(),
     displayName: varchar('display_name', { length: 100 }),
     avatarUrl: text('avatar_url'),
+    /**
+     * Billing, on the user rather than in a table of its own.
+     *
+     * A user has at most one subscription and the questions asked are always
+     * "can this person do the thing" — a join for that is a join on every
+     * request. The id is stored here and not the other way round because
+     * Stripe's customer is a mirror of our user, not the source of them.
+     */
+    stripeCustomerId: varchar('stripe_customer_id', { length: 255 }),
+    /**
+     * Mirrors Stripe's subscription status verbatim. Not booleans like
+     * `isPaid`: `past_due` and `canceled` are different situations that want
+     * different copy, and collapsing them at write time throws that away.
+     */
+    subscriptionStatus: varchar('subscription_status', { length: 40 }),
+    subscriptionPriceId: varchar('subscription_price_id', { length: 255 }),
+    /** When paid access lapses. Access is denied on time, not on a webhook. */
+    subscriptionEndsAt: timestamp('subscription_ends_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex('users_email_idx').on(table.email),
+    // Every webhook arrives keyed by the Stripe customer, never by our user id.
+    index('users_stripe_customer_idx').on(table.stripeCustomerId),
     uniqueIndex('users_username_idx').on(table.username),
   ]
 )
