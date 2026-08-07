@@ -302,6 +302,15 @@ vaultSet(vault, 'STRIPE_PRICE_ID', price.id, dryRun)
  */
 const RUNTIME_SECRETS = ['RESEND_API_KEY'] as const
 
+/**
+ * Config the runtime needs that is not a secret.
+ *
+ * Pushed non-sensitive so `vercel env pull` can bring it back for local work.
+ * An email address is not a credential, and storing one sensitive is how the
+ * sandbox snapshot ids became unreadable.
+ */
+const RUNTIME_CONFIG = ['ADMIN_EMAILS'] as const
+
 console.log('\n  Vercel')
 // Identifiers, stored readable on purpose: `vercel env pull` has to be able to
 // bring these back for local development.
@@ -317,6 +326,15 @@ for (const name of RUNTIME_SECRETS) {
   const value = vaultGet(vault, name)
   if (value) {
     vercelSet(name, value, environments, true, dryRun)
+  } else {
+    console.log(`    ${name} skipped — not in tvault:${vault}`)
+  }
+}
+
+for (const name of RUNTIME_CONFIG) {
+  const value = vaultGet(vault, name)
+  if (value) {
+    vercelSet(name, value, environments, false, dryRun)
   } else {
     console.log(`    ${name} skipped — not in tvault:${vault}`)
   }

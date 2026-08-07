@@ -4,6 +4,7 @@ import Button from '~/components/ui/button.vue'
 import { useAuthStore } from '~/stores/auth'
 import { usePreferencesStore } from '~/stores/preferences'
 import { useReviewStore } from '~/stores/review'
+import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 /**
  * Two primary destinations and one overflow menu.
@@ -43,6 +44,27 @@ watch(
   }
 )
 
+/**
+ * Whether this account may see the operator view.
+ *
+ * Asked once, and only when signed in — an anonymous visitor cannot be an
+ * admin, and a request per page load for everyone would be a query answering a
+ * question with one possible answer.
+ */
+const isAdmin = ref(false)
+
+onMounted(async () => {
+  if (!authStore.isAuthenticated) return
+  try {
+    const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
+    if (!token) return
+    await $fetch('/api/admin/check', { headers: { Authorization: `Bearer ${token}` } })
+    isAdmin.value = true
+  } catch {
+    // A 404 is the ordinary answer for almost everyone. Nothing to report.
+  }
+})
+
 /** Everything that is real but not daily lives behind one menu. */
 const moreLinks = computed(() => {
   const links = [
@@ -50,6 +72,11 @@ const moreLinks = computed(() => {
     { to: '/challenges', label: 'Challenges' },
     { to: '/tutorials', label: 'Tutorials' },
   ]
+  if (isAdmin.value) {
+    // Only rendered for an allowlisted account. The check happens on the
+    // server; the browser is told yes or nothing, never the list.
+    links.push({ to: '/admin', label: 'Usage' })
+  }
   if (authStore.isAuthenticated) {
     links.push(
       { to: '/progress', label: 'Progress' },
