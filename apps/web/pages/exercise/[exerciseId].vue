@@ -213,8 +213,7 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
             class="mt-3 max-w-2xl border-l-2 border-signal bg-signal/5 py-2 pl-3 text-sm text-foreground"
           >
             <span class="font-medium">This code is wrong.</span>
-            It was generated, it passes the tests it came with, and it still has a defect. Find it
-            before you submit — you are graded on tests you cannot see.
+            Find the defect before you submit — you are graded on tests you cannot see.
           </p>
         </div>
 

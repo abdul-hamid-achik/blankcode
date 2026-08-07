@@ -93,4 +93,12 @@ describe('review exercises announce themselves', () => {
     // is the exact belief the exercise exists to break.
     expect(page).toMatch(/graded on tests\s+you\s+cannot see/)
   })
+
+  it('claims nothing that is not true of every review', () => {
+    // Some reviews ship a passing suite the learner is meant to distrust;
+    // others fail visibly with a misleading error. A banner asserting the
+    // first would be a lie on the second, and the page cannot tell them apart.
+    const banner = page.slice(page.indexOf('This code is wrong'))
+    expect(banner.slice(0, 400)).not.toContain('passes the tests')
+  })
 })

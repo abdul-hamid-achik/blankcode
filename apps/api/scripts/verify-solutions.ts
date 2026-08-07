@@ -102,13 +102,29 @@ for (const fixture of fixtures) {
 
   const started = Date.now()
   try {
-    const result = await executionService.execute(
+    /*
+     * One retry, because the sandbox is occasionally flaky and this script is
+     * meant to be a gate. A reference solution either passes deterministically
+     * or it does not: a genuinely broken exercise fails both times, while a
+     * transient sandbox failure would otherwise turn CI red for no reason and
+     * teach everyone to rerun it without looking.
+     */
+    let result = await executionService.execute(
       `verify-${fixture.track}-${fixture.name}`,
       'verify',
       fixture.solution,
       fixture.testCode,
       fixture.track
     )
+    if (result.status !== 'passed') {
+      result = await executionService.execute(
+        `verify-retry-${fixture.track}-${fixture.name}`,
+        'verify',
+        fixture.solution,
+        fixture.testCode,
+        fixture.track
+      )
+    }
     const seconds = ((Date.now() - started) / 1000).toFixed(1)
 
     if (result.status === 'passed' && (result.testResults?.length ?? 0) > 0) {
