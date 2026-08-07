@@ -3,11 +3,14 @@ name: Migrations
 # Runs drizzle migrations against the matching Neon branch when the schema or
 # the migration files change.
 #
-# Preview runs on push. Production does not, and that is deliberate: this
-# repository is private on a plan with neither required reviewers nor branch
-# protection, so an "approval" gate on a production job would be decoration.
-# Production migrations run through workflow_dispatch, which at least leaves a
-# record of who asked and when.
+# Both run on push. Preview goes straight through; production waits for a
+# reviewer, which its GitHub Environment enforces — this repository is public,
+# so required reviewers are available and the gate is real rather than
+# decorative. (An earlier version of this comment said the repository was
+# private and used that to justify leaving production out. It was wrong.)
+#
+# Each Environment is also pinned to one branch, so a job asking for the
+# production identity from anywhere but `main` cannot start.
 #
 # Secrets reach CI through tvault identity mode. There is one sealed artifact
 # per target, each encrypted to its own recipient, so the preview CI identity
@@ -25,7 +28,7 @@ name: Migrations
 
 on:
   push:
-    branches: [preview]
+    branches: [preview, main]
     paths:
       - "packages/db/drizzle/**"
       - "packages/db/src/schema/**"
@@ -45,12 +48,14 @@ permissions:
 # Never two migrations at once against the same database, and never cancel one
 # half-way: an interrupted migration leaves state nobody can reason about.
 concurrency:
-  group: migrations-${{ inputs.target || 'preview' }}
+  group: migrations-${{ inputs.target || (github.ref_name == 'main' && 'production' || 'preview') }}
   cancel-in-progress: false
 
 jobs:
   migrate:
-    environment: ${{ inputs.target == 'production' && 'Production' || 'Preview' }}
+    # Lowercase `production` on purpose: that is the Environment's actual name,
+    # and GitHub silently creates a new unprotected one if this does not match.
+    environment: ${{ (inputs.target || (github.ref_name == 'main' && 'production' || 'preview')) == 'production' && 'production' || 'Preview' }}
     runs-on: ubuntu-latest
     steps:
       # Before checkout, before secrets, before the database is touched. The
@@ -61,7 +66,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           FULL_REF: ${{ github.ref }}
           REF_TYPE: ${{ github.ref_type }}
-          TARGET: ${{ inputs.target || 'preview' }}
+          TARGET: ${{ inputs.target || (github.ref_name == 'main' && 'production' || 'preview') }}
         run: |
           set -euo pipefail
 
@@ -73,7 +78,11 @@ jobs:
           case "$EVENT_NAME:$TARGET" in
             push:preview)
               [ "$FULL_REF" = "refs/heads/preview" ] || {
-                echo "::error::Pushes may only migrate from the preview branch." >&2; exit 1; }
+                echo "::error::Preview migrations come from the preview branch." >&2; exit 1; }
+              ;;
+            push:production)
+              [ "$FULL_REF" = "refs/heads/main" ] || {
+                echo "::error::Production migrations come from main." >&2; exit 1; }
               ;;
             workflow_dispatch:preview)
               [ "$FULL_REF" = "refs/heads/preview" ] || {
@@ -127,7 +136,7 @@ jobs:
       - name: Decrypt secrets and run migrations
         env:
           TVAULT_IDENTITY_KEY: ${{ secrets.TVAULT_MIGRATION_IDENTITY_KEY }}
-          TARGET: ${{ inputs.target || 'preview' }}
+          TARGET: ${{ inputs.target || (github.ref_name == 'main' && 'production' || 'preview') }}
         run: |
           set -euo pipefail
           umask 077

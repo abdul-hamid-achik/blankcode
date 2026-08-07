@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import Button from '~/components/ui/button.vue'
 import { EXERCISE_COUNT, LANDING_TRACKS } from '~/utils/landing-tracks'
+import { useAnalytics } from '~/composables/useAnalytics'
 import { evaluateFibDemo, FIB_DEMO_EXPECTED } from '~/utils/fib-demo'
 
 /**
@@ -25,6 +26,7 @@ const BLANKS: Blank[] = [
 
 const values = ref<Record<string, string>>({ a: '', b: '' })
 const received = ref<number | null>(null)
+const { emit } = useAnalytics()
 const state = ref<'idle' | 'running' | 'passed' | 'failed'>('idle')
 const inputs = useTemplateRef<HTMLInputElement[]>('blankInput')
 
@@ -55,6 +57,7 @@ async function run() {
   received.value = Number.isFinite(a) && Number.isFinite(b) ? evaluateFibDemo(a, b) : null
 
   state.value = received.value === FIB_DEMO_EXPECTED ? 'passed' : 'failed'
+  emit('demo-run', { passed: state.value === 'passed' })
 }
 
 function reset() {
