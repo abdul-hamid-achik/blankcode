@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ACHIEVEMENTS } from '@blankcode/shared'
-import { computed, onMounted } from 'vue'
+import { ACHIEVEMENTS, type UserAchievement } from '@blankcode/shared'
+import { computed } from 'vue'
 import Button from '~/components/ui/button.vue'
-import Card from '~/components/ui/card.vue'
-import { useAsync } from '~/composables/useAsync'
+import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 /**
  * Marks, not trophies. The old page was a gradient bar, a row of padlock
@@ -16,14 +15,19 @@ import { useAsync } from '~/composables/useAsync'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
 
-const api = useApi()
-const {
-  data: achievements,
-  isLoading,
-  execute: loadAchievements,
-} = useAsync(() => api.achievements.getMine())
-
-onMounted(loadAchievements)
+/*
+ * Server-fetched like the other hubs — this also moves the award check to
+ * the render instead of a post-hydration surprise.
+ */
+const { data: achievements, pending: isLoading } = await useAsyncData('achievements', async () => {
+  const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
+  try {
+    return await $fetch<UserAchievement[]>('/api/achievements', { headers })
+  } catch {
+    return [] as UserAchievement[]
+  }
+})
 
 const allAchievements = computed(() => Object.values(ACHIEVEMENTS))
 

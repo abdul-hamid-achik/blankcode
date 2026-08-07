@@ -20,4 +20,9 @@ export const AUTH_COOKIE_OPTIONS = {
   sameSite: 'lax',
   // Never sent over plain HTTP outside development.
   secure: !import.meta.dev,
+  // Thirty days — the refresh token's own lifetime. Without maxAge these were
+  // session cookies: closing the browser logged you out regardless of the
+  // thirty-day refresh token inside, which made the refresh machinery
+  // decoration.
+  maxAge: 30 * 24 * 60 * 60,
 } as const

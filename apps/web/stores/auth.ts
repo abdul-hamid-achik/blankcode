@@ -54,14 +54,57 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = response.user as User
   }
 
+  /*
+   * Loads the user behind the cookie. This is what runs on every SSR of an
+   * authed page, so it has two hard rules learned from a real bug:
+   *
+   * 1. `$fetch`, never `useApi` — the API client builds a relative URL and
+   *    calls `fetch` directly, which throws on the server. The old code did
+   *    exactly that, and its catch-all called `logout()`: every server render
+   *    of a signed-in page cleared both cookies in the response. That was
+   *    "the site logs me out every time I refresh".
+   * 2. Only a definitive refusal ends the session. A 401 gets one refresh
+   *    attempt (the thirty-day token exists for exactly this); anything else
+   *    — network blip, 500, timeout — leaves the cookies alone, because a
+   *    hiccup is not a revocation.
+   */
   async function fetchUser() {
     if (!token.value) return
+
+    const me = () =>
+      $fetch<{ data?: User } & User>('/api/users/me', {
+        headers: { Authorization: `Bearer ${token.value}` },
+      })
+
     try {
-      const api = useApi()
-      const response = await api.users.getMe()
-      user.value = response as User
-    } catch {
-      logout()
+      const response = await me()
+      user.value = (response.data ?? response) as User
+      return
+    } catch (error) {
+      const status = (error as { statusCode?: number })?.statusCode
+      if (status !== 401) return // transient — keep the session
+    }
+
+    // The access token was refused; spend the refresh token on a new one.
+    try {
+      const refreshed = await $fetch<{
+        data?: { accessToken: string; refreshToken: string }
+        accessToken?: string
+        refreshToken?: string
+      }>('/api/auth/refresh', {
+        method: 'POST',
+        body: { refreshToken: refreshToken.value },
+      })
+      const tokens = refreshed.data ?? refreshed
+      if (!tokens.accessToken || !tokens.refreshToken) throw new Error('no tokens')
+      token.value = tokens.accessToken
+      refreshToken.value = tokens.refreshToken
+      const response = await me()
+      user.value = (response.data ?? response) as User
+    } catch (error) {
+      const status = (error as { statusCode?: number })?.statusCode
+      // Only a definitive refusal of the refresh token ends the session.
+      if (status && status >= 400 && status < 500) logout()
     }
   }
 

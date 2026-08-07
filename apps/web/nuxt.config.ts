@@ -150,11 +150,31 @@ export default defineNuxtConfig({
     '/tracks/**': { ssr: true },
     '/tutorials/**': { ssr: true },
     '/exercise/**': { ssr: false },
-    '/dashboard': { ssr: false },
+    /*
+     * The signed-in hubs render on the server too. They were ssr:false,
+     * which meant: empty shell, download the bundle, hydrate, and only then
+     * start four or five API calls — the "everything takes forever" feel is
+     * mostly that waterfall. Their pages now fetch with useAsyncData +
+     * $fetch (in-process on the server), so the first paint carries the
+     * content. The editor stays client-only (CodeMirror has no server
+     * story), and settings/login/register render nothing worth streaming.
+     */
+    '/dashboard': { ssr: true },
+    '/progress': { ssr: true },
     '/settings': { ssr: false },
-    '/progress': { ssr: false },
     '/login': { ssr: false },
     '/register': { ssr: false },
+    /*
+     * The public catalogue barely changes and is identical for everyone —
+     * exercises are redacted server-side and tracks/paths carry no user
+     * state. SWR caching serves them from the edge and revalidates in the
+     * background, instead of a Postgres round trip per pageview. Exact paths
+     * on purpose: /api/exercises/:id/progress and /draft are per-user and
+     * must never share a cache.
+     */
+    '/api/exercises': { swr: 300 },
+    '/api/paths': { swr: 300 },
+    '/api/tracks/**': { swr: 300 },
   },
 
   typescript: {

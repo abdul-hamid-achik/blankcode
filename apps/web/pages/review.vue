@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, watch } from 'vue'
 import EmptyState from '~/components/error/empty-state.vue'
 import Button from '~/components/ui/button.vue'
 import { useReviewStore } from '~/stores/review'
@@ -15,35 +15,52 @@ import { speakNextBatch } from '~/utils/review-dates'
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
 
 const reviewStore = useReviewStore()
-const api = useApi()
-
-/** The empty state's missing fact: when the next batch arrives. */
-const upcoming = ref<Awaited<ReturnType<typeof api.reviews.getUpcoming>> | null>(null)
-const nextBatch = computed(() => speakNextBatch(upcoming.value?.next ?? null))
 
 interface ContinueTarget {
   next: { id: string; title: string; conceptName: string; trackName: string } | null
 }
 
-/**
- * The concrete next thing, for the empty state. "Browse tracks" is the
- * product shrugging; "Continue: Narrowing with typeof" is the product
- * knowing where you left off.
+/*
+ * The queue, the horizon, and the fallback, fetched in parallel inside one
+ * useAsyncData — on the server these are in-process calls, so the worklist
+ * arrives in the first paint instead of behind a spinner. The store is
+ * hydrated from the result because the exercise page reads it mid-queue.
  */
-const continueTarget = ref<ContinueTarget['next']>(null)
-
-onMounted(async () => {
-  reviewStore.loadDueReviews()
+const { data: page, pending } = await useAsyncData('review-queue', async () => {
   const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
-  const [upcomingResult, continueResult] = await Promise.allSettled([
-    api.reviews.getUpcoming(),
+
+  const [dueR, upcomingR, continueR] = await Promise.allSettled([
+    $fetch<{ data?: unknown[] } | unknown[]>('/api/reviews/due', { headers }),
+    $fetch<{ dueNow: number; next: { date: string; count: number } | null }>(
+      '/api/reviews/upcoming',
+      { headers }
+    ),
     $fetch<ContinueTarget>('/api/exercises/continue', { headers }),
   ])
-  // Each line is extra; the empty state reads fine without either.
-  if (upcomingResult.status === 'fulfilled') upcoming.value = upcomingResult.value
-  if (continueResult.status === 'fulfilled') continueTarget.value = continueResult.value.next
+
+  const value = <T>(r: PromiseSettledResult<T>) => (r.status === 'fulfilled' ? r.value : null)
+  const dueRaw = value(dueR)
+  const due = Array.isArray(dueRaw) ? dueRaw : ((dueRaw as { data?: unknown[] })?.data ?? [])
+  return {
+    due,
+    upcoming: value(upcomingR),
+    continueTarget: value(continueR)?.next ?? null,
+  }
 })
+
+watch(
+  page,
+  (result) => {
+    if (!result) return
+    reviewStore.dueExercises = result.due as typeof reviewStore.dueExercises
+    reviewStore.dueCount = result.due.length
+  },
+  { immediate: true }
+)
+
+const nextBatch = computed(() => speakNextBatch(page.value?.upcoming?.next ?? null))
+const continueTarget = computed(() => page.value?.continueTarget ?? null)
 
 const first = computed(() => reviewStore.dueExercises[0])
 
@@ -87,7 +104,7 @@ function lastSeen(iso: string | null | undefined): string {
   <div class="container max-w-3xl py-10 md:py-14">
     <p class="eyebrow mb-2">review</p>
 
-    <div v-if="reviewStore.isLoading" role="status">
+    <div v-if="pending" role="status">
       <div class="h-8 w-64 animate-pulse rounded bg-muted" aria-hidden="true" />
       <span class="sr-only">Loading due reviews…</span>
     </div>

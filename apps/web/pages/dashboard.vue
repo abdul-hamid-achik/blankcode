@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import type { Exercise, Submission } from '@blankcode/shared'
-import { computed, onMounted } from 'vue'
+import { computed, watch } from 'vue'
 import EmptyState from '~/components/error/empty-state.vue'
 import Button from '~/components/ui/button.vue'
-import { useAsync } from '~/composables/useAsync'
 import { useAuthStore } from '~/stores/auth'
 import { useProgressStore } from '~/stores/progress'
 import { useReviewStore } from '~/stores/review'
@@ -29,44 +28,69 @@ const authStore = useAuthStore()
 const progressStore = useProgressStore()
 const reviewStore = useReviewStore()
 
-const api = useApi()
-const { data: submissions, execute: loadSubmissions } = useAsync(
-  () => api.submissions.getMine(10) as Promise<SubmissionWithExercise[]>
-)
-
-/**
- * When the next batch lands. The scheduler always knew; the page never said.
- * "Nothing is due" with no horizon reads as a product with nothing more to
- * give — "3 come back on Thursday" is the same fact as a calendar.
- */
-const upcoming = ref<Awaited<ReturnType<typeof api.reviews.getUpcoming>> | null>(null)
-
 interface ContinueTarget {
   next: { id: string; title: string; conceptName: string; trackName: string } | null
 }
 
-/** "Pick something new" gets to name the pick: first unfinished exercise
- * in the track the user last touched. */
-const continueTarget = ref<ContinueTarget['next']>(null)
+interface Stats {
+  totalExercisesCompleted: number
+  presence: { window: number; days: boolean[]; practiced: number }
+  totalSubmissions: number
+  lastActivityDate: string | null
+}
 
-onMounted(async () => {
-  loadSubmissions()
-  progressStore.loadStats()
-  reviewStore.loadDueCount()
+/*
+ * Everything the page needs, fetched in one useAsyncData with the requests
+ * in parallel. This page used to be ssr:false and load piece by piece after
+ * hydration: empty shell → bundle → hydrate → five sequential-ish calls.
+ * On the server these $fetch calls are in-process (no network at all), so
+ * the first paint now carries the whole page; on client-side navigation
+ * they run as one parallel burst. allSettled because each block is optional
+ * — a failed corner renders as absent, never as a broken page.
+ */
+const { data: page } = await useAsyncData('dashboard', async () => {
   const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
-  const [upcomingResult, continueResult] = await Promise.allSettled([
-    api.reviews.getUpcoming(),
+
+  const [submissionsR, statsR, dueR, upcomingR, continueR] = await Promise.allSettled([
+    $fetch<SubmissionWithExercise[]>('/api/submissions?limit=10', { headers }),
+    $fetch<Stats>('/api/progress/stats', { headers }),
+    $fetch<{ count: number }>('/api/reviews/due/count', { headers }),
+    $fetch<{ dueNow: number; next: { date: string; count: number } | null }>(
+      '/api/reviews/upcoming',
+      { headers }
+    ),
     $fetch<ContinueTarget>('/api/exercises/continue', { headers }),
   ])
-  // Both lines are extra; the heading stands on its own.
-  if (upcomingResult.status === 'fulfilled') upcoming.value = upcomingResult.value
-  if (continueResult.status === 'fulfilled') continueTarget.value = continueResult.value.next
+
+  const value = <T>(r: PromiseSettledResult<T>) => (r.status === 'fulfilled' ? r.value : null)
+  return {
+    submissions: value(submissionsR) ?? [],
+    stats: value(statsR),
+    dueCount: value(dueR)?.count ?? 0,
+    upcoming: value(upcomingR),
+    continueTarget: value(continueR)?.next ?? null,
+  }
 })
 
+const submissions = computed(() => page.value?.submissions ?? [])
+const continueTarget = computed(() => page.value?.continueTarget ?? null)
+
+// Keep the stores in step: the header badge reads dueCount from the review
+// store, and the progress store feeds other pages.
+watch(
+  page,
+  (value) => {
+    if (!value) return
+    reviewStore.dueCount = value.dueCount
+    if (value.stats) progressStore.userStats = value.stats
+  },
+  { immediate: true }
+)
+
 const name = computed(() => authStore.user?.displayName || authStore.user?.username || 'you')
-const dueCount = computed(() => reviewStore.dueCount)
-const nextBatch = computed(() => speakNextBatch(upcoming.value?.next ?? null))
+const dueCount = computed(() => page.value?.dueCount ?? 0)
+const nextBatch = computed(() => speakNextBatch(page.value?.upcoming?.next ?? null))
 
 /*
  * Presence replaced the streak. A daily streak contradicts the product's own
@@ -74,16 +98,20 @@ const nextBatch = computed(() => speakNextBatch(upcoming.value?.next ?? null))
  * empty days by design, and a streak either punishes obeying the calendar
  * or manufactures busywork to protect a number.
  */
+const presence = computed(
+  () => page.value?.stats?.presence ?? { window: 7, days: Array(7).fill(false), practiced: 0 }
+)
+
 const stats = computed(() => [
-  { label: 'completed', value: String(progressStore.totalCompleted) },
+  { label: 'completed', value: String(page.value?.stats?.totalExercisesCompleted ?? 0) },
   {
     label: 'practiced',
-    value: `${progressStore.presence.practiced} of last ${progressStore.presence.window} days`,
-    strip: progressStore.presence.days,
+    value: `${presence.value.practiced} of last ${presence.value.window} days`,
+    strip: presence.value.days,
   },
   {
     label: 'submissions',
-    value: String(progressStore.userStats?.totalSubmissions ?? submissions.value?.length ?? 0),
+    value: String(page.value?.stats?.totalSubmissions ?? submissions.value.length),
   },
 ])
 

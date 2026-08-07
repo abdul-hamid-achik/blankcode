@@ -25,7 +25,11 @@ export async function issueSession(
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(userId)
     .setIssuedAt()
-    .setExpirationTime(process.env['JWT_EXPIRES_IN'] ?? '15m')
+    // Same default as the API's own config ('7d'). This said '15m' while
+    // password logins minted 7-day tokens — so OAuth users hit expiry within
+    // minutes of signing in, and any surface that mishandled the 401 read it
+    // as "sign in again".
+    .setExpirationTime(process.env['JWT_EXPIRES_IN'] ?? '7d')
     .sign(new TextEncoder().encode(secret))
 
   const token = randomBytes(64).toString('hex')

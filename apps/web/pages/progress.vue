@@ -1,18 +1,57 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, watch } from 'vue'
 import EmptyState from '~/components/error/empty-state.vue'
 import ProgressCard from '~/components/progress/progress-card.vue'
 import TrackProgressCard from '~/components/progress/track-progress-card.vue'
 import Button from '~/components/ui/button.vue'
 import { useProgressStore } from '~/stores/progress'
+import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
 
 const progressStore = useProgressStore()
 
-onMounted(async () => {
-  await Promise.all([progressStore.loadStats(), progressStore.loadAllTracksProgress()])
+interface Stats {
+  totalExercisesCompleted: number
+  presence: { window: number; days: boolean[]; practiced: number }
+  totalSubmissions: number
+  lastActivityDate: string | null
+}
+
+interface TrackProgressRow {
+  trackSlug: string
+  trackName: string
+  totalExercises: number
+  completedExercises: number
+  masteryLevel: number
+}
+
+/*
+ * Both requests in parallel, on the server when the page is server-rendered
+ * — this page was ssr:false and fetched after hydration, which is why it
+ * opened as a spinner. The store is hydrated from the result so anything
+ * else reading it stays coherent.
+ */
+const { data: page } = await useAsyncData('progress-page', async () => {
+  const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
+  const [statsR, tracksR] = await Promise.allSettled([
+    $fetch<Stats>('/api/progress/stats', { headers }),
+    $fetch<TrackProgressRow[]>('/api/progress/summary', { headers }),
+  ])
+  const value = <T>(r: PromiseSettledResult<T>) => (r.status === 'fulfilled' ? r.value : null)
+  return { stats: value(statsR), tracks: value(tracksR) ?? [] }
 })
+
+watch(
+  page,
+  (result) => {
+    if (!result) return
+    if (result.stats) progressStore.userStats = result.stats
+    progressStore.trackProgress = result.tracks
+  },
+  { immediate: true }
+)
 
 const totals = computed(() => {
   const tracks = progressStore.trackProgress
@@ -43,12 +82,8 @@ const stats = computed(() => [
     <p class="eyebrow mb-2">progress</p>
     <h1 class="display text-2xl md:text-3xl mb-10">Where the reps have gone.</h1>
 
-    <div v-if="progressStore.isLoading" role="status">
-      <div class="h-20 animate-pulse rounded border border-rule bg-muted/50" aria-hidden="true" />
-      <span class="sr-only">Loading progress…</span>
-    </div>
-
-    <template v-else>
+    <!-- No loading branch: the data arrives with the render. -->
+    <template>
       <dl class="grid grid-cols-2 gap-px border border-rule bg-rule sm:grid-cols-3 mb-12">
         <ProgressCard
           v-for="stat in stats"
