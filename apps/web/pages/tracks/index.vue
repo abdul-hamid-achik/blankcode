@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Track } from '@blankcode/shared'
 import { computed, onMounted } from 'vue'
 import EmptyState from '~/components/error/empty-state.vue'
 import { useApi } from '~/composables/useApi'
@@ -14,12 +15,28 @@ import { useAuthStore } from '~/stores/auth'
 const api = useApi()
 const authStore = useAuthStore()
 
-const { data: tracks, isLoading, execute } = useAsync(() => api.tracks.getAll())
+/*
+ * The track list is public, so it is fetched during the render — this page used
+ * to load it on mount and served a crawler one heading and nothing else.
+ *
+ * The progress summary stays on mount on purpose: it needs the reader's token
+ * and is different for every one of them, so there is nothing to render on the
+ * server and nothing worth caching.
+ */
+const { data: tracks, pending: isLoading } = await useAsyncData('tracks', () =>
+  $fetch<Track[]>('/api/tracks')
+)
+
 const { data: summary, execute: loadSummary } = useAsync(() => api.progress.getSummary())
 
 onMounted(() => {
-  execute()
   if (authStore.isAuthenticated) loadSummary()
+})
+
+useSeoMeta({
+  title: 'Tracks',
+  description:
+    'Practice tracks for TypeScript, React, Vue, Node, Go, Rust and Python. Fill in the blanks on real code and keep the syntax from fading.',
 })
 
 /** Progress keyed by track slug, so a row can render its own state. */

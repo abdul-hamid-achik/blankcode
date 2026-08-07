@@ -41,6 +41,12 @@ const trackTutorials = computed(() => {
   return (selected ? filtered.filter((t) => t.track === selected) : filtered).toSorted(byOrder)
 })
 
+useSeoMeta({
+  title: 'Tutorials',
+  description:
+    'Guides on the concepts behind the exercises — what to understand before the syntax has to come back from memory.',
+})
+
 const difficultyColor: Record<string, string> = {
   beginner: 'bg-green-500/10 text-green-500',
   intermediate: 'bg-yellow-500/10 text-yellow-500',

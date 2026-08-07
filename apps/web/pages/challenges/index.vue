@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import type { Exercise, Track } from '@blankcode/shared'
+import { computed, ref } from 'vue'
 import EmptyState from '~/components/error/empty-state.vue'
 import Card from '~/components/ui/card.vue'
 import DifficultyTag from '~/components/ui/difficulty-tag.vue'
@@ -7,26 +8,30 @@ import { useAsync } from '~/composables/useAsync'
 
 definePageMeta({ requiresAuth: false })
 
-const api = useApi()
 const selectedTrack = ref<string>('all')
 const selectedDifficulty = ref<string>('all')
 
-const {
-  data: tracks,
-  isLoading: tracksLoading,
-  execute: loadTracks,
-} = useAsync(() => api.tracks.getAll())
-const {
-  data: allExercises,
-  isLoading: exercisesLoading,
-  execute: loadExercises,
-} = useAsync(() => api.exercises.getAll())
+/*
+ * Both lists are public, so they are fetched during the render.
+ *
+ * This page has had two bugs in the same three lines. First it called
+ * `useAsync` without ever executing it, so the list was empty for everyone —
+ * `useAsync` does not fetch on its own. Then it fetched on mount, which fixed
+ * the browser and left the server rendering a single heading, so the page a
+ * reader would find by searching for coding challenges had no challenges in it.
+ */
+const { data: tracks, pending: tracksLoading } = await useAsyncData('challenge-tracks', () =>
+  $fetch<Track[]>('/api/tracks')
+)
+const { data: allExercises, pending: exercisesLoading } = await useAsyncData(
+  'challenge-exercises',
+  () => $fetch<Exercise[]>('/api/exercises')
+)
 
-// `useAsync` does not fetch on its own — without this the page renders an
-// empty list forever.
-onMounted(() => {
-  loadTracks()
-  loadExercises()
+useSeoMeta({
+  title: 'Challenges',
+  description:
+    'Open-ended coding challenges across seven languages. No blanks to fill — write the whole thing, and real tests decide.',
 })
 
 const isLoading = computed(() => tracksLoading.value || exercisesLoading.value)

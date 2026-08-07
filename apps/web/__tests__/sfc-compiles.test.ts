@@ -193,3 +193,41 @@ describe('track pages render on the server', () => {
     expect(sitemap).toContain('TRACK_SLUGS.map')
   })
 })
+
+/**
+ * Every public page has to render its content during the server render and
+ * carry its own title. Three index pages were fetching on mount, so a crawler
+ * got one heading and a generic `<title>BlankCode</title>`: /challenges served
+ * 10kB with none of its 31 challenges in it.
+ *
+ * These are all in the sitemap, which made the shells worse than useless —
+ * the site was actively pointing crawlers at empty pages.
+ */
+describe('public index pages render and describe themselves', () => {
+  it.each([
+    'pages/tracks/index.vue',
+    'pages/paths/index.vue',
+    'pages/challenges/index.vue',
+    'pages/tutorials/index.vue',
+    'pages/blog/index.vue',
+  ])('%s has its own title and description', (file) => {
+    const source = readFileSync(join(process.cwd(), file), 'utf-8')
+    expect(source).toContain('useSeoMeta')
+    expect(source).toMatch(/description:/)
+  })
+
+  it.each(['pages/tracks/index.vue', 'pages/challenges/index.vue'])(
+    '%s fetches during the render',
+    (file) => {
+      const source = readFileSync(join(process.cwd(), file), 'utf-8')
+      expect(source).toContain('useAsyncData')
+    }
+  )
+
+  it('the paths index needs no request at all', () => {
+    // Learning paths are a static array both the API and the page can import.
+    const source = readFileSync(join(process.cwd(), 'pages/paths/index.vue'), 'utf-8')
+    expect(source).toContain('LEARNING_PATHS')
+    expect(source).not.toContain('api.paths')
+  })
+})

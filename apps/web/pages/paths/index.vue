@@ -1,25 +1,35 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { LEARNING_PATHS } from '@blankcode/shared'
+import { computed } from 'vue'
 import Card from '~/components/ui/card.vue'
-import { useAsync } from '~/composables/useAsync'
 
 definePageMeta({ requiresAuth: false })
 
-const api = useApi()
-const { data: paths, isLoading, execute: loadPaths } = useAsync(() => api.paths.getAll())
+/*
+ * Read straight from the shared constant instead of fetching.
+ *
+ * This page used to load in `onMounted`, so the server rendered an empty list
+ * and a crawler saw a page with one heading on it. The data was never remote:
+ * learning paths are a static array that both the API handler and this page can
+ * import, so the request was buying nothing and costing the page its content.
+ */
+const sortedPaths = computed(() =>
+  [...LEARNING_PATHS].filter((path) => path.isPublished).toSorted((a, b) => a.order - b.order)
+)
 
-// `useAsync` does not fetch on its own.
-onMounted(loadPaths)
+// Kept so the template's loading branch stays valid; there is nothing to wait for.
+const isLoading = computed(() => false)
 
-const sortedPaths = computed(() => {
-  if (!paths.value) return []
-  return [...paths.value].sort((a, b) => a.order - b.order)
-})
-
-const getProgress = (path: any) => {
-  // For now, show placeholder - will integrate with real progress later
+const getProgress = (path: { challengeIds: readonly string[] }) => {
+  // Placeholder until per-path progress exists.
   return { completed: 0, total: path.challengeIds.length }
 }
+
+useSeoMeta({
+  title: 'Learning paths',
+  description:
+    'Guided sequences of challenges, ordered so each one builds on the last. Pick a path and work through it.',
+})
 </script>
 
 <template>
@@ -40,7 +50,7 @@ const getProgress = (path: any) => {
           <div class="flex flex-wrap gap-4 text-sm text-muted-foreground">
             <div class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-              <span>{{ paths?.length || 0 }} learning paths</span>
+              <span>{{ sortedPaths.length }} learning paths</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-green-500"></span>
