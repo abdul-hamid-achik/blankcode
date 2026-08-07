@@ -148,6 +148,8 @@ export const exercises = pgTable(
      * content that changes with the markdown, and a separate table would have
      * to be kept in step with an import that already rewrites this row.
      */
+    /** Turn-budget exercises only: how many messages the learner gets. */
+    turnBudget: integer('turn_budget'),
     contextSources: jsonb('context_sources').$type<{
       sources: Array<{ id: string; label: string; tokens: number; content: string }>
       required: string[]

@@ -106,6 +106,10 @@ export const exerciseFrontmatterSchema = Schema.Struct({
   type: Schema.optionalWith(exerciseTypeSchema, { default: () => 'blank' }),
   hints: Schema.optional(Schema.Array(Schema.String)),
   tags: Schema.optional(Schema.Array(Schema.String)),
+  // Turn-budget exercises only. The schema drops fields it does not declare,
+  // so an exercise authoring `turnBudget: 3` silently lost it and the session
+  // route refused to start — the field has to be here to survive decoding.
+  turnBudget: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
 })
 
 export type UserCreateInput = Schema.Schema.Type<typeof userCreateSchema>

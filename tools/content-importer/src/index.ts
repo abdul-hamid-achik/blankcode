@@ -95,6 +95,7 @@ async function importExercise(db: Db, exercisePath: string, conceptId: string): 
       hints: frontmatter.hints ?? [],
       blanks: blanksInStarter,
       contextSources: contextSources ?? null,
+      turnBudget: frontmatter.turnBudget ?? null,
       order: 0,
       isPublished: true,
     })
@@ -111,6 +112,7 @@ async function importExercise(db: Db, exercisePath: string, conceptId: string): 
         hints: frontmatter.hints ?? [],
         blanks: blanksInStarter,
         contextSources: contextSources ?? null,
+        turnBudget: frontmatter.turnBudget ?? null,
         updatedAt: new Date(),
       },
     })

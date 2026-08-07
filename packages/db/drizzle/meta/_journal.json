@@ -50,6 +50,13 @@
       "when": 1771470555753,
       "tag": "0006_add_context_sources",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1771470555754,
+      "tag": "0007_add_turn_budget",
+      "breakpoints": true
     }
   ]
 }

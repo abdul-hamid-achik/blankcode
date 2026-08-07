@@ -15,7 +15,7 @@ export interface LandingTrack {
 }
 
 export const LANDING_TRACKS: LandingTrack[] = [
-  { name: 'TypeScript', slug: 'typescript', color: '#3178C6', exercises: 24 },
+  { name: 'TypeScript', slug: 'typescript', color: '#3178C6', exercises: 25 },
   { name: 'Python', slug: 'python', color: '#3776AB', exercises: 18 },
   { name: 'Go', slug: 'go', color: '#00ADD8', exercises: 15 },
   { name: 'React', slug: 'react', color: '#61DAFB', exercises: 15 },

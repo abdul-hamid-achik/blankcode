@@ -5,9 +5,6 @@ import { requireUserId } from '../../../utils/auth'
 import { databaseStore } from '../../../utils/session-store'
 import { startSession } from '../../../utils/turn-session-service'
 
-/** Turns are fixed at creation, so changing this default cannot move a session already running. */
-const DEFAULT_MAX_TURNS = 3
-
 /** Postgres unique-violation, wherever it sits in the cause chain. */
 function isUniqueViolation(error: unknown): boolean {
   for (let current = error; current; current = (current as { cause?: unknown }).cause) {
@@ -26,12 +23,19 @@ export default defineEventHandler(async (event) => {
   const db = createDatabaseFromEnv()
   const exercise = await db.query.exercises.findFirst({
     where: eq(exercises.id, body.exerciseId),
-    columns: { id: true },
+    columns: { id: true, turnBudget: true },
   })
   if (!exercise) throw createError({ statusCode: 404, statusMessage: 'Exercise not found' })
 
+  // The budget comes from the exercise, not from a constant here: it is the
+  // difficulty knob. An exercise that does not declare one is not a turn-budget
+  // exercise, and starting a session on it would invent a rule it never had.
+  if (!exercise.turnBudget || exercise.turnBudget < 1) {
+    throw createError({ statusCode: 404, statusMessage: 'Exercise has no turn budget' })
+  }
+
   try {
-    const session = await startSession(databaseStore(db), userId, exercise.id, DEFAULT_MAX_TURNS)
+    const session = await startSession(databaseStore(db), userId, exercise.id, exercise.turnBudget)
     return {
       id: session.id,
       maxTurns: session.maxTurns,

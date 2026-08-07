@@ -130,6 +130,14 @@ export interface ExerciseFrontmatter {
   type?: ExerciseType
   hints?: string[] | undefined
   tags?: string[] | undefined
+  /**
+   * Turn-budget exercises only: how many messages the learner gets.
+   *
+   * Authored per exercise rather than a global constant, because the budget is
+   * the difficulty knob — a three-turn task and a six-turn task are different
+   * exercises, not the same one configured differently.
+   */
+  turnBudget?: number | undefined
 }
 
 export interface Submission {
