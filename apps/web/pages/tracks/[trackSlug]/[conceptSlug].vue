@@ -1,21 +1,58 @@
 <script setup lang="ts">
+import { TRACK_SLUGS, type Concept, type Exercise, type Track } from '@blankcode/shared'
 import Card from '~/components/ui/card.vue'
-import { useAsync } from '~/composables/useAsync'
+import { useAuthStore } from '~/stores/auth'
 
 const route = useRoute()
 const trackSlug = computed(() => route.params['trackSlug'] as string)
 const conceptSlug = computed(() => route.params['conceptSlug'] as string)
 
-const api = useApi()
-const {
-  data: exercises,
-  isLoading,
-  execute,
-} = useAsync(() => api.exercises.getByConcept(trackSlug.value, conceptSlug.value))
+if (!TRACK_SLUGS.includes(trackSlug.value as (typeof TRACK_SLUGS)[number])) {
+  throw createError({ statusCode: 404, statusMessage: 'Track not found', fatal: true })
+}
 
-onMounted(() => {
-  execute()
+/*
+ * Server-rendered, like the track page and for the same reason: this used to
+ * load in `onMounted`, so a crawler landing on "typescript generics
+ * exercises" saw a spinner. The track fetch shares its key with the track
+ * page, so navigating down from there costs nothing extra — and it is what
+ * lets the heading say the concept's *name*. The h1 used to render the raw
+ * slug, on the surface whose whole job is naming the thing you are studying.
+ */
+const [{ data: exercises, pending: isLoading }, { data: track }] = await Promise.all([
+  useAsyncData(
+    () => `concept-exercises-${trackSlug.value}-${conceptSlug.value}`,
+    () =>
+      $fetch<Exercise[]>(`/api/tracks/${trackSlug.value}/concepts/${conceptSlug.value}/exercises`)
+  ),
+  useAsyncData(
+    () => `track-${trackSlug.value}`,
+    () => $fetch<Track & { concepts?: Concept[] }>(`/api/tracks/${trackSlug.value}`)
+  ),
+])
+
+const concept = computed(() => track.value?.concepts?.find((c) => c.slug === conceptSlug.value))
+
+useSeoMeta({
+  title: () => `${concept.value?.name ?? conceptSlug.value} — ${track.value?.name ?? 'BlankCode'}`,
+  description: () => concept.value?.description ?? 'Practice exercises for this concept.',
 })
+
+/** Done-marks per exercise: the user's real completions, or nothing. */
+const auth = useAuthStore()
+const api = useApi()
+const completedIds = ref<Set<string> | null>(null)
+
+onMounted(async () => {
+  if (!auth.isAuthenticated) return
+  try {
+    completedIds.value = new Set(await api.progress.completed())
+  } catch {
+    // No marks over wrong marks.
+  }
+})
+
+const isDone = (id: string) => completedIds.value?.has(id) ?? false
 
 const difficultyColors: Record<string, string> = {
   beginner: 'bg-green-500/10 text-green-500',
@@ -53,10 +90,12 @@ const exerciseTypeBadges: Record<string, { label: string; icon: string; color: s
           :to="`/tracks/${trackSlug}`"
           class="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block"
         >
-          &larr; Back to Track
+          &larr; Back to {{ track?.name ?? 'Track' }}
         </NuxtLink>
-        <h1 class="display text-2xl md:text-3xl mb-2">{{ conceptSlug }}</h1>
-        <p class="text-muted-foreground">Practice exercises for this concept.</p>
+        <h1 class="display text-2xl md:text-3xl mb-2">{{ concept?.name ?? conceptSlug }}</h1>
+        <p class="text-muted-foreground">
+          {{ concept?.description ?? 'Practice exercises for this concept.' }}
+        </p>
       </div>
 
       <div v-if="exercises?.length" class="grid gap-4">
@@ -65,6 +104,14 @@ const exerciseTypeBadges: Record<string, { label: string; icon: string; color: s
             <div class="flex items-center justify-between">
               <div>
                 <div class="flex items-center gap-2 mb-1">
+                  <!-- The mark that you have been here and won. -->
+                  <span
+                    v-if="isDone(exercise.id)"
+                    class="font-mono text-xs text-pass"
+                    title="Completed"
+                    aria-label="Completed"
+                    >✓</span
+                  >
                   <h3 class="font-semibold">{{ exercise.title }}</h3>
                   <span
                     :class="[
@@ -111,7 +158,7 @@ const exerciseTypeBadges: Record<string, { label: string; icon: string; color: s
         v-else-if="exercises && exercises.length === 0"
         class="text-center py-8 text-muted-foreground"
       >
-        No exercises available for this concept yet.
+        Nothing here yet — this concept's exercises are still being written.
       </div>
     </div>
   </div>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { TRACK_SLUGS, type Concept, type Track } from '@blankcode/shared'
 import Card from '~/components/ui/card.vue'
+import { useAuthStore } from '~/stores/auth'
 
 const route = useRoute()
 const trackSlug = computed(() => route.params['trackSlug'] as string)
@@ -32,6 +33,40 @@ const { data: track, pending: isLoading } = await useAsyncData(
 if (!track.value) {
   throw createError({ statusCode: 404, statusMessage: 'Track not found', fatal: true })
 }
+
+/*
+ * The user's own marks on the page. `conceptsProgress` sat computed in the
+ * store while this page rendered every concept identically — a returning
+ * learner could not see which door they had already been through. Fetched
+ * after mount because the page is complete without it and the shell must
+ * stay crawlable.
+ */
+interface ConceptProgressRow {
+  conceptSlug: string
+  totalExercises: number
+  mastery: { exercisesCompleted: number } | null
+}
+
+const auth = useAuthStore()
+const api = useApi()
+const progressBySlug = ref<Map<string, { completed: number; total: number }> | null>(null)
+
+onMounted(async () => {
+  if (!auth.isAuthenticated) return
+  try {
+    const rows = (await api.progress.getTrack(trackSlug.value)) as ConceptProgressRow[]
+    progressBySlug.value = new Map(
+      rows.map((row) => [
+        row.conceptSlug,
+        { completed: row.mastery?.exercisesCompleted ?? 0, total: row.totalExercises },
+      ])
+    )
+  } catch {
+    // No marks is a fine state; wrong marks is not.
+  }
+})
+
+const conceptProgress = (slug: string) => progressBySlug.value?.get(slug) ?? null
 
 useSeoMeta({
   title: () => track.value?.name ?? 'Track',
@@ -75,6 +110,22 @@ useSeoMeta({
                 <h3 class="font-semibold">{{ concept.name }}</h3>
                 <p class="text-sm text-muted-foreground">{{ concept.description }}</p>
               </div>
+              <!-- Your marks on the paper: real counts, or nothing. -->
+              <span
+                v-if="conceptProgress(concept.slug)"
+                class="mr-3 shrink-0 font-mono text-xs"
+                :class="
+                  (conceptProgress(concept.slug)?.completed ?? 0) >=
+                    (conceptProgress(concept.slug)?.total ?? 1) &&
+                  (conceptProgress(concept.slug)?.total ?? 0) > 0
+                    ? 'text-pass'
+                    : 'text-muted-foreground'
+                "
+              >
+                {{ conceptProgress(concept.slug)?.completed }}/{{
+                  conceptProgress(concept.slug)?.total
+                }}
+              </span>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="20"
