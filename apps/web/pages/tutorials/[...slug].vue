@@ -12,6 +12,14 @@ const { data: tutorial } = await useAsyncData(`tutorial-${slugPath.value}`, () =
   queryCollection('tutorials').path(tutorialPath.value).first()
 )
 
+// A missing tutorial has to be a real 404. Rendering "not found" with a 200
+// tells a crawler the URL is a valid page, which turns every typo into an
+// indexable one — and this content is server-resolved, so the status can be
+// correct here.
+if (!tutorial.value) {
+  throw createError({ statusCode: 404, statusMessage: 'Tutorial not found', fatal: true })
+}
+
 const difficultyColor: Record<string, string> = {
   beginner: 'bg-green-500/10 text-green-500',
   intermediate: 'bg-yellow-500/10 text-yellow-500',

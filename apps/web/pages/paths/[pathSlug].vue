@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Exercise } from '@blankcode/shared'
+import { LEARNING_PATHS, type Exercise } from '@blankcode/shared'
 import { computed, onMounted, ref } from 'vue'
 import Button from '~/components/ui/button.vue'
 import Card from '~/components/ui/card.vue'
@@ -11,6 +11,16 @@ definePageMeta({ requiresAuth: false })
 const route = useRoute()
 const router = useRouter()
 const pathSlug = computed(() => route.params['pathSlug'] as string)
+
+/*
+ * Learning paths are static data, so whether this slug exists is knowable
+ * during the server render — no request needed. Answering 200 for one that does
+ * not tells a crawler the URL is a valid page, which makes every typo an
+ * indexable one.
+ */
+if (!LEARNING_PATHS.some((p) => p.slug === pathSlug.value)) {
+  throw createError({ statusCode: 404, statusMessage: 'Path not found', fatal: true })
+}
 
 const api = useApi()
 const {

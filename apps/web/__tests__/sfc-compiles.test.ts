@@ -125,3 +125,33 @@ describe('vue-router is declared, not just inherited', () => {
     expect(pkg.dependencies['vue-router']).toMatch(/^\^5\./)
   })
 })
+
+/**
+ * A page that renders "not found" with a 200 is a soft-404: it tells a crawler
+ * the URL is a valid page, so every typo becomes an indexable one. That matters
+ * more now that the site publishes a sitemap and canonical tags.
+ *
+ * Only pages whose data resolves during the server render can answer correctly.
+ * `/tracks/[trackSlug]` fetches from the client, so it still answers 200 for a
+ * slug that does not exist — fixing that means moving its data flow to the
+ * server, which is a real change rather than a line.
+ */
+describe('missing resources are real 404s', () => {
+  it.each([
+    ['pages/blog/[...slug].vue', 'Post not found'],
+    ['pages/tutorials/[...slug].vue', 'Tutorial not found'],
+    ['pages/paths/[pathSlug].vue', 'Path not found'],
+  ])('%s throws a 404', (file, message) => {
+    const source = readFileSync(join(process.cwd(), file), 'utf-8')
+    expect(source).toContain('statusCode: 404')
+    expect(source).toContain(message)
+    // `fatal` is what makes Nuxt render the error page with the status rather
+    // than swallowing it into the current one.
+    expect(source).toContain('fatal: true')
+  })
+
+  it('the paths page checks static data rather than waiting for a request', () => {
+    const source = readFileSync(join(process.cwd(), 'pages/paths/[pathSlug].vue'), 'utf-8')
+    expect(source).toContain('LEARNING_PATHS.some')
+  })
+})
