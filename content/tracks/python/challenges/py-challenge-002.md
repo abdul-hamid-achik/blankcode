@@ -57,7 +57,7 @@ import os
 
 @pytest.fixture
 def sample_file():
-    content = "Hello world\\nHello Python\\nHello World"
+    content = "Hello world\nHello Python\nHello World"
     with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
         f.write(content)
         path = f.name
@@ -76,11 +76,11 @@ def test_line_count(sample_file, empty_file):
     assert FileStats(empty_file).line_count() == 0
 
 def test_word_count(sample_file, empty_file):
-    assert FileStats(sample_file).word_count() == 7
+    assert FileStats(sample_file).word_count() == 6
     assert FileStats(empty_file).word_count() == 0
 
 def test_char_count(sample_file):
-    content = "Hello world\\nHello Python\\nHello World"
+    content = "Hello world\nHello Python\nHello World"
     assert FileStats(sample_file).char_count() == len(content)
 
 def test_average_word_length(sample_file):
@@ -104,4 +104,59 @@ def test_empty_file(empty_file):
     assert stats.word_count() == 0
     assert stats.most_common_word() is None
     assert stats.average_word_length() == 0.0
+```
+
+## Solution
+
+```python
+from collections import Counter
+
+
+class FileStats:
+    def __init__(self, path: str) -> None:
+        self.path = path
+        self._content: str | None = None
+
+    def _read(self) -> str:
+        # Read lazily so constructing FileStats for a missing file is fine and
+        # the FileNotFoundError surfaces from the call that needs the content.
+        if self._content is None:
+            with open(self.path, encoding="utf-8") as handle:
+                self._content = handle.read()
+        return self._content
+
+    def _words(self) -> list[str]:
+        return self._read().split()
+
+    def line_count(self) -> int:
+        content = self._read()
+        if not content:
+            return 0
+        # An empty file has no lines; a file not ending in a newline still has
+        # its last line, which is why splitlines is the right call here.
+        return len(content.splitlines())
+
+    def word_count(self) -> int:
+        return len(self._words())
+
+    def char_count(self) -> int:
+        return len(self._read())
+
+    def char_count_no_spaces(self) -> int:
+        return len(self._read().replace(" ", ""))
+
+    def average_word_length(self) -> float:
+        words = self._words()
+        if not words:
+            return 0.0
+        return round(sum(len(word) for word in words) / len(words), 2)
+
+    def most_common_word(self) -> str | None:
+        words = [word.lower() for word in self._words()]
+        if not words:
+            return None
+        return Counter(words).most_common(1)[0][0]
+
+    def unique_words(self) -> int:
+        return len({word.lower() for word in self._words()})
 ```

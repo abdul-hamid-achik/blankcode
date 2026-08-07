@@ -56,17 +56,31 @@ export function parseExercise(markdown: string, options: ParseOptions = {}): Par
       }
     }
 
-    const solutionCode = codeBlockMatch[1]?.trim() ?? ''
+    const firstBlock = codeBlockMatch[1]?.trim() ?? ''
 
     // Determine exercise type based on frontmatter or presence of blank markers
     const exerciseType =
-      frontmatter.type ?? (solutionCode.includes(BLANK_START_MARKER) ? 'blank' : 'challenge')
+      frontmatter.type ?? (firstBlock.includes(BLANK_START_MARKER) ? 'blank' : 'challenge')
 
-    // For challenge exercises, no blanks are extracted
+    /*
+     * A blank exercise's first code block is the annotated solution, and the
+     * starter is derived from it by blanking regions out.
+     *
+     * A challenge's first code block is the opposite: it is the empty stub the
+     * learner starts from. Its reference solution lives in a `## Solution`
+     * section, which is stripped from what the learner sees. Without that
+     * section a challenge's "solution" was the stub itself — which is why no
+     * challenge could ever be verified as solvable.
+     */
+    const referenceSolution =
+      exerciseType === 'challenge' ? (extractSectionCode(content, 'Solution') ?? '') : firstBlock
+
+    const solutionCode = exerciseType === 'challenge' ? referenceSolution : firstBlock
+
     const blanks = exerciseType === 'challenge' ? [] : extractBlanks(solutionCode, generateIds)
     const { starterCode, blanksInStarter } =
       exerciseType === 'challenge'
-        ? { starterCode: solutionCode, blanksInStarter: [] }
+        ? { starterCode: firstBlock, blanksInStarter: [] }
         : generateStarterCode(solutionCode, blanks)
 
     return {
@@ -157,6 +171,28 @@ export function extractBlanks(code: string, generateIds = true): BlankRegion[] {
   }
 
   return blanks
+}
+
+/**
+ * Returns the code inside the first fenced block under a `## <heading>`
+ * section, or undefined when the section is absent.
+ *
+ * Used for a challenge's reference solution, which must not reach the learner —
+ * `redactExercise` strips `solutionCode` from every response, and the importer
+ * never puts this section into the rendered content.
+ */
+export function extractSectionCode(markdown: string, heading: string): string | undefined {
+  const pattern = new RegExp(`^##\\s+${heading}\\s*$`, 'im')
+  const match = pattern.exec(markdown)
+  if (!match) return undefined
+
+  const after = markdown.slice(match.index + match[0].length)
+  // Stop at the next `##` so a later section's code cannot be picked up.
+  const nextHeading = after.search(/^##\s+/m)
+  const section = nextHeading === -1 ? after : after.slice(0, nextHeading)
+
+  const code = /```[\w]*\n([\s\S]*?)```/.exec(section)
+  return code?.[1]?.trim()
 }
 
 function extractSolutionText(

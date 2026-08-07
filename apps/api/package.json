@@ -17,10 +17,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "content:verify": "bun scripts/verify-solutions.ts"
   },
   "dependencies": {
     "@blankcode/db": "workspace:*",
+    "@blankcode/exercise-parser": "workspace:*",
     "@blankcode/shared": "workspace:*",
     "@effect/experimental": "^0.61.1",
     "@effect/platform": "^0.97.1",

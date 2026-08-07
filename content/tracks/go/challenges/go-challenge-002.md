@@ -148,3 +148,50 @@ func TestCounterConcurrentMixed(t *testing.T) {
     }
 }
 ```
+
+## Solution
+
+```go
+package main
+
+import "sync"
+
+// Counter guards a single int with a mutex. sync/atomic would also satisfy the
+// requirement, but a mutex keeps Reset and the read-modify-write of Add in one
+// place, which is where a naive atomic version usually goes wrong.
+type Counter struct {
+	mu    sync.Mutex
+	value int
+}
+
+func NewCounter(initial int) *Counter {
+	return &Counter{value: initial}
+}
+
+func (c *Counter) Increment() int {
+	return c.Add(1)
+}
+
+func (c *Counter) Decrement() int {
+	return c.Add(-1)
+}
+
+func (c *Counter) Add(n int) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.value += n
+	return c.value
+}
+
+func (c *Counter) Value() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.value
+}
+
+func (c *Counter) Reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.value = 0
+}
+```

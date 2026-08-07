@@ -23,6 +23,7 @@
     "db:studio": "bun run --filter @blankcode/db db:studio",
     "content:import": "bun run --filter @blankcode/content-importer start",
     "content:validate": "bun run --filter @blankcode/exercise-validator start",
+    "content:verify": "bun run --filter @blankcode/api content:verify",
     "content:generate": "bun run --filter @blankcode/exercise-generator start",
     "runners:build": "bash docker/runners/build-all.sh",
     "runners:rebuild": "docker compose up --force-recreate --no-deps runner-images",

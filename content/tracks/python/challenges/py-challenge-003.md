@@ -128,3 +128,113 @@ def test_connection_pooling():
     # Should reuse connections from pool
     assert len(set(connections)) < 5
 ```
+
+## Solution
+
+```python
+from functools import wraps
+
+
+class Cursor:
+    def __init__(self) -> None:
+        self.rows: list = []
+
+
+class DatabaseConnection:
+    """A connection with a pool, transaction tracking and a decorator.
+
+    There is no real database here — the point of the exercise is the
+    lifecycle, so the connection records what it was asked to do.
+    """
+
+    _pool: list["DatabaseConnection"] = []
+
+    def __new__(cls) -> "DatabaseConnection":
+        # Reusing an idle connection is the whole reason a pool exists: opening
+        # one is the expensive part, and callers create them freely.
+        if cls._pool:
+            return cls._pool.pop()
+        return super().__new__(cls)
+
+    def __init__(self) -> None:
+        self.connected = False
+        self.cursor: Cursor | None = None
+        self.last_query: str | None = None
+        self.last_params: tuple | None = None
+        self.transaction_committed = False
+        self.transaction_rolled_back = False
+        self._depth = 0
+
+    def __enter__(self) -> "DatabaseConnection":
+        self.connected = True
+        self.cursor = Cursor()
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        # An exception escaping the block means the work is incomplete, so the
+        # transaction must not survive it.
+        if exc_type is not None:
+            self.rollback()
+        self.connected = False
+        self.cursor = None
+        type(self)._pool.append(self)
+        return False
+
+    def execute(self, query: str, params: tuple = ()) -> Cursor:
+        if not self.connected:
+            raise RuntimeError("connection is closed")
+        self.last_query = query
+        self.last_params = params
+        return self.cursor
+
+    def commit(self) -> None:
+        self.transaction_committed = True
+        self.transaction_rolled_back = False
+
+    def rollback(self) -> None:
+        self.transaction_rolled_back = True
+        self.transaction_committed = False
+
+    def transaction(self) -> "_Transaction":
+        return _Transaction(self)
+
+
+class _Transaction:
+    """Nested blocks join the outermost transaction rather than starting their
+    own, so an inner block cannot commit work the outer one has not finished."""
+
+    def __init__(self, connection: DatabaseConnection) -> None:
+        self.connection = connection
+
+    def __enter__(self) -> DatabaseConnection:
+        self.connection._depth += 1
+        return self.connection
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        self.connection._depth -= 1
+        if exc_type is not None:
+            self.connection.rollback()
+        elif self.connection._depth == 0:
+            self.connection.commit()
+        return False
+
+
+def transaction(func):
+    """Commits when the wrapped function returns, rolls back when it raises.
+
+    The connection is the first argument, which is what lets the decorator stay
+    ignorant of everything else the function takes.
+    """
+
+    @wraps(func)
+    def wrapper(connection: DatabaseConnection, *args, **kwargs):
+        try:
+            result = func(connection, *args, **kwargs)
+        except Exception:
+            connection.rollback()
+            raise
+        connection.commit()
+        return result
+
+    return wrapper
+```

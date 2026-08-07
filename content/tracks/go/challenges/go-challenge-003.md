@@ -187,3 +187,86 @@ func TestRateLimiterDoesNotExceedCapacity(t *testing.T) {
     }
 }
 ```
+
+## Solution
+
+```go
+package main
+
+import (
+	"sync"
+	"time"
+)
+
+// RateLimiter is a token bucket. Tokens are computed from elapsed time on each
+// call rather than pushed by a ticker: a ticker would need its own goroutine
+// and a way to stop it, and it cannot refill a bucket nobody is reading.
+type RateLimiter struct {
+	mu         sync.Mutex
+	rate       float64
+	capacity   float64
+	tokens     float64
+	lastRefill time.Time
+}
+
+func NewRateLimiter(rate int, capacity int) *RateLimiter {
+	return &RateLimiter{
+		rate:       float64(rate),
+		capacity:   float64(capacity),
+		tokens:     float64(capacity),
+		lastRefill: time.Now(),
+	}
+}
+
+// refill must be called with the mutex held.
+func (r *RateLimiter) refill() {
+	now := time.Now()
+	elapsed := now.Sub(r.lastRefill).Seconds()
+	r.lastRefill = now
+
+	r.tokens += elapsed * r.rate
+	// Clamping is the whole point of a bucket: idle time must not accumulate
+	// into a burst larger than the capacity.
+	if r.tokens > r.capacity {
+		r.tokens = r.capacity
+	}
+}
+
+func (r *RateLimiter) Allow() bool {
+	return r.AllowN(1)
+}
+
+func (r *RateLimiter) AllowN(n int) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.refill()
+	if r.tokens >= float64(n) {
+		r.tokens -= float64(n)
+		return true
+	}
+	return false
+}
+
+func (r *RateLimiter) Wait() {
+	for !r.Allow() {
+		time.Sleep(time.Millisecond)
+	}
+}
+
+func (r *RateLimiter) Remaining() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.refill()
+	return int(r.tokens)
+}
+
+func (r *RateLimiter) Reset() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.tokens = r.capacity
+	r.lastRefill = time.Now()
+}
+```

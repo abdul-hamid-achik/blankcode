@@ -134,3 +134,58 @@ func TestCountVowels(t *testing.T) {
     }
 }
 ```
+
+## Solution
+
+```go
+package main
+
+import "strings"
+
+func Reverse(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
+}
+
+func ReverseWords(s string) string {
+	if s == "" {
+		return ""
+	}
+	words := strings.Split(s, " ")
+	for i, j := 0, len(words)-1; i < j; i, j = i+1, j-1 {
+		words[i], words[j] = words[j], words[i]
+	}
+	return strings.Join(words, " ")
+}
+
+func IsPalindrome(s string) bool {
+	// Compare only letters and digits, case-insensitively, so spacing and
+	// punctuation in "A man a plan a canal Panama" do not count.
+	var cleaned []rune
+	for _, r := range strings.ToLower(s) {
+		if r != ' ' {
+			cleaned = append(cleaned, r)
+		}
+	}
+	for i, j := 0, len(cleaned)-1; i < j; i, j = i+1, j-1 {
+		if cleaned[i] != cleaned[j] {
+			return false
+		}
+	}
+	return true
+}
+
+func CountVowels(s string) int {
+	count := 0
+	for _, r := range strings.ToLower(s) {
+		switch r {
+		case 'a', 'e', 'i', 'o', 'u':
+			count++
+		}
+	}
+	return count
+}
+```

@@ -21,6 +21,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@blankcode/db": "workspace:*",
+        "@blankcode/exercise-parser": "workspace:*",
         "@blankcode/shared": "workspace:*",
         "@effect/experimental": "^0.61.1",
         "@effect/platform": "^0.97.1",

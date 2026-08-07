@@ -270,3 +270,94 @@ describe('markers', () => {
     expect(BLANK_END_MARKER).toBe('___blank_end___')
   })
 })
+
+/**
+ * A challenge's first code block is the stub the learner starts from, not an
+ * answer. Before `## Solution` existed, the parser used that stub as
+ * `solutionCode`, so every challenge shipped with a reference solution that was
+ * a comment — and nothing could verify a challenge was even solvable.
+ */
+describe('challenge reference solutions', () => {
+  const challenge = `---
+slug: demo-challenge
+title: 'Challenge: Demo'
+description: A demo challenge.
+difficulty: beginner
+type: challenge
+---
+
+# Demo
+
+## Requirements
+
+Write \`double\`.
+
+\`\`\`ts
+// Your implementation here
+\`\`\`
+
+## Tests
+
+\`\`\`ts
+import { expect, it } from 'vitest'
+it('doubles', () => expect(double(2)).toBe(4))
+\`\`\`
+
+## Solution
+
+\`\`\`ts
+function double(n: number): number {
+  return n * 2
+}
+\`\`\`
+`
+
+  it('takes the starter from the first block and the solution from ## Solution', () => {
+    const result = parseExercise(challenge)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+
+    expect(result.exercise.starterCode).toContain('Your implementation here')
+    expect(result.exercise.solutionCode).toContain('return n * 2')
+    expect(result.exercise.solutionCode).not.toContain('Your implementation here')
+  })
+
+  it('does not pick up a later section as the solution', () => {
+    // `## Tests` comes before `## Solution`; the wrong regex would grab it.
+    const result = parseExercise(challenge)
+    if (!result.success) return
+    expect(result.exercise.solutionCode).not.toContain('vitest')
+  })
+
+  it('leaves solutionCode empty when the section is missing, rather than using the stub', () => {
+    const withoutSolution = challenge.slice(0, challenge.indexOf('## Solution'))
+    const result = parseExercise(withoutSolution)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+
+    // Empty is honest: a stub masquerading as a solution is what hid the
+    // problem in the first place.
+    expect(result.exercise.solutionCode).toBe('')
+    expect(result.exercise.starterCode).toContain('Your implementation here')
+  })
+
+  it('still treats a blank exercise as before', () => {
+    const blank = `---
+slug: demo-blank
+title: Demo blank
+description: A demo.
+difficulty: beginner
+type: blank
+---
+
+\`\`\`ts
+const x = ___blank_start___42___blank_end___
+\`\`\`
+`
+    const result = parseExercise(blank)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.exercise.solutionCode).toContain('42')
+    expect(result.exercise.blanks.length).toBe(1)
+  })
+})

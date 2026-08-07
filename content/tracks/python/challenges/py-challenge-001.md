@@ -90,3 +90,68 @@ def test_invalid_units():
     with pytest.raises(ValueError):
         convert_temperature(100, 'C', 'X')
 ```
+
+## Solution
+
+```python
+ABSOLUTE_ZERO_C = -273.15
+ABSOLUTE_ZERO_F = -459.67
+ABSOLUTE_ZERO_K = 0.0
+
+
+def _check_celsius(celsius: float) -> None:
+    if celsius < ABSOLUTE_ZERO_C:
+        raise ValueError(f"{celsius}°C is below absolute zero")
+
+
+def celsius_to_fahrenheit(celsius: float) -> float:
+    _check_celsius(celsius)
+    return celsius * 9 / 5 + 32
+
+
+def fahrenheit_to_celsius(fahrenheit: float) -> float:
+    if fahrenheit < ABSOLUTE_ZERO_F:
+        raise ValueError(f"{fahrenheit}°F is below absolute zero")
+    return (fahrenheit - 32) * 5 / 9
+
+
+def celsius_to_kelvin(celsius: float) -> float:
+    _check_celsius(celsius)
+    # Rounded because 0.1 + 273.15 in binary floating point is not exact, and
+    # the conversions are compared for equality.
+    return round(celsius + 273.15, 10)
+
+
+def kelvin_to_celsius(kelvin: float) -> float:
+    if kelvin < ABSOLUTE_ZERO_K:
+        raise ValueError(f"{kelvin}K is below absolute zero")
+    return round(kelvin - 273.15, 10)
+
+
+_TO_CELSIUS = {
+    "C": lambda value: value,
+    "F": fahrenheit_to_celsius,
+    "K": kelvin_to_celsius,
+}
+
+_FROM_CELSIUS = {
+    "C": lambda value: value,
+    "F": celsius_to_fahrenheit,
+    "K": celsius_to_kelvin,
+}
+
+
+def convert_temperature(value: float, from_unit: str, to_unit: str) -> float:
+    source = from_unit.upper()
+    target = to_unit.upper()
+
+    if source not in _TO_CELSIUS:
+        raise ValueError(f"Unknown unit: {from_unit}")
+    if target not in _FROM_CELSIUS:
+        raise ValueError(f"Unknown unit: {to_unit}")
+
+    # Going through Celsius keeps this to six conversions instead of nine, and
+    # means the absolute-zero checks only have to live in one place per unit.
+    celsius = _TO_CELSIUS[source](value)
+    return _FROM_CELSIUS[target](celsius)
+```

@@ -235,3 +235,103 @@ func TestWorkerPoolZeroWorkers(t *testing.T) {
     pool.Start()
 }
 ```
+
+## Solution
+
+```go
+package main
+
+import (
+	"sync"
+)
+
+type Job interface {
+	Execute() error
+	ID() string
+}
+
+type PoolStats struct {
+	SuccessCount int
+	FailureCount int
+}
+
+type WorkerPool struct {
+	numWorkers int
+	jobs       chan Job
+	wg         sync.WaitGroup
+
+	mu    sync.Mutex
+	stats PoolStats
+
+	stopOnce sync.Once
+}
+
+func NewWorkerPool(numWorkers int) *WorkerPool {
+	return &WorkerPool{
+		numWorkers: numWorkers,
+		jobs:       make(chan Job),
+	}
+}
+
+func (p *WorkerPool) Start() {
+	// A pool with no workers would accept jobs and never run them, so Submit
+	// would block forever. Failing loudly at Start is better than deadlocking.
+	if p.numWorkers <= 0 {
+		panic("worker pool needs at least one worker")
+	}
+
+	for i := 0; i < p.numWorkers; i++ {
+		p.wg.Add(1)
+		go p.worker()
+	}
+}
+
+func (p *WorkerPool) worker() {
+	defer p.wg.Done()
+	for job := range p.jobs {
+		p.run(job)
+	}
+}
+
+// run isolates one job so a panic kills the job, not the worker. Without this
+// the goroutine dies and the pool silently loses capacity.
+func (p *WorkerPool) run(job Job) {
+	failed := false
+	defer func() {
+		if r := recover(); r != nil {
+			failed = true
+		}
+		p.mu.Lock()
+		if failed {
+			p.stats.FailureCount++
+		} else {
+			p.stats.SuccessCount++
+		}
+		p.mu.Unlock()
+	}()
+
+	if err := job.Execute(); err != nil {
+		failed = true
+	}
+}
+
+func (p *WorkerPool) Submit(job Job) {
+	p.jobs <- job
+}
+
+// Stop closes the queue and waits. Closing before waiting is what makes the
+// shutdown graceful: workers drain what is already queued, then their range
+// loop ends.
+func (p *WorkerPool) Stop() {
+	p.stopOnce.Do(func() {
+		close(p.jobs)
+	})
+	p.wg.Wait()
+}
+
+func (p *WorkerPool) Stats() PoolStats {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.stats
+}
+```

@@ -33,6 +33,9 @@ Create an ORM system with the following features:
 - Auto-manage created_at/updated_at timestamps
 - Lazy evaluation for queries
 - Support basic field validation
+- **The runtime has no `sqlite3` module.** Persist however you like — a JSON
+  file behind the path you are given is enough. The exercise is about the ORM
+  layer, not the storage engine.
 
 Write your complete implementation below:
 
@@ -252,4 +255,263 @@ def test_queryset_order_by(orm_db):
     assert users[0].age == 25
     assert users[1].age == 30
     assert users[2].age == 35
+```
+
+## Solution
+
+```python
+import json
+import os
+from datetime import datetime
+
+
+class Field:
+    def __init__(self, max_length: int | None = None, unique: bool = False, default=None):
+        self.max_length = max_length
+        self.unique = unique
+        self.default = default
+        self.name = ""
+
+    def validate(self, value) -> None:
+        if value is None:
+            return
+        if self.max_length is not None and len(str(value)) > self.max_length:
+            raise ValueError(f"{self.name} exceeds max_length of {self.max_length}")
+
+    def to_db(self, value):
+        return value
+
+    def from_db(self, value):
+        return value
+
+
+class StringField(Field):
+    pass
+
+
+class TextField(Field):
+    pass
+
+
+class IntegerField(Field):
+    pass
+
+
+class BooleanField(Field):
+    def to_db(self, value):
+        return None if value is None else bool(value)
+
+    def from_db(self, value):
+        return None if value is None else bool(value)
+
+
+class DateTimeField(Field):
+    def to_db(self, value):
+        return None if value is None else value.isoformat()
+
+    def from_db(self, value):
+        return None if value is None else datetime.fromisoformat(value)
+
+
+class ResultList(list):
+    """A list that also answers `.first()`, so `all()` can be indexed, counted
+    and asked for its head without callers knowing which they will need."""
+
+    def first(self):
+        return self[0] if self else None
+
+
+class Storage:
+    """A JSON file standing in for a database.
+
+    The runtime has no `sqlite3`, and the exercise is about the ORM layer, so
+    the store only has to be a persistent dict of tables to rows.
+    """
+
+    @staticmethod
+    def read(path: str) -> dict:
+        if not os.path.exists(path):
+            return {}
+        with open(path, encoding="utf-8") as handle:
+            content = handle.read().strip()
+        return json.loads(content) if content else {}
+
+    @staticmethod
+    def write(path: str, data: dict) -> None:
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(data, handle)
+
+
+class QuerySet:
+    """Lazy: filters and ordering accumulate, and nothing is read until `all()`,
+    `first()`, `count()` or `get()` asks for rows."""
+
+    def __init__(self, model, db=None, filters=None, order=None):
+        self.model = model
+        self.db = db
+        self.filters = dict(filters or {})
+        self.order = order
+
+    def _clone(self, **changes) -> "QuerySet":
+        return QuerySet(
+            self.model,
+            changes.get("db", self.db),
+            changes.get("filters", self.filters),
+            changes.get("order", self.order),
+        )
+
+    # The db path is given to whichever call comes first and carried from
+    # there, which is what makes `.filter(db, ...).filter(...)` chain.
+    def filter(self, *args, **kwargs) -> "QuerySet":
+        db = args[0] if args else self.db
+        merged = dict(self.filters)
+        merged.update(kwargs)
+        return self._clone(db=db, filters=merged)
+
+    def order_by(self, *args) -> "QuerySet":
+        if len(args) == 2:
+            return self._clone(db=args[0], order=args[1])
+        return self._clone(order=args[0])
+
+    def _matches(self, row: dict) -> bool:
+        for key, expected in self.filters.items():
+            if key.endswith("__gt"):
+                if not row.get(key[:-4], 0) > expected:
+                    return False
+            elif key.endswith("__lt"):
+                if not row.get(key[:-4], 0) < expected:
+                    return False
+            elif key.endswith("__gte"):
+                if not row.get(key[:-5], 0) >= expected:
+                    return False
+            elif key.endswith("__lte"):
+                if not row.get(key[:-5], 0) <= expected:
+                    return False
+            else:
+                field = self.model._fields.get(key)
+                wanted = field.to_db(expected) if field else expected
+                if row.get(key) != wanted:
+                    return False
+        return True
+
+    def _rows(self, db=None) -> list:
+        database = db or self.db
+        table = Storage.read(database).get(self.model._table, [])
+        rows = [row for row in table if self._matches(row)]
+        if self.order:
+            rows.sort(key=lambda row: row.get(self.order))
+        return rows
+
+    def all(self, db=None) -> ResultList:
+        return ResultList(self.model._from_row(row) for row in self._rows(db))
+
+    def first(self, db=None):
+        return self.all(db).first()
+
+    def count(self, db=None) -> int:
+        return len(self._rows(db))
+
+    def get(self, db=None, id=None):
+        database = db or self.db
+        for row in Storage.read(database).get(self.model._table, []):
+            if row.get("id") == id:
+                return self.model._from_row(row)
+        return None
+
+
+class ModelMeta(type):
+    """Collects the declared fields and gives each model its own manager.
+
+    Doing this in a metaclass is what lets a model read as a plain class body
+    of field declarations, with no registration step for the author to forget.
+    """
+
+    def __new__(mcls, name, bases, namespace):
+        cls = super().__new__(mcls, name, bases, namespace)
+        cls._fields = {
+            key: value for key, value in namespace.items() if isinstance(value, Field)
+        }
+        for field_name, field in cls._fields.items():
+            field.name = field_name
+            # The class attribute is the Field itself; clearing it means an
+            # instance without a value reads as None rather than as a Field.
+            setattr(cls, field_name, None)
+        cls._table = name.lower()
+        cls.objects = QuerySet(cls)
+        return cls
+
+
+class Model(metaclass=ModelMeta):
+    def __init__(self, **kwargs):
+        self.id = None
+        self.created_at = None
+        self.updated_at = None
+        for name, field in self._fields.items():
+            setattr(self, name, kwargs.get(name, field.default))
+
+    @classmethod
+    def create_table(cls, db) -> None:
+        data = Storage.read(db)
+        data[cls._table] = []
+        Storage.write(db, data)
+
+    @classmethod
+    def _from_row(cls, row: dict) -> "Model":
+        instance = cls()
+        instance.id = row["id"]
+        for name, field in cls._fields.items():
+            setattr(instance, name, field.from_db(row.get(name)))
+        instance.created_at = datetime.fromisoformat(row["created_at"]) if row.get("created_at") else None
+        instance.updated_at = datetime.fromisoformat(row["updated_at"]) if row.get("updated_at") else None
+        return instance
+
+    def _validate(self, table: list) -> None:
+        for name, field in self._fields.items():
+            value = getattr(self, name)
+            field.validate(value)
+            if not field.unique:
+                continue
+            for row in table:
+                if row.get(name) == field.to_db(value) and row.get("id") != self.id:
+                    raise ValueError(f"{name} must be unique")
+
+    def save(self, db) -> "Model":
+        data = Storage.read(db)
+        table = data.setdefault(self._table, [])
+
+        # Validated before anything is written, so a rejected save leaves the
+        # store exactly as it was.
+        self._validate(table)
+
+        now = datetime.now()
+        values = {name: field.to_db(getattr(self, name)) for name, field in self._fields.items()}
+
+        if self.id is None:
+            self.id = max((row["id"] for row in table), default=0) + 1
+            self.created_at = now
+            self.updated_at = now
+            table.append({
+                "id": self.id,
+                **values,
+                "created_at": now.isoformat(),
+                "updated_at": now.isoformat(),
+            })
+        else:
+            self.updated_at = now
+            for row in table:
+                if row["id"] == self.id:
+                    row.update(values)
+                    row["updated_at"] = now.isoformat()
+                    break
+
+        Storage.write(db, data)
+        return self
+
+    def delete(self, db) -> None:
+        if self.id is None:
+            return
+        data = Storage.read(db)
+        table = data.get(self._table, [])
+        data[self._table] = [row for row in table if row["id"] != self.id]
+        Storage.write(db, data)
 ```

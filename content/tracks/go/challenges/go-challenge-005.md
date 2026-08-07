@@ -340,3 +340,175 @@ func TestRouterConcurrentRegistration(t *testing.T) {
     }
 }
 ```
+
+## Solution
+
+```go
+package main
+
+import (
+	"net/http"
+	"strings"
+	"sync"
+)
+
+type Params map[string]string
+
+func (p Params) ByName(name string) string {
+	return p[name]
+}
+
+type HandlerFunc func(w http.ResponseWriter, r *http.Request, params Params)
+
+type Middleware func(http.Handler) http.Handler
+
+type route struct {
+	method   string
+	segments []string
+	handler  HandlerFunc
+}
+
+type Router struct {
+	// Routes are registered concurrently in practice (init functions, tests),
+	// and served concurrently always, so the slice needs a lock on both sides.
+	mu          sync.RWMutex
+	routes      []route
+	middlewares []Middleware
+}
+
+func NewRouter() *Router {
+	return &Router{}
+}
+
+func (router *Router) Use(mw Middleware) {
+	router.mu.Lock()
+	defer router.mu.Unlock()
+	router.middlewares = append(router.middlewares, mw)
+}
+
+func (router *Router) Handle(method, path string, handler HandlerFunc) {
+	router.mu.Lock()
+	defer router.mu.Unlock()
+	router.routes = append(router.routes, route{
+		method:   method,
+		segments: splitPath(path),
+		handler:  handler,
+	})
+}
+
+func (router *Router) GET(path string, handler HandlerFunc) {
+	router.Handle(http.MethodGet, path, handler)
+}
+
+func (router *Router) POST(path string, handler HandlerFunc) {
+	router.Handle(http.MethodPost, path, handler)
+}
+
+func (router *Router) PUT(path string, handler HandlerFunc) {
+	router.Handle(http.MethodPut, path, handler)
+}
+
+func (router *Router) DELETE(path string, handler HandlerFunc) {
+	router.Handle(http.MethodDelete, path, handler)
+}
+
+func splitPath(path string) []string {
+	trimmed := strings.Trim(path, "/")
+	if trimmed == "" {
+		return []string{}
+	}
+	return strings.Split(trimmed, "/")
+}
+
+// match reports whether the route matches, the captured params, and a score.
+// The score is what makes `/users/new` win over `/users/:id`: a literal
+// segment costs nothing, a parameter costs one, a wildcard costs two, and the
+// cheapest match wins.
+func (r route) match(segments []string) (Params, int, bool) {
+	params := Params{}
+	score := 0
+
+	for i, pattern := range r.segments {
+		if strings.HasPrefix(pattern, "*") {
+			params[pattern[1:]] = strings.Join(segments[i:], "/")
+			return params, score + 2, true
+		}
+		if i >= len(segments) {
+			return nil, 0, false
+		}
+		if strings.HasPrefix(pattern, ":") {
+			params[pattern[1:]] = segments[i]
+			score++
+			continue
+		}
+		if pattern != segments[i] {
+			return nil, 0, false
+		}
+	}
+
+	if len(segments) != len(r.segments) {
+		return nil, 0, false
+	}
+	return params, score, true
+}
+
+func (router *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	router.mu.RLock()
+	routes := make([]route, len(router.routes))
+	copy(routes, router.routes)
+	middlewares := make([]Middleware, len(router.middlewares))
+	copy(middlewares, router.middlewares)
+	router.mu.RUnlock()
+
+	segments := splitPath(req.URL.Path)
+
+	var best *route
+	var bestParams Params
+	bestScore := -1
+	pathExists := false
+
+	for i := range routes {
+		params, score, ok := routes[i].match(segments)
+		if !ok {
+			continue
+		}
+		// The path exists even under another method — that is the difference
+		// between 404 and 405.
+		pathExists = true
+		if routes[i].method != req.Method {
+			continue
+		}
+		if bestScore == -1 || score < bestScore {
+			best = &routes[i]
+			bestParams = params
+			bestScore = score
+		}
+	}
+
+	var handler http.Handler
+	switch {
+	case best != nil:
+		matched := *best
+		params := bestParams
+		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			matched.handler(w, r, params)
+		})
+	case pathExists:
+		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		})
+	default:
+		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		})
+	}
+
+	// Applied in reverse so the first registered middleware ends up outermost,
+	// which is what makes the before/after ordering nest the way callers expect.
+	for i := len(middlewares) - 1; i >= 0; i-- {
+		handler = middlewares[i](handler)
+	}
+
+	handler.ServeHTTP(w, req)
+}
+```
