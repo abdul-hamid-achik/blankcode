@@ -7,7 +7,16 @@ export type SubmissionStatus = (typeof SUBMISSION_STATUSES)[number]
 export const TRACK_SLUGS = ['typescript', 'vue', 'react', 'node', 'go', 'rust', 'python'] as const
 export type TrackSlug = (typeof TRACK_SLUGS)[number]
 
-export const EXERCISE_TYPES = ['blank', 'challenge'] as const
+/*
+ * `blank`     — the starter has regions removed; you produce them from memory.
+ * `challenge` — you write the whole thing from a stub.
+ * `review`    — the starter is code that already looks finished and is wrong.
+ *               You find the defect before submitting. This is the one that
+ *               trains reading code you did not write, which is the skill that
+ *               stopped being optional once a model could produce two hundred
+ *               plausible lines in four seconds.
+ */
+export const EXERCISE_TYPES = ['blank', 'challenge', 'review'] as const
 export type ExerciseType = (typeof EXERCISE_TYPES)[number]
 
 export const ACHIEVEMENT_TYPES = [

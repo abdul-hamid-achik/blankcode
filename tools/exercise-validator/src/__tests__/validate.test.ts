@@ -447,3 +447,50 @@ it('works', () => expect(x).toBe(42))
     expect(findings.some((f) => f.rule === 'challenge-no-solution')).toBe(false)
   })
 })
+
+describe('review exercises', () => {
+  const review = (extra: string) => `---
+slug: demo-review
+title: 'Review: demo'
+description: Find the defect.
+difficulty: intermediate
+type: review
+---
+
+# Demo
+
+\`\`\`ts
+export const half = (n: number) => n / 3
+\`\`\`
+
+## Tests
+
+\`\`\`ts
+import { expect, it } from 'vitest'
+it('halves', () => expect(half(4)).toBe(2))
+\`\`\`
+${extra}`
+
+  it('needs a `## Solution` like a challenge does', () => {
+    const findings = validateExerciseSource({ file: 'r.md', text: review('') })
+    expect(findings.some((f) => f.rule === 'challenge-no-solution')).toBe(true)
+  })
+
+  it('is clean once it has one', () => {
+    const findings = validateExerciseSource({
+      file: 'r.md',
+      text: review('\n## Solution\n\n```ts\nexport const half = (n: number) => n / 2\n```\n'),
+    })
+    expect(findings.filter((f) => f.severity !== 'warning')).toEqual([])
+  })
+
+  it('is not asked for blanks', () => {
+    // Only a blank exercise has regions removed; demanding them here would
+    // reject every review.
+    const findings = validateExerciseSource({
+      file: 'r.md',
+      text: review('\n## Solution\n\n```ts\nexport const half = (n: number) => n / 2\n```\n'),
+    })
+    expect(findings.some((f) => f.rule === 'blank-missing')).toBe(false)
+  })
+})

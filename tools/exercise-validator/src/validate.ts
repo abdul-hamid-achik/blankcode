@@ -243,16 +243,16 @@ function checkBlanks(
     return scan.blanks.length
   }
 
-  if (exerciseType === 'challenge' && scan.blanks.length > 0) {
+  if (exerciseType !== 'blank' && scan.blanks.length > 0) {
     collect.at(
       'error',
       'challenge-has-blanks',
       starter.bodyStart + (scan.blanks[0]?.startOffset ?? 0),
-      'Exercise is `type: challenge`, so the parser extracts no blanks — the markers are stored verbatim in the starter code the student sees.'
+      'Only a `type: blank` exercise has its blanks extracted. Here the markers are stored verbatim in the starter code the student sees.'
     )
   }
 
-  if (exerciseType !== 'challenge' && scan.blanks.length === 0) {
+  if (exerciseType === 'blank' && scan.blanks.length === 0) {
     collect.at(
       'error',
       'blank-none',
@@ -461,7 +461,7 @@ function checkChallengeSolution(
   exerciseType: string,
   bodyStart: number
 ): void {
-  if (exerciseType !== 'challenge') return
+  if (exerciseType !== 'challenge' && exerciseType !== 'review') return
 
   const heading = /^##\s+Solution\s*$/im.exec(text)
   if (!heading) {
@@ -469,7 +469,7 @@ function checkChallengeSolution(
       'fatal',
       'challenge-no-solution',
       bodyStart,
-      'Challenge has no `## Solution` section, so its reference solution is the empty starter stub and nothing can verify the exercise is solvable. Add the section and check it with `bun run content:verify`.'
+      'Exercise has no `## Solution` section, so its reference solution is the empty starter stub and nothing can verify the exercise is solvable. Add the section and check it with `bun run content:verify`.'
     )
     return
   }
@@ -516,7 +516,7 @@ export function validateExerciseSource(source: ExerciseSource): Finding[] {
     checkMarkerPlacement(collect, text, starter)
     checkChallengeSolution(collect, text, exerciseType, bodyStart)
     const blankCount = checkBlanks(collect, starter, exerciseType, lang)
-    if (exerciseType !== 'challenge') checkRoundTrip(collect, starter)
+    if (exerciseType === 'blank') checkRoundTrip(collect, starter)
     checkTestsSection(collect, text, lang)
     checkDifficulty(
       collect,

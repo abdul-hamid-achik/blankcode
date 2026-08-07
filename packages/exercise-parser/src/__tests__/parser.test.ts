@@ -361,3 +361,65 @@ const x = ___blank_start___42___blank_end___
     expect(result.exercise.blanks.length).toBe(1)
   })
 })
+
+/**
+ * A review exercise starts from code that already looks finished and is wrong.
+ * The parser has to keep that code as the starter — it is the whole exercise —
+ * and take the reference from `## Solution`, exactly as a challenge does.
+ */
+describe('review exercises', () => {
+  const review = `---
+slug: demo-review
+title: 'Review: a demo'
+description: Find the defect.
+difficulty: intermediate
+type: review
+---
+
+# Demo
+
+\`\`\`ts
+export function half(n: number): number {
+  return n / 3
+}
+\`\`\`
+
+## Tests
+
+\`\`\`ts
+import { expect, it } from 'vitest'
+it('halves', () => expect(half(4)).toBe(2))
+\`\`\`
+
+## Solution
+
+\`\`\`ts
+export function half(n: number): number {
+  return n / 2
+}
+\`\`\`
+`
+
+  it('keeps the defective code as the starter', () => {
+    const result = parseExercise(review)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+
+    // The bug is the exercise. Replacing the starter with the answer would
+    // leave nothing to find.
+    expect(result.exercise.starterCode).toContain('n / 3')
+    expect(result.exercise.solutionCode).toContain('n / 2')
+  })
+
+  it('extracts no blanks', () => {
+    const result = parseExercise(review)
+    if (!result.success) return
+    expect(result.exercise.blanks).toEqual([])
+  })
+
+  it('reports the type it was given', () => {
+    const result = parseExercise(review)
+    if (!result.success) return
+    expect(result.exercise.type).toBe('review')
+  })
+})

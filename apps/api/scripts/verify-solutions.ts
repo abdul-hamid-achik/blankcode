@@ -28,6 +28,8 @@ interface Fixture {
   name: string
   type: string
   solution: string
+  /** What the learner opens. Only carried for reviews, where it must fail. */
+  starter: string
   testCode: string
 }
 
@@ -64,6 +66,7 @@ function collect(tracks: string[], challengesOnly: boolean): Fixture[] {
           solution: solutionCode
             .replaceAll('___blank_start___', '')
             .replaceAll('___blank_end___', ''),
+          starter: parsed.exercise.starterCode,
           testCode,
         })
       }
@@ -109,6 +112,30 @@ for (const fixture of fixtures) {
     const seconds = ((Date.now() - started) / 1000).toFixed(1)
 
     if (result.status === 'passed' && (result.testResults?.length ?? 0) > 0) {
+      /*
+       * A review exercise makes one more promise than the others: the code the
+       * learner opens is wrong. If the starter already passes there is nothing
+       * to find, and the exercise is a lie that no other check can catch — it
+       * parses, renders and grades perfectly.
+       */
+      if (fixture.type === 'review') {
+        const starterRun = await executionService.execute(
+          `verify-starter-${fixture.track}-${fixture.name}`,
+          'verify',
+          fixture.starter,
+          fixture.testCode,
+          fixture.track
+        )
+        if (starterRun.status === 'passed') {
+          failures.push({
+            fixture,
+            reason: 'the starter passes its own tests, so there is no defect to find',
+          })
+          console.log(`✗ ${label}  STARTER PASSES  ${seconds}s`)
+          continue
+        }
+      }
+
       passed++
       console.log(`✓ ${label}  ${result.testResults?.length} tests  ${seconds}s`)
     } else {

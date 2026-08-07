@@ -72,16 +72,19 @@ export function parseExercise(markdown: string, options: ParseOptions = {}): Par
      * section a challenge's "solution" was the stub itself — which is why no
      * challenge could ever be verified as solvable.
      */
-    const referenceSolution =
-      exerciseType === 'challenge' ? (extractSectionCode(content, 'Solution') ?? '') : firstBlock
+    // A challenge starts from a stub, a review starts from code that already
+    // looks finished and is wrong. Either way the first block is what the
+    // learner opens and the reference lives in `## Solution`.
+    const startsFromFirstBlock = exerciseType === 'challenge' || exerciseType === 'review'
 
-    const solutionCode = exerciseType === 'challenge' ? referenceSolution : firstBlock
+    const solutionCode = startsFromFirstBlock
+      ? (extractSectionCode(content, 'Solution') ?? '')
+      : firstBlock
 
-    const blanks = exerciseType === 'challenge' ? [] : extractBlanks(solutionCode, generateIds)
-    const { starterCode, blanksInStarter } =
-      exerciseType === 'challenge'
-        ? { starterCode: firstBlock, blanksInStarter: [] }
-        : generateStarterCode(solutionCode, blanks)
+    const blanks = startsFromFirstBlock ? [] : extractBlanks(solutionCode, generateIds)
+    const { starterCode, blanksInStarter } = startsFromFirstBlock
+      ? { starterCode: firstBlock, blanksInStarter: [] }
+      : generateStarterCode(solutionCode, blanks)
 
     return {
       success: true,
