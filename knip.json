@@ -34,7 +34,6 @@
   },
   "ignoreDependencies": [
     "@blankcode/shared",
-    "drizzle-orm",
     "vue-tsc",
     "shiki",
     "vscode-oniguruma",

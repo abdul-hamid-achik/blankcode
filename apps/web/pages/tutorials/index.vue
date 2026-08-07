@@ -1,34 +1,44 @@
 <script setup lang="ts">
+/**
+ * The shape `content.config.ts` declares for the tutorials collection, plus
+ * the `path` @nuxt/content adds. Declared rather than cast at each use: the
+ * twelve `as any` this replaces meant a typo in a field name was invisible.
+ */
+interface Tutorial {
+  path: string
+  title: string
+  description: string
+  order: number
+  difficulty: 'beginner' | 'intermediate' | 'advanced'
+  tags: string[]
+  track?: string
+  slug?: string
+}
+
 const selectedTrack = ref<string | null>(null)
 
 const { data: allTutorials } = await useAsyncData('tutorials', () =>
   queryCollection('tutorials').all()
 )
 
-const tutorials = computed(() => allTutorials.value ?? [])
+const tutorials = computed(() => (allTutorials.value ?? []) as unknown as Tutorial[])
 
-const tracks = computed(() => {
-  const trackSet = new Set<string>()
-  for (const t of tutorials.value) {
-    if ((t as any).track) trackSet.add((t as any).track)
-  }
-  return Array.from(trackSet).sort()
-})
+const byOrder = (a: Tutorial, b: Tutorial) => (a.order ?? 0) - (b.order ?? 0)
+
+const tracks = computed(() =>
+  [
+    ...new Set(tutorials.value.map((t) => t.track).filter((track): track is string => !!track)),
+  ].toSorted()
+)
 
 const standaloneTutorials = computed(() =>
-  tutorials.value
-    .filter((t) => !(t as any).track)
-    .sort((a, b) => ((a as any).order ?? 0) - ((b as any).order ?? 0))
+  tutorials.value.filter((t) => !t.track).toSorted(byOrder)
 )
 
 const trackTutorials = computed(() => {
-  const filtered = tutorials.value.filter((t) => (t as any).track)
-  if (selectedTrack.value) {
-    return filtered
-      .filter((t) => (t as any).track === selectedTrack.value)
-      .sort((a, b) => ((a as any).order ?? 0) - ((b as any).order ?? 0))
-  }
-  return filtered.sort((a, b) => ((a as any).order ?? 0) - ((b as any).order ?? 0))
+  const filtered = tutorials.value.filter((t) => t.track)
+  const selected = selectedTrack.value
+  return (selected ? filtered.filter((t) => t.track === selected) : filtered).toSorted(byOrder)
 })
 
 const difficultyColor: Record<string, string> = {
@@ -37,7 +47,7 @@ const difficultyColor: Record<string, string> = {
   advanced: 'bg-red-500/10 text-red-500',
 }
 
-function getSlug(tutorial: any): string {
+function getSlug(tutorial: Tutorial): string {
   // Extract slug from path: /tutorials/go/foo => go/foo or /tutorials/foo => foo
   return tutorial.path?.replace(/^\/tutorials\//, '') ?? tutorial.slug ?? ''
 }
@@ -92,20 +102,20 @@ function getSlug(tutorial: any): string {
               <div class="flex items-start justify-between gap-4">
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-1">
-                    <h3 class="font-semibold">{{ (tutorial as any).title }}</h3>
+                    <h3 class="font-semibold">{{ tutorial.title }}</h3>
                     <span
                       :class="[
                         'px-2 py-0.5 text-xs rounded-full capitalize',
-                        difficultyColor[(tutorial as any).difficulty],
+                        difficultyColor[tutorial.difficulty],
                       ]"
                     >
-                      {{ (tutorial as any).difficulty }}
+                      {{ tutorial.difficulty }}
                     </span>
                   </div>
-                  <p class="text-sm text-muted-foreground">{{ (tutorial as any).description }}</p>
+                  <p class="text-sm text-muted-foreground">{{ tutorial.description }}</p>
                   <div class="flex flex-wrap gap-1.5 mt-2">
                     <span
-                      v-for="tag in (tutorial as any).tags"
+                      v-for="tag in tutorial.tags"
                       :key="tag"
                       class="px-2 py-0.5 text-xs rounded bg-muted text-muted-foreground"
                       >{{ tag }}</span
@@ -147,26 +157,26 @@ function getSlug(tutorial: any): string {
               <div class="flex items-start justify-between gap-4">
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 mb-1">
-                    <h3 class="font-semibold">{{ (tutorial as any).title }}</h3>
+                    <h3 class="font-semibold">{{ tutorial.title }}</h3>
                     <span
                       :class="[
                         'px-2 py-0.5 text-xs rounded-full capitalize',
-                        difficultyColor[(tutorial as any).difficulty],
+                        difficultyColor[tutorial.difficulty],
                       ]"
                     >
-                      {{ (tutorial as any).difficulty }}
+                      {{ tutorial.difficulty }}
                     </span>
                     <span
-                      v-if="!selectedTrack && (tutorial as any).track"
+                      v-if="!selectedTrack && tutorial.track"
                       class="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary capitalize"
                     >
-                      {{ (tutorial as any).track }}
+                      {{ tutorial.track }}
                     </span>
                   </div>
-                  <p class="text-sm text-muted-foreground">{{ (tutorial as any).description }}</p>
+                  <p class="text-sm text-muted-foreground">{{ tutorial.description }}</p>
                   <div class="flex flex-wrap gap-1.5 mt-2">
                     <span
-                      v-for="tag in (tutorial as any).tags"
+                      v-for="tag in tutorial.tags"
                       :key="tag"
                       class="px-2 py-0.5 text-xs rounded bg-muted text-muted-foreground"
                       >{{ tag }}</span

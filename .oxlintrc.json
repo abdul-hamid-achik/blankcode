@@ -63,7 +63,12 @@
       }
     },
     {
-      "files": ["tools/**", "apps/api/src/workers/**", "apps/api/src/services/execution/**"],
+      "files": [
+        "tools/**",
+        "apps/api/scripts/**",
+        "apps/api/src/services/execution/**",
+        "apps/web/server/**"
+      ],
       "rules": {
         "no-console": "off"
       }
@@ -73,7 +78,12 @@
       "rules": {
         "typescript/no-explicit-any": "off",
         "typescript/no-non-null-assertion": "off",
-        "no-console": "off"
+        "no-console": "off",
+        // A narrowing guard followed by assertions is how a discriminated
+        // union is tested — `if (!result.success) return` then assert on the
+        // branch. The rule reads that as a conditional expect and is wrong
+        // about it every single time.
+        "vitest/no-conditional-expect": "off"
       }
     }
   ]
