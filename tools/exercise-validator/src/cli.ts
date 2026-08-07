@@ -3,7 +3,8 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { glob } from 'glob'
-import { countBySeverity } from './finding.js'
+import { parse as parseYaml } from 'yaml'
+import { countBySeverity, type Finding } from './finding.js'
 import { formatJson, formatReport } from './report.js'
 import { type ExerciseSource, validateCorpus } from './validate.js'
 
@@ -74,6 +75,61 @@ async function loadSources(contentDir: string): Promise<ExerciseSource[]> {
   return sources
 }
 
+/**
+ * Every `_track.yaml` and `_concept.yaml` has to parse.
+ *
+ * This rule exists because two of them did not, and nothing said so. A concept
+ * description containing a colon-space — "It is not: a tool" — is a nested
+ * mapping to YAML, and the importer died on it halfway through the corpus,
+ * leaving the database with whatever it had managed to write. The validator
+ * reported zero findings the whole time, because it only ever read the exercise
+ * markdown.
+ *
+ * Fatal: a track or concept that does not parse takes everything under it with
+ * it, which is the worst blast radius in the corpus.
+ */
+async function checkMetadataYaml(
+  contentDir: string
+): Promise<{ findings: Finding[]; fileCount: number }> {
+  const matches = await glob(['tracks/*/_track.yaml', 'tracks/*/*/_concept.yaml'], {
+    cwd: contentDir,
+    nodir: true,
+  })
+  const repoRoot = resolve(contentDir, '..')
+  const findings: Finding[] = []
+
+  for (const match of matches.toSorted()) {
+    const absolute = join(contentDir, match)
+    const file = relative(repoRoot, absolute).split(sep).join('/')
+    try {
+      const parsed = parseYaml(await readFile(absolute, 'utf-8'))
+      if (parsed === null || typeof parsed !== 'object') {
+        findings.push({
+          file,
+          line: 1,
+          column: 1,
+          severity: 'fatal',
+          rule: 'metadata-yaml-not-a-mapping',
+          message:
+            'File does not parse to a mapping of keys, so the importer reads nothing from it.',
+        })
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message.split('\n')[0] : String(error)
+      findings.push({
+        file,
+        line: 1,
+        column: 1,
+        severity: 'fatal',
+        rule: 'metadata-yaml-unparseable',
+        message: `YAML does not parse: ${detail}. A colon followed by a space inside an unquoted value is the usual cause — quote the value.`,
+      })
+    }
+  }
+
+  return { findings, fileCount: matches.length }
+}
+
 async function main(): Promise<number> {
   const options = parseArgs(process.argv.slice(2))
   if (!options) {
@@ -94,7 +150,10 @@ async function main(): Promise<number> {
     return 2
   }
 
-  const { findings, fileCount } = validateCorpus(sources)
+  const corpus = validateCorpus(sources)
+  const metadata = await checkMetadataYaml(options.contentDir)
+  const findings = [...metadata.findings, ...corpus.findings]
+  const fileCount = corpus.fileCount + metadata.fileCount
   const counts = countBySeverity(findings)
 
   if (options.json) {
