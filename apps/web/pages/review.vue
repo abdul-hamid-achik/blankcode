@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import EmptyState from '~/components/error/empty-state.vue'
 import Button from '~/components/ui/button.vue'
 import { useReviewStore } from '~/stores/review'
+import { speakNextBatch } from '~/utils/review-dates'
 
 /**
  * The due queue. Ordered, dense, and one click from the first item — this is
@@ -13,9 +14,19 @@ import { useReviewStore } from '~/stores/review'
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
 
 const reviewStore = useReviewStore()
+const api = useApi()
 
-onMounted(() => {
+/** The empty state's missing fact: when the next batch arrives. */
+const upcoming = ref<Awaited<ReturnType<typeof api.reviews.getUpcoming>> | null>(null)
+const nextBatch = computed(() => speakNextBatch(upcoming.value?.next ?? null))
+
+onMounted(async () => {
   reviewStore.loadDueReviews()
+  try {
+    upcoming.value = await api.reviews.getUpcoming()
+  } catch {
+    // The empty state reads fine without the horizon line.
+  }
 })
 
 const first = computed(() => reviewStore.dueExercises[0])
@@ -88,6 +99,10 @@ function lastSeen(iso: string | null | undefined): string {
 
     <template v-else>
       <h1 class="display text-2xl md:text-3xl mb-6">Nothing is due.</h1>
+      <!-- The queue concludes instead of trailing off: the next date, spoken. -->
+      <p v-if="nextBatch" class="-mt-3 mb-6 font-mono text-sm text-muted-foreground">
+        {{ nextBatch }}
+      </p>
       <EmptyState
         eyebrow="caught up"
         title="The schedule has nothing for you today."

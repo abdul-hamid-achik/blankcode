@@ -222,8 +222,12 @@ export function useApi() {
     reviews: {
       getDue: () => request<ReviewExercise[]>('/reviews/due'),
       getDueCount: () => request<{ count: number }>('/reviews/due/count'),
+      getUpcoming: () =>
+        request<{ dueNow: number; next: { date: string; count: number } | null }>(
+          '/reviews/upcoming'
+        ),
       complete: (exerciseId: string, passed: boolean, quality?: 3 | 4 | 5) =>
-        request<void>(`/reviews/${exerciseId}/complete`, {
+        request<{ nextReviewAt: string; intervalDays: number }>(`/reviews/${exerciseId}/complete`, {
           method: 'POST',
           body: JSON.stringify(quality === undefined ? { passed } : { passed, quality }),
         }),

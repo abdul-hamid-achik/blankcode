@@ -8,6 +8,7 @@ import { useKeyboard } from '~/composables/useKeyboard'
 import { useExerciseStore } from '~/stores/exercise'
 import { useReviewStore } from '~/stores/review'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
+import { speakSchedule } from '~/utils/review-dates'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
 
@@ -115,12 +116,20 @@ async function loadWhatsNext() {
   }
 }
 
+/**
+ * The date the rating just set. "Scheduled forward" was true and useless —
+ * the scheduler's entire output is a date, and saying it is what makes the
+ * machinery visible: rate Easy and watch it answer with a longer one.
+ */
+const scheduledPhrase = ref<string | null>(null)
+
 async function rateRecall(quality: 3 | 4 | 5) {
   const sub = exerciseStore.latestSubmission
   if (!sub || sub.status !== 'passed' || isRating.value) return
   isRating.value = true
   try {
-    await reviewStore.completeReview(exerciseId.value, true, quality)
+    const schedule = await reviewStore.completeReview(exerciseId.value, true, quality)
+    scheduledPhrase.value = schedule ? speakSchedule(schedule.nextReviewAt) : null
     ratingSubmittedFor.value = sub.id
     await loadWhatsNext()
   } finally {
@@ -457,7 +466,9 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
           "
           class="mt-5"
         >
-          <p class="font-mono text-xs text-pass mb-4">rating saved — scheduled forward</p>
+          <p class="font-mono text-xs text-pass mb-4">
+            rating saved — {{ scheduledPhrase ?? 'scheduled forward' }}
+          </p>
 
           <div v-if="whatsNext?.next" class="rounded border border-rule bg-card p-4">
             <p class="eyebrow mb-2">next</p>

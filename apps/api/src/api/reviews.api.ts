@@ -22,11 +22,27 @@ export class ReviewsApi extends HttpApiGroup.make('reviews')
       .addError(NotFoundError)
   )
   .add(
+    // When the queue is empty (or before it is), the one question the page
+    // could not answer: when does the next batch arrive? The date the
+    // scheduler already computed, finally spoken.
+    HttpApiEndpoint.get('upcoming', '/reviews/upcoming')
+      .addSuccess(
+        Schema.Struct({
+          dueNow: Schema.Number,
+          next: Schema.NullOr(Schema.Struct({ date: Schema.String, count: Schema.Number })),
+        })
+      )
+      .addError(NotFoundError)
+  )
+  .add(
     HttpApiEndpoint.post(
       'completeReview'
     )`/reviews/${HttpApiSchema.param('exerciseId', Schema.String)}/complete`
       .setPayload(CompleteReviewPayload)
-      .addSuccess(Schema.Void)
+      // The date the rating just set. Returning Void here forced the page to
+      // say "scheduled forward" without being able to say until when — the
+      // scheduler's whole output, computed and then hidden.
+      .addSuccess(Schema.Struct({ nextReviewAt: Schema.String, intervalDays: Schema.Number }))
       .addError(NotFoundError)
   )
   .middleware(Authorization) {}

@@ -7,6 +7,7 @@ import { useAsync } from '~/composables/useAsync'
 import { useAuthStore } from '~/stores/auth'
 import { useProgressStore } from '~/stores/progress'
 import { useReviewStore } from '~/stores/review'
+import { speakNextBatch } from '~/utils/review-dates'
 import { getStatusLabel } from '~/utils/submission-status'
 
 /**
@@ -32,14 +33,27 @@ const { data: submissions, execute: loadSubmissions } = useAsync(
   () => api.submissions.getMine(10) as Promise<SubmissionWithExercise[]>
 )
 
-onMounted(() => {
+/**
+ * When the next batch lands. The scheduler always knew; the page never said.
+ * "Nothing is due" with no horizon reads as a product with nothing more to
+ * give — "3 come back on Thursday" is the same fact as a calendar.
+ */
+const upcoming = ref<Awaited<ReturnType<typeof api.reviews.getUpcoming>> | null>(null)
+
+onMounted(async () => {
   loadSubmissions()
   progressStore.loadStats()
   reviewStore.loadDueCount()
+  try {
+    upcoming.value = await api.reviews.getUpcoming()
+  } catch {
+    // The heading stands on its own; the horizon line is extra.
+  }
 })
 
 const name = computed(() => authStore.user?.displayName || authStore.user?.username || 'you')
 const dueCount = computed(() => reviewStore.dueCount)
+const nextBatch = computed(() => speakNextBatch(upcoming.value?.next ?? null))
 
 const stats = computed(() => [
   { label: 'completed', value: String(progressStore.totalCompleted) },
@@ -77,6 +91,11 @@ function statusTone(status: string): string {
       {{ dueCount === 1 ? 'exercise is' : 'exercises are' }} ready to come back.
     </h1>
     <h1 v-else class="display text-2xl md:text-3xl mb-6">Nothing is due. Pick something new.</h1>
+
+    <!-- The calendar speaks: the schedule's next date, said out loud. -->
+    <p v-if="nextBatch" class="-mt-3 mb-6 font-mono text-sm text-muted-foreground">
+      {{ nextBatch }}
+    </p>
 
     <div class="flex flex-wrap items-center gap-3 mb-12">
       <NuxtLink v-if="dueCount > 0" to="/review">

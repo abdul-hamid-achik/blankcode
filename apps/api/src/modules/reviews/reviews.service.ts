@@ -1,7 +1,7 @@
 import { Drizzle } from '@blankcode/db/client'
 import { reviewSchedules } from '@blankcode/db/schema'
 import type { ReviewExercise } from '@blankcode/shared'
-import { and, eq, lte } from 'drizzle-orm'
+import { and, eq, gt, lte } from 'drizzle-orm'
 import { Context, Effect, Layer } from 'effect'
 import { redactExercise } from '../exercises/redact.js'
 import { NotFoundError } from '../../api/errors.js'
@@ -20,7 +20,13 @@ interface ReviewsServiceShape {
     exerciseId: string,
     passed: boolean,
     quality?: ReviewQuality
-  ) => Effect.Effect<void, NotFoundError>
+  ) => Effect.Effect<{ nextReviewAt: string; intervalDays: number }, NotFoundError>
+  readonly getUpcoming: (
+    userId: string
+  ) => Effect.Effect<
+    { dueNow: number; next: { date: string; count: number } | null },
+    NotFoundError
+  >
 }
 
 export class ReviewsService extends Context.Tag('ReviewsService')<
@@ -38,7 +44,7 @@ export const ReviewsServiceLive = Layer.effect(
       exerciseId: string,
       passed: boolean,
       explicitQuality?: ReviewQuality
-    ): Effect.Effect<void, NotFoundError> {
+    ): Effect.Effect<{ nextReviewAt: string; intervalDays: number }, NotFoundError> {
       return Effect.gen(function* () {
         const existingSchedule = yield* Effect.tryPromise({
           try: () =>
@@ -98,11 +104,17 @@ export const ReviewsServiceLive = Layer.effect(
               new NotFoundError({ resource: 'ReviewSchedule', id: `${userId}:${exerciseId}` }),
           })
         }
+
+        return {
+          nextReviewAt: result.nextReviewAt.toISOString(),
+          intervalDays: result.intervalDays,
+        }
       })
     }
 
     return ReviewsService.of({
-      scheduleReview: (userId, exerciseId, passed) => upsertSchedule(userId, exerciseId, passed),
+      scheduleReview: (userId, exerciseId, passed) =>
+        upsertSchedule(userId, exerciseId, passed).pipe(Effect.asVoid),
 
       getDueReviews: (userId) =>
         Effect.gen(function* () {
@@ -188,6 +200,48 @@ export const ReviewsServiceLive = Layer.effect(
 
       recordReview: (userId, exerciseId, passed, quality) =>
         upsertSchedule(userId, exerciseId, passed, quality),
+
+      getUpcoming: (userId) =>
+        Effect.gen(function* () {
+          const now = new Date()
+          const [dueNow, upcoming] = yield* Effect.all([
+            Effect.tryPromise({
+              try: () =>
+                db
+                  .select({ id: reviewSchedules.id })
+                  .from(reviewSchedules)
+                  .where(
+                    and(eq(reviewSchedules.userId, userId), lte(reviewSchedules.nextReviewAt, now))
+                  )
+                  .then((rows) => rows.length),
+              catch: () => new NotFoundError({ resource: 'ReviewSchedule', id: userId }),
+            }),
+            Effect.tryPromise({
+              try: () =>
+                db.query.reviewSchedules.findMany({
+                  where: and(
+                    eq(reviewSchedules.userId, userId),
+                    gt(reviewSchedules.nextReviewAt, now)
+                  ),
+                  columns: { nextReviewAt: true },
+                  orderBy: (schedules, { asc }) => [asc(schedules.nextReviewAt)],
+                }),
+              catch: () => new NotFoundError({ resource: 'ReviewSchedule', id: userId }),
+            }),
+          ])
+
+          const first = upcoming[0]
+          if (!first) return { dueNow, next: null }
+
+          // "The next batch" is everything that lands on the same calendar
+          // day (UTC) as the earliest upcoming review — the day the person
+          // will actually sit down to.
+          const day = first.nextReviewAt.toISOString().slice(0, 10)
+          const count = upcoming.filter(
+            (s) => s.nextReviewAt.toISOString().slice(0, 10) === day
+          ).length
+          return { dueNow, next: { date: day, count } }
+        }),
     })
   })
 )
