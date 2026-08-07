@@ -13,7 +13,7 @@ import {
   indentUnit,
   syntaxHighlighting,
 } from '@codemirror/language'
-import { Compartment, EditorState, type StateField } from '@codemirror/state'
+import { Compartment, EditorState } from '@codemirror/state'
 import { oneDark } from '@codemirror/theme-one-dark'
 import {
   EditorView,
@@ -55,10 +55,6 @@ const emit = defineEmits<{
 
 const editorContainer = ref<HTMLElement | null>(null)
 const editorView = shallowRef<EditorView | null>(null)
-let blankStateField: StateField<{
-  values: Map<string, string>
-  feedback: Map<string, 'correct' | 'incorrect'>
-}> | null = null
 
 const preferencesStore = usePreferencesStore()
 
@@ -68,11 +64,13 @@ const isBlankMode = computed(() => props.blanks.length > 0)
 const fontSizeCompartment = new Compartment()
 const tabSizeCompartment = new Compartment()
 const wordWrapCompartment = new Compartment()
+const themeCompartment = new Compartment()
 
 // Computed preferences
 const fontSize = computed(() => preferencesStore.preferences.fontSize)
 const tabSize = computed(() => preferencesStore.preferences.tabSize)
 const wordWrap = computed(() => preferencesStore.preferences.wordWrap)
+const siteTheme = computed(() => preferencesStore.preferences.theme)
 
 function getFontSizeExtension(size: number) {
   return EditorView.theme({
@@ -88,6 +86,13 @@ function getTabSizeExtension(size: number) {
 
 function getWordWrapExtension(enabled: boolean) {
   return enabled ? EditorView.lineWrapping : []
+}
+
+// The editor follows the site theme. Dark gets oneDark; light gets no theme
+// extension at all — the defaultHighlightStyle fallback is built for light
+// backgrounds, and the surface colours come from the --code-* tokens.
+function getThemeExtension(theme: 'dark' | 'light') {
+  return theme === 'dark' ? oneDark : []
 }
 
 function getLanguageExtension(lang: string) {
@@ -146,9 +151,6 @@ function createEditor() {
         emit('submit')
       },
     })
-    blankStateField = blankExtensions.stateField
-  } else {
-    blankStateField = null
   }
 
   const state = EditorState.create({
@@ -163,7 +165,7 @@ function createEditor() {
       keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
       submitKeymap,
       getLanguageExtension(props.language),
-      oneDark,
+      themeCompartment.of(getThemeExtension(siteTheme.value)),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       // In blank mode: read-only + blank extensions; otherwise: normal editing
       ...(isBlankMode.value && blankExtensions
@@ -257,10 +259,11 @@ watch(
 watch(
   () => props.blankFeedback,
   (feedback) => {
-    if (editorView.value && blankStateField && feedback) {
-      setBlankFeedbackOnView(editorView.value, feedback, blankStateField)
-    } else if (editorView.value && blankStateField && !feedback) {
-      clearBlankFeedbackOnView(editorView.value, blankStateField)
+    if (!editorView.value || !isBlankMode.value) return
+    if (feedback) {
+      setBlankFeedbackOnView(editorView.value, feedback)
+    } else {
+      clearBlankFeedbackOnView(editorView.value)
     }
   }
 )
@@ -286,6 +289,14 @@ watch(wordWrap, (enabled) => {
   if (editorView.value) {
     editorView.value.dispatch({
       effects: wordWrapCompartment.reconfigure(getWordWrapExtension(enabled)),
+    })
+  }
+})
+
+watch(siteTheme, (theme) => {
+  if (editorView.value) {
+    editorView.value.dispatch({
+      effects: themeCompartment.reconfigure(getThemeExtension(theme)),
     })
   }
 })

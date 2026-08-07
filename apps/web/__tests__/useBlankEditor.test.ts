@@ -1,6 +1,10 @@
 import type { BlankRegionInStarter } from '@blankcode/shared'
 import { describe, expect, it } from 'vitest'
-import { extractBlankValues, reconstructCode } from '~/composables/useBlankEditor'
+import {
+  extractBlankValues,
+  extractDraftBlankValues,
+  reconstructCode,
+} from '~/composables/useBlankEditor'
 
 /**
  * These two functions are the round-trip that keeps a user's work alive: the
@@ -160,5 +164,44 @@ describe('extractBlankValues', () => {
   it('returns nothing when the saved code no longer matches the starter', () => {
     const values = extractBlankValues('totally different text', STARTER, BLANKS)
     expect(values.size).toBe(0)
+  })
+})
+
+describe('extractDraftBlankValues', () => {
+  /**
+   * Regression: reconstructCode writes the placeholder for untouched blanks,
+   * so restoring a draft resurrected `___` as typed text — the blank showed
+   * `___` as a value and the user's next keystroke appended to it (`___f`).
+   */
+  it('drops placeholder text that reconstruction wrote for untouched blanks', () => {
+    const saved = reconstructCode(STARTER, BLANKS, new Map([['b1', '1']]))
+    const restored = extractDraftBlankValues(saved, STARTER, BLANKS)
+    expect(restored.get('b1')).toBe('1')
+    expect(restored.has('b2')).toBe(false)
+  })
+
+  it('keeps every value the user actually typed', () => {
+    const original = new Map([
+      ['b1', 'computeSomething(x)'],
+      ['b2', 'y'],
+    ])
+    const saved = reconstructCode(STARTER, BLANKS, original)
+    const restored = extractDraftBlankValues(saved, STARTER, BLANKS)
+    expect(restored.get('b1')).toBe('computeSomething(x)')
+    expect(restored.get('b2')).toBe('y')
+  })
+
+  it('keeps a cleared blank distinct from an untouched one', () => {
+    const saved = reconstructCode(
+      STARTER,
+      BLANKS,
+      new Map([
+        ['b1', ''],
+        ['b2', '2'],
+      ])
+    )
+    const restored = extractDraftBlankValues(saved, STARTER, BLANKS)
+    expect(restored.get('b1')).toBe('')
+    expect(restored.get('b2')).toBe('2')
   })
 })

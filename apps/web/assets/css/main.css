@@ -77,15 +77,10 @@
     /* Corners are near-square: this is a ruled sheet, not a rounded card UI. */
     --radius: 0.25rem;
 
-    --code-bg: 220 13% 18%;
-    --code-selection: 220 13% 28%;
-    --code-blank-bg: 220 13% 22%;
-    --code-blank-border: 220 13% 40%;
-    --code-blank-text: 220 13% 60%;
-    --code-blank-empty-bg: 220 13% 20%;
-    --code-blank-empty-border: 220 13% 35%;
-    --code-blank-correct: 142 71% 45%;
-    --code-blank-incorrect: 0 84% 60%;
+    /* The code surface is the same paper as the card — light mode never
+       switches to a dark editor. */
+    --code-bg: 210 33% 99%;
+    --code-selection: 216 25% 88%;
   }
 
   .dark {
@@ -120,13 +115,6 @@
 
     --code-bg: 222 47% 8%;
     --code-selection: 222 47% 16%;
-    --code-blank-bg: 222 47% 12%;
-    --code-blank-border: 222 30% 35%;
-    --code-blank-text: 222 20% 65%;
-    --code-blank-empty-bg: 222 47% 10%;
-    --code-blank-empty-border: 222 30% 28%;
-    --code-blank-correct: 142 71% 45%;
-    --code-blank-incorrect: 0 84% 60%;
   }
 
   * {
@@ -338,7 +326,9 @@
   }
 }
 
-/* CodeMirror blank widget styles */
+/* CodeMirror blank widget: a `.blank-slot` you can type into. Every colour
+   here is a theme token, so the slot reads correctly on light paper and on
+   dark ink without a separate palette. */
 .cm-blank-widget {
   display: inline;
 }
@@ -348,52 +338,56 @@
   font-size: inherit;
   line-height: inherit;
   padding: 1px 6px;
-  border-radius: 4px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 2px 2px 0 0;
   outline: none;
   vertical-align: baseline;
   box-sizing: content-box;
-  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+  background: transparent;
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
 }
 
-/* Empty state — dashed border, subtle pulse */
+.cm-blank-input::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+/* Empty: a ruled slot waiting for its mark. */
 .cm-blank-input[data-state="empty"] {
-  border: 1.5px dashed hsl(var(--code-blank-empty-border));
-  background: hsl(var(--code-blank-empty-bg));
-  color: hsl(var(--code-blank-text));
+  border-bottom: 2px dashed hsl(var(--signal) / 0.45);
+  background: hsl(var(--signal) / 0.08);
+  color: hsl(var(--foreground));
   animation: pulse-blank 2s ease-in-out infinite;
 }
 
-/* Focused state */
-.cm-blank-input[data-state="focused"],
-.cm-blank-input[data-state="empty"]:focus {
-  border: 1.5px solid hsl(var(--primary));
-  background: hsl(var(--primary) / 0.15);
+/* Focused: the pencil is on the slot. */
+.cm-blank-input[data-state="focused"] {
+  border-bottom: 2px solid hsl(var(--signal));
+  background: hsl(var(--signal) / 0.12);
   color: hsl(var(--foreground));
-  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2);
   animation: none;
 }
 
-/* Filled state */
+/* Filled: a mark on the sheet. */
 .cm-blank-input[data-state="filled"] {
-  border: 1.5px solid hsl(var(--primary) / 0.4);
-  background: hsl(var(--primary) / 0.1);
-  color: hsl(var(--primary));
+  border-bottom: 2px solid hsl(var(--signal) / 0.45);
+  background: hsl(var(--signal) / 0.08);
+  color: hsl(var(--signal));
   animation: none;
 }
 
-/* Correct state (after submission) */
+/* Graded (after submission). */
 .cm-blank-input[data-state="correct"] {
-  border: 1.5px solid hsl(var(--code-blank-correct) / 0.5);
-  background: hsl(var(--code-blank-correct) / 0.15);
-  color: hsl(var(--code-blank-correct));
+  border-bottom: 2px solid hsl(var(--pass));
+  background: hsl(var(--pass) / 0.1);
+  color: hsl(var(--pass));
   animation: none;
 }
 
-/* Incorrect state (after submission) */
 .cm-blank-input[data-state="incorrect"] {
-  border: 1.5px solid hsl(var(--code-blank-incorrect) / 0.5);
-  background: hsl(var(--code-blank-incorrect) / 0.15);
-  color: hsl(var(--code-blank-incorrect));
+  border-bottom: 2px solid hsl(var(--fail));
+  background: hsl(var(--fail) / 0.1);
+  color: hsl(var(--fail));
   animation: none;
 }
 

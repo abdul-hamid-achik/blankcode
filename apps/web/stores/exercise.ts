@@ -1,6 +1,6 @@
 import type { BlankRegionInStarter, Exercise, Submission } from '@blankcode/shared'
 import { defineStore } from 'pinia'
-import { extractBlankValues, reconstructCode } from '~/composables/useBlankEditor'
+import { extractDraftBlankValues, reconstructCode } from '~/composables/useBlankEditor'
 
 export const useExerciseStore = defineStore('exercise', () => {
   const exercise = ref<Exercise | null>(null)
@@ -84,9 +84,11 @@ export const useExerciseStore = defineStore('exercise', () => {
     if (exercise.value?.blanks?.length) {
       blanks.value = exercise.value.blanks
 
-      // If we have a draft or submission, extract blank values from the saved code
+      // If we have a draft or submission, extract blank values from the saved
+      // code — via the draft variant, which drops the placeholders that
+      // reconstruction wrote for untouched blanks.
       if (codeSource.value !== 'starter' && currentCode.value !== exercise.value.starterCode) {
-        blankValues.value = extractBlankValues(
+        blankValues.value = extractDraftBlankValues(
           currentCode.value,
           exercise.value.starterCode,
           blanks.value

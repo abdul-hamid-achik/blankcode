@@ -58,7 +58,49 @@ function createBlankStateField(initialValues: Map<string, string>) {
 
 // --- Widget ---
 
-class BlankWidget extends WidgetType {
+/**
+ * Derive the input's visual state and width from the DOM itself. Reading the
+ * live element — not widget fields — matters: CodeMirror reuses the DOM across
+ * widget instances, so the instance a listener closed over goes stale while
+ * the element it reads from never does.
+ */
+function applyVisualState(input: HTMLInputElement, placeholder: string): void {
+  const feedback = input.dataset['feedback']
+  if (feedback === 'correct' || feedback === 'incorrect') {
+    input.dataset['state'] = feedback
+  } else if (document.activeElement === input) {
+    input.dataset['state'] = 'focused'
+  } else if (input.value.length > 0) {
+    input.dataset['state'] = 'filled'
+  } else {
+    input.dataset['state'] = 'empty'
+  }
+
+  // Sized to whichever is longer, placeholder or answer, so the slot grows
+  // under the mark instead of clipping it.
+  const widthChars = Math.max(placeholder.length, input.value.length, 3) + 2
+  input.style.width = `${widthChars}ch`
+}
+
+function focusAdjacentBlank(
+  view: EditorView,
+  current: HTMLInputElement,
+  reverse: boolean
+): boolean {
+  const allInputs = Array.from(view.dom.querySelectorAll<HTMLInputElement>('.cm-blank-input'))
+  const currentIndex = allInputs.indexOf(current)
+  if (currentIndex === -1) return false
+
+  const nextIndex = reverse ? currentIndex - 1 : currentIndex + 1
+  if (nextIndex < 0 || nextIndex >= allInputs.length) {
+    // Boundary — let the browser handle Tab so focus leaves the editor.
+    return false
+  }
+  allInputs[nextIndex]?.focus()
+  return true
+}
+
+export class BlankWidget extends WidgetType {
   constructor(
     readonly blank: BlankRegionInStarter,
     readonly value: string,
@@ -69,12 +111,27 @@ class BlankWidget extends WidgetType {
     super()
   }
 
+  /**
+   * Equality decides whether CodeMirror may keep the existing DOM untouched.
+   * The typed value is deliberately NOT compared: the user's keystrokes live
+   * in the `<input>` itself, and treating them as a difference tore the input
+   * down on every keystroke — killing focus, caret, and characters with it.
+   * Feedback IS compared, so a grading change falls through to updateDOM.
+   */
   override eq(other: BlankWidget): boolean {
-    return (
-      this.blank.id === other.blank.id &&
-      this.value === other.value &&
-      this.feedbackState === other.feedbackState
-    )
+    return this.blank.id === other.blank.id && this.feedbackState === other.feedbackState
+  }
+
+  /**
+   * Called when eq() is false but the same kind of widget occupies the slot.
+   * Repair the element in place and return true — that keeps the node, and
+   * with it the user's focus, alive.
+   */
+  override updateDOM(dom: HTMLElement): boolean {
+    const input = dom.querySelector<HTMLInputElement>('.cm-blank-input')
+    if (!input || input.dataset['blankId'] !== this.blank.id) return false
+    this.syncInput(input)
+    return true
   }
 
   toDOM(view: EditorView): HTMLElement {
@@ -90,79 +147,61 @@ class BlankWidget extends WidgetType {
     input.spellcheck = false
     input.autocomplete = 'off'
     input.setAttribute('aria-label', `Blank: ${this.blank.placeholder || this.blank.id}`)
-    if (this.feedbackState === 'incorrect') {
-      input.setAttribute('aria-invalid', 'true')
-    }
 
-    // Compute width in ch units
-    const widthChars = Math.max(this.blank.placeholder.length, this.value.length, 3) + 2
-    input.style.width = `${widthChars}ch`
+    // These listeners outlive `this`: later widget instances adopt the same
+    // DOM, so they capture only stable references and read the rest live.
+    const { blank, onInput, onSubmit } = this
 
-    // Set data-state for CSS styling
-    this.updateDataState(input)
-
-    // Input event
     input.addEventListener('input', () => {
-      this.onInput(this.blank.id, input.value)
+      onInput(blank.id, input.value)
+      applyVisualState(input, blank.placeholder)
     })
 
-    // Keydown for Tab navigation between blanks (only intercept when there's
-    // another blank to move to — at the boundaries, let the browser's default
-    // Tab behavior take over so focus can leave the editor).
+    // Tab moves between blanks (only intercepted when there is another blank
+    // to move to — at the boundaries, the browser's default Tab behavior
+    // takes over so focus can leave the editor).
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Tab') {
-        const moved = this.focusAdjacentBlank(view, input, e.shiftKey)
+        const moved = focusAdjacentBlank(view, input, e.shiftKey)
         if (moved) {
           e.preventDefault()
           e.stopPropagation()
         }
       } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault()
-        this.onSubmit()
+        onSubmit()
       }
     })
 
-    // Update data-state on focus/blur
-    input.addEventListener('focus', () => {
-      if (!this.feedbackState) {
-        input.dataset['state'] = 'focused'
-      }
-    })
+    input.addEventListener('focus', () => applyVisualState(input, blank.placeholder))
+    input.addEventListener('blur', () => applyVisualState(input, blank.placeholder))
 
-    input.addEventListener('blur', () => {
-      this.updateDataState(input)
-    })
-
+    this.syncInput(input)
     wrapper.appendChild(input)
     return wrapper
   }
 
-  private focusAdjacentBlank(
-    view: EditorView,
-    current: HTMLInputElement,
-    reverse: boolean
-  ): boolean {
-    const allInputs = Array.from(view.dom.querySelectorAll<HTMLInputElement>('.cm-blank-input'))
-    const currentIndex = allInputs.indexOf(current)
-    if (currentIndex === -1) return false
-
-    const nextIndex = reverse ? currentIndex - 1 : currentIndex + 1
-    if (nextIndex < 0 || nextIndex >= allInputs.length) {
-      // Boundary — let the browser handle Tab so focus leaves the editor.
-      return false
+  /** Bring an input up to date with this widget without disturbing the user. */
+  private syncInput(input: HTMLInputElement): void {
+    // A focused input is the source of truth for its own value — the user is
+    // mid-word there, and assigning `.value` resets the caret. Only an
+    // unfocused input may be synced from state (e.g. a restored draft).
+    if (document.activeElement !== input && input.value !== this.value) {
+      input.value = this.value
     }
-    allInputs[nextIndex]?.focus()
-    return true
-  }
 
-  private updateDataState(input: HTMLInputElement) {
     if (this.feedbackState) {
-      input.dataset['state'] = this.feedbackState
-    } else if (this.value.length > 0) {
-      input.dataset['state'] = 'filled'
+      input.dataset['feedback'] = this.feedbackState
     } else {
-      input.dataset['state'] = 'empty'
+      delete input.dataset['feedback']
     }
+    if (this.feedbackState === 'incorrect') {
+      input.setAttribute('aria-invalid', 'true')
+    } else {
+      input.removeAttribute('aria-invalid')
+    }
+
+    applyVisualState(input, this.blank.placeholder)
   }
 
   override ignoreEvent(): boolean {
@@ -259,7 +298,6 @@ export interface CreateBlankExtensionsOptions {
 
 export interface BlankExtensionsResult {
   extensions: Extension[]
-  stateField: StateField<BlankState>
 }
 
 export function createBlankExtensions(
@@ -333,7 +371,7 @@ export function createBlankExtensions(
     EditorView.contentAttributes.of({ tabindex: '-1' }),
   ]
 
-  return { extensions, stateField: field }
+  return { extensions }
 }
 
 // --- Helper functions ---
@@ -343,8 +381,7 @@ export function createBlankExtensions(
  */
 export function setBlankFeedbackOnView(
   view: EditorView,
-  feedback: Map<string, 'correct' | 'incorrect'>,
-  stateField: StateField<BlankState>
+  feedback: Map<string, 'correct' | 'incorrect'>
 ): void {
   view.dispatch({
     effects: setBlankFeedback.of(feedback),
@@ -354,13 +391,34 @@ export function setBlankFeedbackOnView(
 /**
  * Clear feedback effects on a view.
  */
-export function clearBlankFeedbackOnView(
-  view: EditorView,
-  stateField: StateField<BlankState>
-): void {
+export function clearBlankFeedbackOnView(view: EditorView): void {
   view.dispatch({
     effects: clearFeedback.of(undefined),
   })
+}
+
+/**
+ * Draft restore: extraction, minus reconstruction's own artifacts.
+ *
+ * `reconstructCode` writes the placeholder for every untouched blank — it has
+ * nothing else to write — so a raw extract of a saved draft resurrects
+ * `______` as typed text, and the next keystroke appends to it: the editor
+ * shows `______f`. A placeholder-equal value can never be a real answer
+ * (authoring forbids answers that start or end with `_`), so dropping it
+ * loses nothing.
+ */
+export function extractDraftBlankValues(
+  savedCode: string,
+  starterCode: string,
+  blanks: readonly BlankRegionInStarter[]
+): Map<string, string> {
+  const values = extractBlankValues(savedCode, starterCode, blanks)
+  for (const blank of blanks) {
+    if (values.get(blank.id) === blank.placeholder) {
+      values.delete(blank.id)
+    }
+  }
+  return values
 }
 
 // Re-exported so callers keep importing blank helpers from one place; the
