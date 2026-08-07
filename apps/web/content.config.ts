@@ -24,5 +24,33 @@ export default defineContentConfig({
         track: z.string().optional(),
       }),
     }),
+
+    /*
+     * Articles. Separate from tutorials on purpose: tutorials teach a concept
+     * inside a track and are ordered within it, while a post is standalone and
+     * dated, and is what search engines are meant to find.
+     */
+    blog: defineCollection({
+      type: 'page',
+      source: {
+        cwd: resolve(__dirname, '../../content/blog'),
+        prefix: '/blog',
+        include: '**/*.md',
+      },
+      schema: z.object({
+        title: z.string(),
+        description: z.string(),
+        // Kept as a string: the date is authored, not computed, and parsing it
+        // into a Date here would only make it a string again on the wire.
+        date: z.string(),
+        author: z.string().default('BlankCode'),
+        tags: z.array(z.string()).default([]),
+        // Opt a post out of the sitemap and listing without deleting the file.
+        draft: z.boolean().default(false),
+        // Overrides the auto-generated OG description when the post needs a
+        // different pitch for social cards than for the page itself.
+        ogDescription: z.string().optional(),
+      }),
+    }),
   },
 })
