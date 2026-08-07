@@ -1,5 +1,6 @@
 import { HttpApiEndpoint, HttpApiGroup } from '@effect/platform'
 import { Schema } from 'effect'
+import { Authorization } from '../middleware/auth.middleware.js'
 import { AuthRateLimit } from '../middleware/rate-limit.middleware.js'
 import { BadRequestError, ConflictError, UnauthorizedError } from './errors.js'
 
@@ -67,4 +68,21 @@ export class AuthApi extends HttpApiGroup.make('auth')
       .addSuccess(Schema.Void, { status: 204 })
       .addError(BadRequestError)
       .middleware(AuthRateLimit)
+  )
+  .add(
+    // Who the presented credential belongs to, and which kind it is. This is
+    // the harness's first call: an agent that cannot say whose work it is
+    // about to submit has no business submitting.
+    HttpApiEndpoint.get('me', '/auth/me')
+      .addSuccess(
+        Schema.Struct({
+          id: Schema.String,
+          email: Schema.String,
+          username: Schema.String,
+          displayName: Schema.NullOr(Schema.String),
+          via: Schema.Literal('web', 'agent'),
+        })
+      )
+      .addError(UnauthorizedError)
+      .middleware(Authorization)
   ) {}

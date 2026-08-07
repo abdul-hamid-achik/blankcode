@@ -1,6 +1,7 @@
 import { HttpApiBuilder } from '@effect/platform'
 import { Effect } from 'effect'
 import { BlankCodeApi } from '../api/index.js'
+import { CurrentUser } from '../middleware/auth.middleware.js'
 import { AuthService } from '../modules/auth/auth.service.js'
 
 export const AuthHandlers = HttpApiBuilder.group(BlankCodeApi, 'auth', (handlers) =>
@@ -21,6 +22,18 @@ export const AuthHandlers = HttpApiBuilder.group(BlankCodeApi, 'auth', (handlers
       Effect.gen(function* () {
         const auth = yield* AuthService
         return yield* auth.validateAndRotateRefreshToken(payload.refreshToken)
+      })
+    )
+    .handle('me', () =>
+      Effect.gen(function* () {
+        const user = yield* CurrentUser
+        return {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          displayName: user.displayName,
+          via: user.via,
+        }
       })
     )
     .handle('logout', ({ payload }) =>
