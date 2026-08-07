@@ -3,6 +3,8 @@ import { users } from '@blankcode/db/schema'
 import { eq } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import { applySubscriptionEvent } from '@blankcode/shared'
+import { subscriptionEnding, subscriptionStarted } from '../../../utils/email/messages'
+import { sendEmail } from '../../../utils/email/send'
 import { stripe, webhookSecret } from '../../../utils/stripe'
 
 /**
@@ -15,6 +17,12 @@ import { stripe, webhookSecret } from '../../../utils/stripe'
  * The raw body is required — the signature is over the bytes Stripe sent, and
  * anything that parses and re-serialises the JSON invalidates it.
  */
+/** A date someone can read, not an ISO string. */
+function formatDate(date: Date | null): string {
+  if (!date) return 'the end of the period'
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
 const HANDLED = new Set([
   'customer.subscription.created',
   'customer.subscription.updated',
@@ -57,7 +65,7 @@ export default defineEventHandler(async (event) => {
   const db = createDatabaseFromEnv()
   const user = await db.query.users.findFirst({
     where: eq(users.stripeCustomerId, customerId),
-    columns: { id: true },
+    columns: { id: true, email: true, subscriptionStatus: true },
   })
 
   if (!user) {
@@ -81,6 +89,38 @@ export default defineEventHandler(async (event) => {
     .update(users)
     .set({ ...patch, updatedAt: new Date() })
     .where(eq(users.id, user.id))
+
+  /*
+   * Tell them, but only when something changed that they would notice.
+   *
+   * Stripe sends `customer.subscription.updated` for things nobody sees — a
+   * card fingerprint, a proration, our own metadata write. Mailing on each of
+   * those turns a useful notification into the kind people filter.
+   *
+   * Never allowed to fail the request. A webhook that 500s because a mail
+   * provider was slow gets retried, and the retry rewrites the same row. The
+   * subscription is what must be recorded; the message is a courtesy.
+   */
+  try {
+    const site = (useRuntimeConfig().public['siteUrl'] as string).replace(/\/+$/, '')
+    const settings = `${site}/settings`
+    const became = patch.subscriptionStatus
+    const was = user.subscriptionStatus
+
+    if (became === 'active' && was !== 'active') {
+      await sendEmail(
+        user.email,
+        subscriptionStarted(formatDate(patch.subscriptionEndsAt), settings)
+      )
+    } else if (subscription.cancel_at_period_end && was === 'active' && became === 'active') {
+      await sendEmail(
+        user.email,
+        subscriptionEnding(formatDate(patch.subscriptionEndsAt), settings)
+      )
+    }
+  } catch (error) {
+    console.error('[billing] notification failed:', String(error))
+  }
 
   return { received: true, handled: true }
 })

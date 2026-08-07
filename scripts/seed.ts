@@ -293,6 +293,15 @@ console.log('\n  tvault')
 vaultSet(vault, 'STRIPE_PRODUCT_ID', product.id, dryRun)
 vaultSet(vault, 'STRIPE_PRICE_ID', price.id, dryRun)
 
+/*
+ * Anything else the runtime needs that lives in the vault.
+ *
+ * Listed rather than "push everything": the vault also holds values that must
+ * not reach a deployment, and a loop over its contents would ship them the
+ * first time someone stored one.
+ */
+const RUNTIME_SECRETS = ['RESEND_API_KEY'] as const
+
 console.log('\n  Vercel')
 // Identifiers, stored readable on purpose: `vercel env pull` has to be able to
 // bring these back for local development.
@@ -302,6 +311,15 @@ if (webhookSecret) {
   vercelSet('STRIPE_WEBHOOK_SECRET', webhookSecret, environments, true, dryRun)
 } else {
   console.log('    STRIPE_WEBHOOK_SECRET skipped — not in tvault yet')
+}
+
+for (const name of RUNTIME_SECRETS) {
+  const value = vaultGet(vault, name)
+  if (value) {
+    vercelSet(name, value, environments, true, dryRun)
+  } else {
+    console.log(`    ${name} skipped — not in tvault:${vault}`)
+  }
 }
 
 console.log('\n  Done.')
