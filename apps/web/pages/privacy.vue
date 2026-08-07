@@ -44,8 +44,8 @@
       <h2>Data Storage</h2>
       <p>
         Your account and submissions are stored in a PostgreSQL database hosted on Neon, in a single
-        region. BlankCode is also open source, so you can run the whole thing on your own
-        infrastructure and keep the database entirely to yourself.
+        region. They are not sold, and they are not shared with anyone outside the services named
+        below.
       </p>
 
       <h2>Code Execution</h2>

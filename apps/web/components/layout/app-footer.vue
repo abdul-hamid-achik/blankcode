@@ -7,7 +7,7 @@ const currentYear = new Date().getFullYear()
     <div class="container">
       <div class="flex flex-col md:flex-row items-center justify-between gap-4">
         <div class="font-mono text-xs text-muted-foreground">
-          {{ currentYear }} &middot; open source &middot; MIT
+          {{ currentYear }} &middot; BlankCode
         </div>
         <nav class="flex items-center gap-6">
           <a

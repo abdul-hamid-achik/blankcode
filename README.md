@@ -5,8 +5,8 @@ with strategic gaps, fill in the blanks, and a sandboxed runner executes the
 exercise's real test suite against your answer. Built to keep programming muscle
 memory alive across several languages.
 
-The hosted site is free and needs nothing installed. The source is MIT, so you
-can also run the whole thing yourself — see [Local development](#development).
+BlankCode is a hosted service. This repository is where it is built; the setup
+below is for working on it, not for running a copy of it.
 
 ## Features
 

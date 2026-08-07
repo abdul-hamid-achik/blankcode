@@ -2,10 +2,10 @@
 import Button from '~/components/ui/button.vue'
 
 /**
- * The closing section. This used to tell the reader to clone the repository and
- * run three commands, which was true when the only way to use BlankCode was to
- * host it. It is a site now, so the honest call to action is "start", and the
- * repository is the second option rather than the only one.
+ * The closing section. It used to tell the reader to clone the repository and
+ * run three commands, from when BlankCode was something you hosted. It is a
+ * service now, so the only call to action is to start — running it yourself is
+ * not on offer, and copy implying otherwise trades a signup for nothing.
  */
 const STEPS = [
   'Pick a track — seven languages',
@@ -25,21 +25,16 @@ const STEPS = [
           </h2>
           <p class="text-muted-foreground leading-relaxed max-w-md mb-8">
             Your code runs in an isolated microVM that exists for the length of one submission and
-            is destroyed after it. The source is open, so if you would rather host it yourself, you
-            can.
+            is destroyed after it. You get the real test output, not a similarity score.
           </p>
 
           <div class="flex flex-wrap items-center gap-3">
             <NuxtLink to="/register">
               <Button size="lg">Create an account</Button>
             </NuxtLink>
-            <a
-              href="https://github.com/abdul-hamid-achik/blankcode"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button variant="outline" size="lg">Read the source</Button>
-            </a>
+            <NuxtLink to="/tracks">
+              <Button variant="outline" size="lg">Browse the tracks</Button>
+            </NuxtLink>
           </div>
         </div>
 
