@@ -11,8 +11,6 @@ practice:
   label: "State and events"
 ---
 
-# React Fundamentals
-
 React is a JavaScript library for building user interfaces through composable components. This tutorial covers the foundational concepts you need to start building with React.
 
 ## JSX Syntax

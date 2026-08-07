@@ -11,8 +11,6 @@ practice:
   label: "Pinia"
 ---
 
-# State Management with Pinia
-
 Pinia is Vue's official state management library. It replaces Vuex with a simpler, fully typed API that works seamlessly with the Composition API. This tutorial covers everything from creating your first store to advanced patterns like store composition and persistence.
 
 ## Why Pinia?

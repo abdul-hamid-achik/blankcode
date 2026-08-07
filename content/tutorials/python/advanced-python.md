@@ -11,8 +11,6 @@ practice:
   label: "Advanced patterns"
 ---
 
-# Advanced Python
-
 > **Requires Python 3.10+** — this tutorial uses structural pattern matching (`match`/`case`) and the `X | Y` union type syntax, both introduced in Python 3.10.
 
 This tutorial covers Python features that help you write cleaner, more expressive, and more robust code. Each topic builds on your existing knowledge of functions and classes.

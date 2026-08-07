@@ -11,8 +11,6 @@ practice:
   label: "Structs and interfaces"
 ---
 
-# Go Fundamentals
-
 Go is a statically typed, compiled language designed for simplicity and performance. Created at Google, it powers tools like Docker, Kubernetes, and Terraform. Its straightforward syntax and built-in concurrency make it an excellent choice for backend services, CLI tools, and systems programming.
 
 ## Running Go Code

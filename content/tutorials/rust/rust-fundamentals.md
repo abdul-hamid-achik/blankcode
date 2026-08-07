@@ -11,8 +11,6 @@ practice:
   label: "Ownership and borrowing"
 ---
 
-# Rust Fundamentals
-
 Rust is a systems programming language that guarantees memory safety without a garbage collector. This tutorial covers the foundational concepts you need to start writing Rust programs confidently.
 
 ## Running Rust Code

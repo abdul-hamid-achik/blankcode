@@ -11,8 +11,6 @@ practice:
   label: "Object-oriented Python"
 ---
 
-# Object-Oriented Python
-
 Object-oriented programming (OOP) lets you model real-world concepts as classes and objects. Python's OOP support is flexible and pragmatic, giving you powerful tools without forcing rigid patterns.
 
 ## Classes and `__init__`

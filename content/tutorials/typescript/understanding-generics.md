@@ -11,8 +11,6 @@ practice:
   label: "Generics"
 ---
 
-# Understanding TypeScript Generics
-
 Generics allow you to write components that work with any data type while still maintaining full type safety. Instead of using `any`, generics let you capture the type the user provides.
 
 ## The Problem

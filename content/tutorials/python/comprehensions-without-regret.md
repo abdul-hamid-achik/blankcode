@@ -11,8 +11,6 @@ practice:
   label: "Data structures"
 ---
 
-# Comprehensions Without Regret
-
 A comprehension is not a shorter loop. It is a different claim about the code:
 *this expression produces a value*, rather than *these statements build one up*.
 

@@ -11,8 +11,6 @@ practice:
   label: "State and events"
 ---
 
-# State Management
-
 As your application grows, `useState` alone can become difficult to manage. This tutorial covers `useReducer` for predictable state transitions, Context for avoiding prop drilling, and composition patterns that keep your architecture clean.
 
 ## useReducer for Complex State

@@ -11,8 +11,6 @@ practice:
   label: "Async patterns"
 ---
 
-# Async/Await Patterns in TypeScript
-
 Asynchronous programming is at the heart of modern TypeScript applications. Whether you're fetching data from an API, reading files, or querying a database, you need to handle operations that complete in the future. TypeScript's type system makes async code safer by ensuring you handle Promise types correctly.
 
 ## Promises Basics

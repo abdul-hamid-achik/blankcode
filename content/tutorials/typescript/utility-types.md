@@ -11,8 +11,6 @@ practice:
   label: "Generics"
 ---
 
-# Mastering TypeScript Utility Types
-
 TypeScript ships with a collection of utility types that transform existing types into new ones. These types are essential for writing DRY, expressive type definitions. Beyond the built-ins, you can construct your own utility types using mapped types and conditional types, unlocking the full power of TypeScript's type system.
 
 ## Partial and Required

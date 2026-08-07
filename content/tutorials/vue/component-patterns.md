@@ -11,8 +11,6 @@ practice:
   label: "Components"
 ---
 
-# Vue Component Patterns
-
 Components are the building blocks of any Vue application. This tutorial covers the essential patterns for defining, composing, and communicating between components using Vue 3's `<script setup>` syntax.
 
 ## Defining Components with Script Setup

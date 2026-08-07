@@ -11,8 +11,6 @@ practice:
   label: "Composition API"
 ---
 
-# Vue Reactivity Deep Dive
-
 Vue's reactivity system is what makes your UI automatically update when data changes. Understanding how it works helps you write better, more efficient components.
 
 ## How Vue Reactivity Works

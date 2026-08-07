@@ -11,8 +11,6 @@ practice:
   label: "Error handling"
 ---
 
-# Errors Are Values: The Patterns That Follow
-
 "Errors are values" is usually presented as a statement about syntax: Go returns
 them instead of throwing them. The more useful reading is about API design.
 

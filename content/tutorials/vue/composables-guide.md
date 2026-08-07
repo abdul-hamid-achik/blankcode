@@ -11,8 +11,6 @@ practice:
   label: "Composition API"
 ---
 
-# Building Composables
-
 Composables are the primary pattern for reusing stateful logic in Vue 3. A composable is a function that uses the Composition API to encapsulate reactive state, computed properties, watchers, and lifecycle hooks into a reusable unit.
 
 ## What Makes a Composable?

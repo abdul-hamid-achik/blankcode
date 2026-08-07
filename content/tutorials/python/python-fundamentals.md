@@ -11,8 +11,6 @@ practice:
   label: "Functions and modules"
 ---
 
-# Python Fundamentals
-
 Python is one of the most readable and versatile programming languages. This tutorial covers the essential building blocks you need to start writing Python code confidently.
 
 ## Variables and Types

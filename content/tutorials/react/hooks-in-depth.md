@@ -11,8 +11,6 @@ practice:
   label: "Advanced hooks"
 ---
 
-# Hooks in Depth
-
 Hooks let you use state and other React features in functional components. This tutorial covers the most important built-in hooks and shows you how to write your own.
 
 ## useState

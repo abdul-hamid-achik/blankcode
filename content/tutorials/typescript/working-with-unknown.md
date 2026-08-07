@@ -11,8 +11,6 @@ practice:
   label: "TypeScript basics"
 ---
 
-# Working with unknown safely
-
 Every program has a boundary where typed code meets values it did not create: a
 JSON response, a `localStorage` string, a message from a worker, a thrown value
 in a `catch`. TypeScript cannot know the shape of any of those. It gives you two

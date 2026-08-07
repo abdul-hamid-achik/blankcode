@@ -11,8 +11,6 @@ practice:
   label: "Concurrency"
 ---
 
-# Concurrency with Goroutines
-
 Concurrency is one of Go's defining features. While other languages bolt concurrency on through libraries, Go bakes it into the language with goroutines and channels. This makes concurrent programs easier to write, read, and reason about.
 
 ## Goroutines

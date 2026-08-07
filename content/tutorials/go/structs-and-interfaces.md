@@ -11,8 +11,6 @@ practice:
   label: "Structs and interfaces"
 ---
 
-# Structs and Interfaces
-
 Go does not have classes, but it has something arguably more flexible: structs and interfaces. Structs define data, methods attach behavior, and interfaces enable polymorphism — all without inheritance hierarchies.
 
 ## Defining Structs

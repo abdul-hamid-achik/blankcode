@@ -11,8 +11,6 @@ practice:
   label: "Performance and patterns"
 ---
 
-# Advanced Patterns
-
 Once you're comfortable with hooks and state management, these patterns will help you write more performant, composable, and maintainable React code.
 
 ## React.memo and useCallback

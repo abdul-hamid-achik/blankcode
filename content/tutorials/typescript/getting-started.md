@@ -11,8 +11,6 @@ practice:
   label: "TypeScript basics"
 ---
 
-# Getting Started with TypeScript
-
 TypeScript extends JavaScript by adding static type definitions. Types provide a way to describe the shape of an object, providing better documentation and allowing TypeScript to validate that your code works correctly.
 
 ## Why TypeScript?

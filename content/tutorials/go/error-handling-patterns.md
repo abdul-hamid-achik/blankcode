@@ -11,8 +11,6 @@ practice:
   label: "Error handling"
 ---
 
-# Error Handling Patterns
-
 Go takes a different approach to errors than most languages. There are no exceptions, no try/catch blocks. Instead, errors are values — returned from functions and handled explicitly by the caller. This design leads to code that is verbose but predictable, and makes the error path visible at every step.
 
 ## The Error Interface

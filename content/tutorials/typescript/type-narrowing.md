@@ -11,8 +11,6 @@ practice:
   label: "TypeScript basics"
 ---
 
-# Type Narrowing in TypeScript
-
 TypeScript's type system is structural and flow-sensitive. When you write code that checks the shape or type of a value, TypeScript narrows the type within that branch. This means you can start with a broad type like `string | number` and refine it to a specific type without any unsafe casts.
 
 ## typeof Guards

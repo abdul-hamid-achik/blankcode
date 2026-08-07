@@ -11,8 +11,6 @@ practice:
   label: "Data structures"
 ---
 
-# Python Data Structures Guide
-
 Choosing the right data structure is one of the most important decisions you make when writing Python. This tutorial covers the built-in collections you will use every day, along with comprehensions that make working with them concise and expressive.
 
 ## Lists

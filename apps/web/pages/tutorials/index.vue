@@ -1,10 +1,16 @@
 <script setup lang="ts">
 import { usePageSeo } from '~/composables/usePageSeo'
+import { readingMinutes } from '~/utils/blog'
+
 /**
- * The shape `content.config.ts` declares for the tutorials collection, plus
- * the `path` @nuxt/content adds. Declared rather than cast at each use: the
- * twelve `as any` this replaces meant a typo in a field name was invisible.
+ * The tutorials index as a table of contents, not a card gallery.
+ *
+ * Each track's tutorials are an ordered series — that is what `order` in the
+ * frontmatter means — so the page shows them as numbered ledgers per track,
+ * the way the review queue lists work: dense rows, mono meta, one click to
+ * the thing. The general essays sit on top, before you pick a language.
  */
+
 interface Tutorial {
   path: string
   title: string
@@ -13,210 +19,135 @@ interface Tutorial {
   difficulty: 'beginner' | 'intermediate' | 'advanced'
   tags: string[]
   track?: string
-  slug?: string
+  body: unknown
 }
-
-const selectedTrack = ref<string | null>(null)
 
 const { data: allTutorials } = await useAsyncData('tutorials', () =>
   queryCollection('tutorials').all()
 )
 
 const tutorials = computed(() => (allTutorials.value ?? []) as unknown as Tutorial[])
-
 const byOrder = (a: Tutorial, b: Tutorial) => (a.order ?? 0) - (b.order ?? 0)
 
-const tracks = computed(() =>
-  [
-    ...new Set(tutorials.value.map((t) => t.track).filter((track): track is string => !!track)),
-  ].toSorted()
-)
+const standalone = computed(() => tutorials.value.filter((t) => !t.track).toSorted(byOrder))
 
-const standaloneTutorials = computed(() =>
-  tutorials.value.filter((t) => !t.track).toSorted(byOrder)
-)
+const trackNames: Record<string, string> = {
+  typescript: 'TypeScript',
+  python: 'Python',
+  go: 'Go',
+  rust: 'Rust',
+  vue: 'Vue',
+  react: 'React',
+}
 
-const trackTutorials = computed(() => {
-  const filtered = tutorials.value.filter((t) => t.track)
-  const selected = selectedTrack.value
-  return (selected ? filtered.filter((t) => t.track === selected) : filtered).toSorted(byOrder)
+const series = computed(() => {
+  const grouped = new Map<string, Tutorial[]>()
+  for (const tutorial of tutorials.value) {
+    if (!tutorial.track) continue
+    grouped.set(tutorial.track, [...(grouped.get(tutorial.track) ?? []), tutorial])
+  }
+  return [...grouped.entries()]
+    .toSorted(([a], [b]) => a.localeCompare(b))
+    .map(([track, items]) => ({ track, items: items.toSorted(byOrder) }))
 })
 
-const difficultyColor: Record<string, string> = {
-  beginner: 'bg-green-500/10 text-green-500',
-  intermediate: 'bg-yellow-500/10 text-yellow-500',
-  advanced: 'bg-red-500/10 text-red-500',
-}
-
-function getSlug(tutorial: Tutorial): string {
-  // Extract slug from path: /tutorials/go/foo => go/foo or /tutorials/foo => foo
-  return tutorial.path?.replace(/^\/tutorials\//, '') ?? tutorial.slug ?? ''
-}
+const minutes = (tutorial: Tutorial) => readingMinutes(tutorial.body)
 
 usePageSeo({
   title: 'Tutorials — BlankCode',
   description:
-    'Written walkthroughs of the ideas the exercises practise, from spaced repetition to reviewing code you did not write.',
+    'Written walkthroughs of the ideas the exercises practise — each one ends where it should: at the exercises.',
   path: '/tutorials',
 })
 </script>
 
 <template>
-  <div class="container py-12">
-    <div class="max-w-4xl mx-auto">
-      <h1 class="display text-2xl md:text-3xl mb-2">Tutorials</h1>
-      <p class="text-muted-foreground mb-8">
-        Guides and articles to deepen your understanding of programming concepts.
-      </p>
+  <div class="container max-w-3xl py-10 md:py-14">
+    <p class="eyebrow mb-2">tutorials</p>
+    <h1 class="display text-2xl md:text-3xl mb-3">The reading behind the practice.</h1>
+    <p class="mb-10 max-w-xl leading-relaxed text-muted-foreground">
+      Written walkthroughs of the ideas the exercises drill. Each one ends where reading should: at
+      the exercises that make it yours.
+    </p>
 
-      <div class="flex flex-wrap gap-2 mb-8">
-        <button
-          :class="[
-            'px-3 py-1.5 text-sm rounded-lg border transition-colors',
-            selectedTrack === null
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'border-rule text-muted-foreground hover:text-foreground hover:border-foreground/30',
-          ]"
-          @click="selectedTrack = null"
-        >
-          All
-        </button>
-        <button
-          v-for="track in tracks"
-          :key="track"
-          :class="[
-            'px-3 py-1.5 text-sm rounded-lg border transition-colors capitalize',
-            selectedTrack === track
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'border-rule text-muted-foreground hover:text-foreground hover:border-foreground/30',
-          ]"
-          @click="selectedTrack = selectedTrack === track ? null : track"
-        >
-          {{ track }}
-        </button>
-      </div>
-
-      <div v-if="standaloneTutorials.length && !selectedTrack" class="mb-10">
-        <h2 class="display text-lg mb-4">General</h2>
-        <div class="grid gap-4">
-          <NuxtLink
-            v-for="tutorial in standaloneTutorials"
-            :key="getSlug(tutorial)"
-            :to="`/tutorials/${getSlug(tutorial)}`"
-          >
-            <div
-              class="w-full rounded border border-rule bg-muted/50 p-6 hover:border-rule-strong transition-colors cursor-pointer"
-            >
-              <div class="flex items-start justify-between gap-4">
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2 mb-1">
-                    <h3 class="font-semibold">{{ tutorial.title }}</h3>
-                    <span
-                      :class="[
-                        'px-2 py-0.5 text-xs rounded-full capitalize',
-                        difficultyColor[tutorial.difficulty],
-                      ]"
-                    >
-                      {{ tutorial.difficulty }}
-                    </span>
-                  </div>
-                  <p class="text-sm text-muted-foreground">{{ tutorial.description }}</p>
-                  <div class="flex flex-wrap gap-1.5 mt-2">
-                    <span
-                      v-for="tag in tutorial.tags"
-                      :key="tag"
-                      class="px-2 py-0.5 text-xs rounded bg-muted text-muted-foreground"
-                      >{{ tag }}</span
-                    >
-                  </div>
-                </div>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="text-muted-foreground shrink-0 mt-1"
-                >
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
-              </div>
-            </div>
-          </NuxtLink>
-        </div>
-      </div>
-
-      <div v-if="trackTutorials.length">
-        <h2 v-if="!selectedTrack" class="display text-lg mb-4">By Track</h2>
-        <h2 v-else class="display text-lg mb-4 capitalize">{{ selectedTrack }} Tutorials</h2>
-        <div class="grid gap-4">
-          <NuxtLink
-            v-for="tutorial in trackTutorials"
-            :key="getSlug(tutorial)"
-            :to="`/tutorials/${getSlug(tutorial)}`"
-          >
-            <div
-              class="w-full rounded border border-rule bg-muted/50 p-6 hover:border-rule-strong transition-colors cursor-pointer"
-            >
-              <div class="flex items-start justify-between gap-4">
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-2 mb-1">
-                    <h3 class="font-semibold">{{ tutorial.title }}</h3>
-                    <span
-                      :class="[
-                        'px-2 py-0.5 text-xs rounded-full capitalize',
-                        difficultyColor[tutorial.difficulty],
-                      ]"
-                    >
-                      {{ tutorial.difficulty }}
-                    </span>
-                    <span
-                      v-if="!selectedTrack && tutorial.track"
-                      class="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary capitalize"
-                    >
-                      {{ tutorial.track }}
-                    </span>
-                  </div>
-                  <p class="text-sm text-muted-foreground">{{ tutorial.description }}</p>
-                  <div class="flex flex-wrap gap-1.5 mt-2">
-                    <span
-                      v-for="tag in tutorial.tags"
-                      :key="tag"
-                      class="px-2 py-0.5 text-xs rounded bg-muted text-muted-foreground"
-                      >{{ tag }}</span
-                    >
-                  </div>
-                </div>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  class="text-muted-foreground shrink-0 mt-1"
-                >
-                  <path d="m9 18 6-6-6-6" />
-                </svg>
-              </div>
-            </div>
-          </NuxtLink>
-        </div>
-      </div>
-
-      <div
-        v-if="!standaloneTutorials.length && !trackTutorials.length"
-        class="text-center py-12 text-muted-foreground"
+    <!-- Jump list: one line, all the series. -->
+    <p class="mb-10 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted-foreground">
+      <a
+        v-for="entry in series"
+        :key="entry.track"
+        :href="`#${entry.track}`"
+        class="transition-colors hover:text-foreground"
+        >{{ trackNames[entry.track] ?? entry.track }}</a
       >
-        No tutorials available yet.
+    </p>
+
+    <!-- The general essays: read these before picking a language. -->
+    <section v-if="standalone.length" class="mb-12">
+      <p class="eyebrow mb-3">start here</p>
+      <ol class="border border-rule">
+        <li
+          v-for="tutorial in standalone"
+          :key="tutorial.path"
+          class="border-b border-rule last:border-b-0"
+        >
+          <NuxtLink
+            :to="tutorial.path"
+            class="group block px-4 py-3.5 transition-colors hover:bg-muted/60"
+          >
+            <div class="flex items-baseline justify-between gap-4">
+              <p class="display text-base transition-colors group-hover:text-signal">
+                {{ tutorial.title }}
+              </p>
+              <p class="shrink-0 font-mono text-xs text-muted-foreground">
+                {{ tutorial.difficulty }} · {{ minutes(tutorial) }} min
+              </p>
+            </div>
+            <p class="mt-1 max-w-xl text-sm leading-relaxed text-muted-foreground">
+              {{ tutorial.description }}
+            </p>
+          </NuxtLink>
+        </li>
+      </ol>
+    </section>
+
+    <!-- One numbered series per track, in the track's own order. -->
+    <section v-for="entry in series" :id="entry.track" :key="entry.track" class="mb-12">
+      <div class="mb-3 flex items-baseline justify-between gap-4">
+        <p class="eyebrow">{{ trackNames[entry.track] ?? entry.track }}</p>
+        <NuxtLink
+          :to="`/tracks/${entry.track}`"
+          class="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          the exercises &#8594;
+        </NuxtLink>
       </div>
-    </div>
+      <ol class="border border-rule">
+        <li
+          v-for="(tutorial, i) in entry.items"
+          :key="tutorial.path"
+          class="border-b border-rule last:border-b-0"
+        >
+          <NuxtLink
+            :to="tutorial.path"
+            class="group flex items-baseline gap-4 px-4 py-3.5 transition-colors hover:bg-muted/60"
+          >
+            <span class="shrink-0 font-mono text-xs text-muted-foreground">
+              {{ String(i + 1).padStart(2, '0') }}
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="display block text-base transition-colors group-hover:text-signal">
+                {{ tutorial.title }}
+              </span>
+              <span class="mt-1 block max-w-xl text-sm leading-relaxed text-muted-foreground">
+                {{ tutorial.description }}
+              </span>
+            </span>
+            <span class="shrink-0 font-mono text-xs text-muted-foreground">
+              {{ tutorial.difficulty }} · {{ minutes(tutorial) }} min
+            </span>
+          </NuxtLink>
+        </li>
+      </ol>
+    </section>
   </div>
 </template>

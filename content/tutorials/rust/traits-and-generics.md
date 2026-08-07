@@ -11,8 +11,6 @@ practice:
   label: "Traits and generics"
 ---
 
-# Traits and Generics
-
 Traits define shared behavior across types. Generics let you write code that works with many types. Together, they are the foundation of Rust's approach to polymorphism and code reuse.
 
 ## Defining Traits

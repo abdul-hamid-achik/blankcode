@@ -11,8 +11,6 @@ practice:
   label: "Concurrency and async"
 ---
 
-# Fearless Concurrency
-
 Concurrent programming is notoriously difficult. Data races, deadlocks, and subtle bugs plague programs in most languages. Rust's ownership system and type checker eliminate entire categories of concurrency bugs at compile time, which is why the Rust community calls it "fearless concurrency."
 
 **Important caveat:** Rust prevents **data races** at compile time, but it does **not** prevent **deadlocks**. A deadlock occurs when two or more threads each wait for a lock held by the other. The compiler cannot detect this, so you must design your locking strategy carefully (e.g., always acquire locks in the same order).

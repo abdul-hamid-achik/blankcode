@@ -11,8 +11,6 @@ practice:
   label: "Structs, enums and matching"
 ---
 
-# Enums and Pattern Matching
-
 Enums in Rust are far more powerful than in most languages. Combined with pattern matching, they give you a type-safe way to represent and handle different cases in your programs.
 
 ## Defining Enums
