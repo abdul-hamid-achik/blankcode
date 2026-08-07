@@ -389,6 +389,41 @@ export const reviewSchedulesRelations = relations(reviewSchedules, ({ one }) => 
  * table stopped the API from booting. Let the library create its own tables.
  */
 
+/**
+ * One row per metered action a user takes.
+ *
+ * Two things needed this and neither could use what was there. The AI
+ * explanation budget lived in a Map inside the request handler, which means
+ * every function instance enforced its own copy of the limit — the real ceiling
+ * was twenty per hour multiplied by however many instances happened to be warm,
+ * and nothing survived a cold start.
+ *
+ * Submissions are not recorded here. They already have a table with a user and
+ * a timestamp on it, so counting them over a window is a query rather than a
+ * second write — and two records of the same fact eventually disagree.
+ *
+ * Rows rather than a counter column, because the question is always asked over
+ * a moving window ("in the last hour"), and a counter cannot answer that
+ * without also storing when it was last reset.
+ */
+export const usageEvents = pgTable(
+  'usage_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** What was metered: `ai_explain`, `submission`. */
+    kind: varchar('kind', { length: 40 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Every read is "this user, this kind, since this time" — the index has to
+    // carry all three or the count degrades into a scan as the table grows.
+    index('usage_events_user_kind_created_idx').on(table.userId, table.kind, table.createdAt),
+  ]
+)
+
 export const learningPaths = pgTable('learning_paths', {
   id: uuid('id').primaryKey().defaultRandom(),
   slug: varchar('slug', { length: 100 }).notNull().unique(),

@@ -20,7 +20,7 @@ const publishedTrackSlugs = readdirSync(resolve(__dirname, '../../content/tracks
 })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
-  .sort()
+  .toSorted()
 
 export default defineNuxtConfig({
   modules: ['@nuxt/content', '@pinia/nuxt', '@nuxt/fonts'],

@@ -46,9 +46,12 @@ describe('the explain endpoint', () => {
     expect(source).toContain('MAX_PER_WINDOW')
   })
 
-  it('bounds the budget map so it cannot grow forever', () => {
-    expect(source).toContain('requests.size >')
-    expect(source).toContain('requests.delete')
+  it('counts the budget in the database, not in this module', () => {
+    // It used to be a Map here. Each function instance kept its own, so the
+    // real ceiling was the limit times however many instances were warm, and a
+    // cold start reset it — a spend control that did not control spend.
+    expect(source).toContain("withinBudget(db, userId, 'ai_explain'")
+    expect(source).not.toContain('new Map<string, number[]>')
   })
 
   it('degrades to a clear error when the gateway is not configured', () => {

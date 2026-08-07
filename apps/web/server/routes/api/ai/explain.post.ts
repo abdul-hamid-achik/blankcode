@@ -1,5 +1,6 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import * as schema from '@blankcode/db/schema'
+import { withinBudget } from '../../../utils/usage'
 import { streamText } from 'ai'
 import { eq } from 'drizzle-orm'
 import * as jose from 'jose'
@@ -23,25 +24,16 @@ import * as jose from 'jose'
 
 const MODEL = process.env['LLM_MODEL'] ?? 'deepseek/deepseek-v4-flash'
 
-/** Per-user budget. Generation is the only part of a submission that costs money. */
+/**
+ * Per-user budget. Generation is the only part of a submission that costs money.
+ *
+ * Counted in the database rather than in this module. It used to be a Map here,
+ * which meant each function instance enforced its own copy of the limit: the
+ * real ceiling was twenty an hour times however many instances were warm, and a
+ * cold start reset it to zero.
+ */
 const WINDOW_MS = 60 * 60 * 1000
 const MAX_PER_WINDOW = 20
-const requests = new Map<string, number[]>()
-
-function withinBudget(userId: string): boolean {
-  const now = Date.now()
-  const recent = (requests.get(userId) ?? []).filter((at) => at > now - WINDOW_MS)
-  if (recent.length >= MAX_PER_WINDOW) return false
-  recent.push(now)
-  requests.set(userId, recent)
-  // Bounded so a stream of one-off users cannot grow this without limit.
-  if (requests.size > 10_000) {
-    for (const [key, times] of requests) {
-      if (times.every((at) => at <= now - WINDOW_MS)) requests.delete(key)
-    }
-  }
-  return true
-}
 
 export default defineEventHandler(async (event) => {
   if (!process.env['AI_GATEWAY_API_KEY'] && !process.env['VERCEL_OIDC_TOKEN']) {
@@ -64,7 +56,9 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-  if (!withinBudget(userId)) {
+  const db = createDatabaseFromEnv()
+
+  if (!(await withinBudget(db, userId, 'ai_explain', MAX_PER_WINDOW, WINDOW_MS))) {
     throw createError({ statusCode: 429, statusMessage: 'Too many explanations, try later' })
   }
 
@@ -73,7 +67,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'submissionId is required' })
   }
 
-  const db = createDatabaseFromEnv()
   const submission = await db.query.submissions.findFirst({
     where: eq(schema.submissions.id, body.submissionId),
     with: { exercise: true },
