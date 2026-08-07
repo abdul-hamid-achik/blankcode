@@ -67,7 +67,12 @@ async function importConcept(db: Db, conceptPath: string, trackId: string) {
   return concept
 }
 
-async function importExercise(db: Db, exercisePath: string, conceptId: string): Promise<boolean> {
+async function importExercise(
+  db: Db,
+  exercisePath: string,
+  conceptId: string,
+  order: number
+): Promise<boolean> {
   const markdown = await readFile(exercisePath, 'utf-8')
   const parseResult = parseExercise(markdown)
   if (!parseResult.success) {
@@ -96,7 +101,7 @@ async function importExercise(db: Db, exercisePath: string, conceptId: string): 
       blanks: blanksInStarter,
       contextSources: contextSources ?? null,
       turnBudget: frontmatter.turnBudget ?? null,
-      order: 0,
+      order,
       isPublished: true,
     })
     .onConflictDoUpdate({
@@ -113,6 +118,9 @@ async function importExercise(db: Db, exercisePath: string, conceptId: string): 
         blanks: blanksInStarter,
         contextSources: contextSources ?? null,
         turnBudget: frontmatter.turnBudget ?? null,
+        // Also on update: an upsert that sets it only on insert leaves every
+        // exercise imported before this at 0 forever.
+        order,
         updatedAt: new Date(),
       },
     })
@@ -222,11 +230,22 @@ export async function importContent(contentDir: string): Promise<ImportResult> {
       result.concepts++
       console.log(`  Imported concept: ${concept.name}`)
 
-      const exerciseFiles = await glob('*.md', { cwd: conceptDir })
+      /*
+       * Sorted, and the position becomes the exercise's order.
+       *
+       * Every exercise was imported with `order: 0`, so within a concept there
+       * was no order at all — which the track page hid by listing them in
+       * whatever the database returned, and which "what comes next" could not
+       * hide: it skipped straight past a sibling to the following concept.
+       *
+       * Filenames carry the sequence (`ts-basics-001`, `-004`, …), so sorting
+       * them is the intended order rather than an invented one.
+       */
+      const exerciseFiles = (await glob('*.md', { cwd: conceptDir })).toSorted()
 
-      for (const exerciseFile of exerciseFiles) {
+      for (const [index, exerciseFile] of exerciseFiles.entries()) {
         const exercisePath = join(conceptDir, exerciseFile)
-        if (await importExercise(db, exercisePath, concept.id)) {
+        if (await importExercise(db, exercisePath, concept.id, index)) {
           result.exercises++
         }
       }

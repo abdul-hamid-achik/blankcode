@@ -7,6 +7,7 @@ import Button from '~/components/ui/button.vue'
 import { useKeyboard } from '~/composables/useKeyboard'
 import { useExerciseStore } from '~/stores/exercise'
 import { useReviewStore } from '~/stores/review'
+import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
 
@@ -65,6 +66,43 @@ const concept = computed(
 
 const trackSlug = computed(() => concept.value?.track?.slug)
 
+interface WhatsNext {
+  next: {
+    id: string
+    slug: string
+    title: string
+    difficulty: string
+    conceptName: string
+    sameConcept: boolean
+  } | null
+  track: { slug: string; name: string }
+}
+
+/**
+ * Fetched only once someone has passed, not on load.
+ *
+ * Most visits to this page do not end in a pass, and asking the server what
+ * comes next before there is anything to come next from is a query per page
+ * view for a button most people never see.
+ */
+const whatsNext = ref<WhatsNext | null>(null)
+
+async function loadWhatsNext() {
+  if (whatsNext.value) return
+  try {
+    // The same cookie `useApi` reads. This route is a Nitro handler rather than
+    // part of the Effect API, so it is not behind that client.
+    const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
+    whatsNext.value = await $fetch<WhatsNext>(`/api/exercises/${exerciseId.value}/next`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+  } catch (error) {
+    // A missing "next" is not worth an error state: the links below it still
+    // get someone out of the page.
+    console.error('[exercise] could not load what comes next:', String(error))
+  }
+}
+
 async function rateRecall(quality: 3 | 4 | 5) {
   const sub = exerciseStore.latestSubmission
   if (!sub || sub.status !== 'passed' || isRating.value) return
@@ -72,6 +110,7 @@ async function rateRecall(quality: 3 | 4 | 5) {
   try {
     await reviewStore.completeReview(exerciseId.value, true, quality)
     ratingSubmittedFor.value = sub.id
+    await loadWhatsNext()
   } finally {
     isRating.value = false
   }
@@ -357,15 +396,55 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
           </div>
         </div>
 
-        <p
+        <!--
+          Where to go now.
+          
+          Passing used to end here: the result on screen, the rating saved, and
+          no way onward. The next exercise is almost always what someone wants,
+          so it is the default rather than something to go and look for.
+        -->
+        <div
           v-else-if="
             exerciseStore.latestSubmission?.status === 'passed' &&
             ratingSubmittedFor === exerciseStore.latestSubmission.id
           "
-          class="mt-5 font-mono text-xs text-pass"
+          class="mt-5"
         >
-          rating saved — scheduled forward
-        </p>
+          <p class="font-mono text-xs text-pass mb-4">rating saved — scheduled forward</p>
+
+          <div v-if="whatsNext?.next" class="rounded border border-rule bg-card p-4">
+            <p class="eyebrow mb-2">next</p>
+            <p class="text-sm mb-1">{{ whatsNext.next.title }}</p>
+            <p class="font-mono text-xs text-muted-foreground mb-4">
+              {{ whatsNext.next.conceptName }}
+              <span v-if="!whatsNext.next.sameConcept"> · new concept</span>
+            </p>
+            <NuxtLink :to="`/exercise/${whatsNext.next.id}`">
+              <Button size="sm">Continue</Button>
+            </NuxtLink>
+          </div>
+
+          <div v-else-if="whatsNext" class="rounded border border-rule bg-card p-4">
+            <p class="eyebrow mb-2">that was the last one</p>
+            <p class="text-sm mb-4">
+              You have finished every exercise in {{ whatsNext.track.name }}.
+            </p>
+            <NuxtLink to="/tracks"><Button size="sm">Pick another track</Button></NuxtLink>
+          </div>
+
+          <div class="mt-4 flex flex-wrap gap-3 font-mono text-xs">
+            <NuxtLink
+              v-if="whatsNext"
+              :to="`/tracks/${whatsNext.track.slug}`"
+              class="text-muted-foreground hover:text-foreground"
+            >
+              back to {{ whatsNext.track.name }}
+            </NuxtLink>
+            <NuxtLink to="/review" class="text-muted-foreground hover:text-foreground">
+              what is due
+            </NuxtLink>
+          </div>
+        </div>
 
         <p
           v-else-if="!exerciseStore.latestSubmission && !exerciseStore.isSubmitting"
