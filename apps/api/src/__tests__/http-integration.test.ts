@@ -426,13 +426,29 @@ function runTest<A, R>(effect: Effect.Effect<A, unknown, R>) {
   )
 }
 
-/** Helper to get a valid JWT for authenticated requests */
+/**
+ * Gets a valid JWT for authenticated requests.
+ *
+ * Asserts that login actually succeeded rather than returning whatever came
+ * back. Without this, a login that failed — rate limited, or the layer not
+ * ready — hands back `undefined`, and the *next* assertion fails with
+ * "expected 401 to be 200" in a test that has nothing to do with logging in.
+ * One such failure showed up under load during a full run and could not be
+ * reproduced afterwards; if it happens again this will name its own cause.
+ */
 function getAuthToken(): Effect.Effect<string, any, HttpClient.HttpClient> {
   return Effect.gen(function* () {
     const response = yield* HttpClient.post('/auth/login', {
       body: HttpBody.unsafeJson({ email: 'test@example.com', password: 'password123' }),
     })
     const body = (yield* response.json) as any
+
+    expect(
+      response.status,
+      `login failed with ${response.status}: ${JSON.stringify(body).slice(0, 200)}`
+    ).toBe(200)
+    expect(body.accessToken, 'login returned no accessToken').toBeTruthy()
+
     return body.accessToken as string
   })
 }
