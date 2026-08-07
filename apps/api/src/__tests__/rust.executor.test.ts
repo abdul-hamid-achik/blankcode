@@ -101,10 +101,10 @@ describe('buildCargoManifest', () => {
 describe('unavailableCrateError', () => {
   it('explains that the sandbox is offline instead of leaving the student on E0432', () => {
     const message = unavailableCrateError(
-      'error[E0432]: unresolved import `serde`\n  |     ^^^^^ use of unresolved module or unlinked crate `serde`\n  = help: if you wanted to use a crate named `serde`, use `cargo add serde`'
+      'error[E0432]: unresolved import `reqwest`\n  |     ^^^^^ use of unresolved module or unlinked crate `reqwest`\n  = help: if you wanted to use a crate named `reqwest`, use `cargo add reqwest`'
     )
 
-    expect(message).toContain('`serde`')
+    expect(message).toContain('`reqwest`')
     expect(message).toContain('no network access')
     expect(message).toContain('tokio')
   })
@@ -248,12 +248,12 @@ describe.skipIf(SANDBOX_DISABLED)('rust sandbox behaviour', () => {
 
   it('explains an unavailable crate instead of leaving a bare E0432', async () => {
     const result = await run(
-      'use serde::Serialize;\n\nfn noop() {}',
+      'use reqwest::Client;\n\nfn noop() {}',
       '#[test]\nfn t() {\n    noop();\n}'
     )
 
     expect(result.status).toBe('error')
-    expect(result.errorMessage).toContain('`serde`')
+    expect(result.errorMessage).toContain('`reqwest`')
     expect(result.errorMessage).toContain('no network access')
   }, 180_000)
 })
