@@ -78,6 +78,13 @@
       "when": 1771470555757,
       "tag": "0010_add_review_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1771470555758,
+      "tag": "0011_add_turn_context_exercise_types",
+      "breakpoints": true
     }
   ]
 }

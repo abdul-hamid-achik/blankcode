@@ -3,7 +3,7 @@ slug: ts-context-001
 title: 'Give it what it needs: a query against a schema it has never seen'
 description: A model cannot write this query without being shown something. Four things are on offer and only one is necessary. Handing over all four is allowed, costs sixteen times as much, and is what most people do.
 difficulty: intermediate
-type: challenge
+type: context
 hints:
   - Read the question first and ask what a competent person would need in front of them to answer it. Not what would be nice to have — what is required.
   - The manual is the expensive one and it is almost never the answer. Documentation tells you how a tool works; it does not tell you what is in this database.

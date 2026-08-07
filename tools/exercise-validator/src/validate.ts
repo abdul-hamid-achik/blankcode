@@ -461,7 +461,8 @@ function checkChallengeSolution(
   exerciseType: string,
   bodyStart: number
 ): void {
-  if (exerciseType !== 'challenge' && exerciseType !== 'review') return
+  // Everything except blank: blank's first block *is* the annotated solution.
+  if (exerciseType === 'blank') return
 
   const heading = /^##\s+Solution\s*$/im.exec(text)
   if (!heading) {

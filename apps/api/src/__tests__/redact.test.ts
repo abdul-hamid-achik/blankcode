@@ -55,6 +55,29 @@ describe('redactExercise', () => {
     expect(redactExercise(EXERCISE).concept).toEqual({ id: 'c1', name: 'Basics' })
   })
 
+  it('reduces contextSources to the public menu', () => {
+    // Fourth leak of the same class, found in production: `required` is the
+    // answer to a context-selection exercise, `accept` is its grading regex,
+    // and each source's `content` is what the session sells token by token.
+    // Only the menu — id, label, price — may leave the server.
+    const exercise = {
+      ...EXERCISE,
+      contextSources: {
+        sources: [{ id: 'schema', label: 'The schema', tokens: 120, content: 'CREATE TABLE…' }],
+        required: ['schema'],
+        accept: 'select[\\s\\S]*sum',
+      },
+    }
+    const redacted = redactExercise(exercise) as Record<string, unknown>
+    expect(redacted['contextSources']).toEqual({
+      sources: [{ id: 'schema', label: 'The schema', tokens: 120 }],
+    })
+    const json = JSON.stringify(redacted)
+    expect(json).not.toContain('required')
+    expect(json).not.toContain('accept')
+    expect(json).not.toContain('CREATE TABLE')
+  })
+
   it('tolerates an exercise with no blanks', () => {
     const { blanks: _blanks, ...challenge } = EXERCISE
     expect(redactExercise(challenge).blanks).toEqual([])

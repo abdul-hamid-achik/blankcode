@@ -3,7 +3,7 @@ slug: ts-turn-001
 title: 'Three messages: a retry that has to give up'
 description: Get a model to write a retry helper in three messages. The suite you are graded against is hidden until you submit, and it checks the two things people forget to ask for.
 difficulty: intermediate
-type: challenge
+type: turn
 turnBudget: 3
 hints:
   - Spend the first message on the whole shape, including what should happen when it never succeeds. Vague in, coherent out — and coherent is what makes a wrong answer hard to notice.

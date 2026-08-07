@@ -64,6 +64,18 @@ const concept = computed(
       ?.concept
 )
 
+/**
+ * The session forms (turn budget, context selection) are graded conversations,
+ * not files to edit. Until their session surfaces exist, opening one in the
+ * plain editor promises mechanics it does not have — a budget nothing counts,
+ * sources nothing sells, a report nothing writes. So the editor does not open:
+ * the page says what this exercise is and that its surface is on the way.
+ */
+const sessionForm = computed(() => {
+  const type = exerciseStore.exercise?.type
+  return type === 'turn' || type === 'context' ? type : null
+})
+
 const trackSlug = computed(() => concept.value?.track?.slug)
 
 interface WhatsNext {
@@ -256,7 +268,40 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
           </p>
         </div>
 
-        <div class="min-h-0 flex-1 overflow-auto p-5 md:p-6">
+        <!-- Session-form gate: honest about what this is and what is missing. -->
+        <div v-if="sessionForm" class="min-h-0 flex-1 overflow-auto p-5 md:p-6">
+          <div class="max-w-2xl border-l-2 border-signal bg-signal/5 p-5">
+            <p class="eyebrow mb-3">
+              {{ sessionForm === 'turn' ? 'turn-budget session' : 'context session' }}
+            </p>
+            <p class="display mb-3 text-lg">This exercise runs as a live session.</p>
+            <p class="mb-3 text-sm leading-relaxed text-muted-foreground">
+              <template v-if="sessionForm === 'turn'">
+                You get a fixed number of messages to a model and are graded by a suite you never
+                see. A plain editor cannot keep either promise — nothing counts the budget, nothing
+                writes the report — so it stays closed rather than pretend.
+              </template>
+              <template v-else>
+                You are shown a menu of sources with prices and buy only what the question needs.
+                The sources, the prices, and the receipt all live in the session — a plain editor
+                has none of them, so it stays closed rather than pretend.
+              </template>
+            </p>
+            <p class="mb-5 text-sm leading-relaxed text-muted-foreground">
+              The session surface is being built. This page will become it.
+            </p>
+            <div class="flex flex-wrap gap-3">
+              <NuxtLink v-if="trackSlug" :to="`/tracks/${trackSlug}`">
+                <Button variant="outline" size="sm">Back to {{ trackSlug }}</Button>
+              </NuxtLink>
+              <NuxtLink to="/tutorials">
+                <Button variant="ghost" size="sm">Read the tutorials meanwhile</Button>
+              </NuxtLink>
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="min-h-0 flex-1 overflow-auto p-5 md:p-6">
           <ClientOnly>
             <CodeEditor
               :code="exerciseStore.editorCode"
@@ -273,6 +318,7 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
 
         <!-- Action bar: what you need mid-exercise, nothing else. -->
         <div
+          v-if="!sessionForm"
           class="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-rule bg-background/95 px-5 py-3 backdrop-blur-sm md:px-6"
         >
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs">
@@ -306,6 +352,7 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
 
       <!-- Results rail -->
       <aside
+        v-if="!sessionForm"
         class="w-full shrink-0 overflow-y-auto border-t border-rule bg-muted/20 p-5 md:p-6 lg:w-[22rem] lg:border-l lg:border-t-0 xl:w-[26rem]"
         aria-label="Results"
       >

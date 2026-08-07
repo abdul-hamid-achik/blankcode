@@ -75,9 +75,10 @@ export function parseExercise(markdown: string, options: ParseOptions = {}): Par
      * challenge could ever be verified as solvable.
      */
     // A challenge starts from a stub, a review starts from code that already
-    // looks finished and is wrong. Either way the first block is what the
-    // learner opens and the reference lives in `## Solution`.
-    const startsFromFirstBlock = exerciseType === 'challenge' || exerciseType === 'review'
+    // looks finished and is wrong, and the session forms (turn, context) start
+    // from whatever their brief hands over. Either way the first block is what
+    // the learner opens and the reference lives in `## Solution`.
+    const startsFromFirstBlock = exerciseType !== 'blank'
 
     const solutionCode = startsFromFirstBlock
       ? (extractSectionCode(content, 'Solution') ?? '')

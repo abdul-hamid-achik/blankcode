@@ -16,7 +16,7 @@ export type TrackSlug = (typeof TRACK_SLUGS)[number]
  *               stopped being optional once a model could produce two hundred
  *               plausible lines in four seconds.
  */
-export const EXERCISE_TYPES = ['blank', 'challenge', 'review'] as const
+export const EXERCISE_TYPES = ['blank', 'challenge', 'review', 'turn', 'context'] as const
 export type ExerciseType = (typeof EXERCISE_TYPES)[number]
 
 export const ACHIEVEMENT_TYPES = [

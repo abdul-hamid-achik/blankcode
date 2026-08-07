@@ -27,6 +27,15 @@ const difficultyColors: Record<string, string> = {
 const exerciseTypeBadges: Record<string, { label: string; icon: string; color: string }> = {
   blank: { label: 'Fill-in-Blank', icon: '📝', color: 'bg-blue-500/10 text-blue-500' },
   challenge: { label: 'Challenge', icon: '🏆', color: 'bg-purple-500/10 text-purple-500' },
+  // A review used to fall through this map and render an empty pill — a badge
+  // with nothing in it, on the type whose whole point is that looks deceive.
+  review: { label: 'Code Review', icon: '🔎', color: 'bg-amber-500/10 text-amber-600' },
+  turn: { label: 'Turn-Budget Session', icon: '✉️', color: 'bg-emerald-500/10 text-emerald-600' },
+  context: {
+    label: 'Context Session',
+    icon: '🧾',
+    color: 'bg-cyan-500/10 text-cyan-600',
+  },
 }
 </script>
 

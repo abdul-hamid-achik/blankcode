@@ -19,6 +19,37 @@
  * a future agent tool) opts in explicitly from the unredacted row.
  */
 
+interface ContextSourcesLike {
+  readonly sources?: ReadonlyArray<{
+    readonly id: string
+    readonly label: string
+    readonly tokens: number
+    readonly content?: unknown
+  }> | null
+  readonly required?: unknown
+  readonly accept?: unknown
+}
+
+/**
+ * A context-selection exercise's `contextSources` carries three secrets:
+ * `required` (which sources the question actually needs — the whole answer),
+ * `accept` (the grading regex), and each source's `content` (the thing the
+ * session sells you token by token). Only the menu is public: id, label,
+ * price. The contents are delivered one purchase at a time by the session
+ * flow, which is the exercise.
+ */
+export interface RedactedContextSources {
+  readonly sources: ReadonlyArray<{ id: string; label: string; tokens: number }>
+}
+
+function redactContextSources(value: unknown): RedactedContextSources | null {
+  const raw = value as ContextSourcesLike | null | undefined
+  if (!raw || !Array.isArray(raw.sources)) return null
+  return {
+    sources: raw.sources.map((s) => ({ id: s.id, label: s.label, tokens: s.tokens })),
+  }
+}
+
 interface BlankLike {
   readonly id: string
   readonly from: number
@@ -50,16 +81,21 @@ export function redactExercise<T extends Record<string, unknown>>(
     solutionCode: _solutionCode,
     testCode: _testCode,
     blanks,
+    contextSources,
     ...rest
   } = exercise as T & {
     solutionCode?: unknown
     testCode?: unknown
     blanks?: BlankLike[] | null
+    contextSources?: unknown
   }
 
   return {
     ...(rest as Omit<T, 'solutionCode' | 'blanks' | 'testCode'>),
     blanks: Array.isArray(blanks) ? blanks.map(redactBlank) : [],
+    ...(contextSources !== undefined
+      ? { contextSources: redactContextSources(contextSources) }
+      : {}),
   }
 }
 
