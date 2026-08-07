@@ -46,6 +46,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@blankcode/api": "workspace:*",
+        "@blankcode/db": "workspace:*",
         "@blankcode/shared": "workspace:*",
         "@codemirror/autocomplete": "^6.20.3",
         "@codemirror/commands": "^6.10.4",
@@ -64,8 +65,10 @@
         "@pinia/nuxt": "^1.0.1",
         "@tailwindcss/vite": "^4.3.3",
         "@vercel/sandbox": "^2.9.2",
+        "ai": "^7.0.55",
         "better-sqlite3": "^13.0.3",
         "effect": "^3.22.1",
+        "jose": "^6.2.8",
         "nuxt": "^4.5.2",
         "pinia": "^4.0.2",
         "radix-vue": "^1.9.0",
