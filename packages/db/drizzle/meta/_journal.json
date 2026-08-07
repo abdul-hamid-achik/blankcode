@@ -64,6 +64,13 @@
       "when": 1771470555755,
       "tag": "0008_add_subscription_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771470555756,
+      "tag": "0009_add_linked_identities",
+      "breakpoints": true
     }
   ]
 }

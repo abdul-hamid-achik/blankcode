@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 /**
  * The operator view.
@@ -24,12 +25,34 @@ interface Totals {
   passed_7d: number
 }
 
-const { data, error } = await useFetch<{
+/*
+ * Fetched on the client with the token attached explicitly.
+ *
+ * The first version was a bare `useFetch`, which fails twice over: the
+ * endpoint reads an Authorization header that nothing was sending, and during
+ * SSR the internal sub-request does not carry the browser's cookies either.
+ * The symptom was "Could not load usage" for the one person allowed to see it.
+ */
+interface Usage {
   totals: Totals | null
   daily: Array<{ day: string; submissions: number; people: number }>
   hardest: Array<{ slug: string; title: string; attempts: number; pass_rate: number }>
   ai: { explanations_7d: number; people: number } | null
-}>('/api/admin/usage')
+}
+
+const data = ref<Usage | null>(null)
+const error = ref<string | null>(null)
+
+onMounted(async () => {
+  try {
+    const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
+    data.value = await $fetch<Usage>('/api/admin/usage', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+  } catch {
+    error.value = 'Could not load usage.'
+  }
+})
 
 const totals = computed(() => data.value?.totals ?? null)
 

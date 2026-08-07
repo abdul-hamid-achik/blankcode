@@ -325,6 +325,48 @@ export const conceptMasteryRelations = relations(conceptMastery, ({ one }) => ({
   }),
 }))
 
+/**
+ * A sign-in method that is not a password.
+ *
+ * Separate rows rather than columns on `users` because an account may have
+ * several: a password, a GitHub identity and a Google one all pointing at the
+ * same person. Columns would mean adding one per provider forever, and would
+ * make "how many ways can this person get in" — the question that decides
+ * whether unlinking is safe — a thing you compute rather than count.
+ *
+ * `providerAccountId` is the provider's own immutable id, never the email.
+ * People change their GitHub email; the account is still theirs. Matching on
+ * the address would also mean that whoever controls an address at the provider
+ * controls the account here.
+ */
+export const linkedIdentities = pgTable(
+  'linked_identities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** `github` or `google`. */
+    provider: varchar('provider', { length: 32 }).notNull(),
+    providerAccountId: varchar('provider_account_id', { length: 255 }).notNull(),
+    /** What the provider said the address was, for display. Not the key. */
+    email: varchar('email', { length: 255 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // One provider account belongs to exactly one user. Without this, a second
+    // sign-in could attach the same GitHub account to a different local user
+    // and either of them could then log in as the other.
+    uniqueIndex('linked_identities_provider_account_idx').on(
+      table.provider,
+      table.providerAccountId
+    ),
+    // And one provider per user: linking a second GitHub account to the same
+    // account is not a feature, it is a way to lose track of who can get in.
+    uniqueIndex('linked_identities_user_provider_idx').on(table.userId, table.provider),
+  ]
+)
+
 export const refreshTokens = pgTable(
   'refresh_tokens',
   {
