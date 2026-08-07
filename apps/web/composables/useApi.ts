@@ -11,10 +11,13 @@ import type {
   UserCreateInput,
   UserLoginInput,
 } from '@blankcode/shared'
+import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 export function useApi() {
-  const tokenCookie = useCookie<string | null>('token')
-  const refreshCookie = useCookie<string | null>('refresh-token')
+  // Same options the store uses. Written from both sides, so a mismatch here
+  // would have the refresh path replace a secure cookie with a default one.
+  const tokenCookie = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS)
+  const refreshCookie = useCookie<string | null>('refresh-token', AUTH_COOKIE_OPTIONS)
   const {
     public: { apiUrl },
   } = useRuntimeConfig()

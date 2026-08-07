@@ -1,9 +1,13 @@
 import type { User } from '@blankcode/shared'
 import { defineStore } from 'pinia'
+import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = useCookie<string | null>('token', { default: () => null })
-  const refreshToken = useCookie<string | null>('refresh-token', { default: () => null })
+  const token = useCookie<string | null>('token', { ...AUTH_COOKIE_OPTIONS, default: () => null })
+  const refreshToken = useCookie<string | null>('refresh-token', {
+    ...AUTH_COOKIE_OPTIONS,
+    default: () => null,
+  })
   const user = ref<User | null>(null)
   const isInitialized = ref(false)
 

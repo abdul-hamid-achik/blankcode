@@ -57,6 +57,32 @@ export default defineNuxtConfig({
   },
 
   routeRules: {
+    /*
+     * Headers every response carries. Vercel adds HSTS; nothing else was set.
+     *
+     * These matter more here than on a brochure site: the app holds an auth
+     * token that JavaScript can read, and it renders code the reader wrote.
+     *
+     * No Content-Security-Policy yet. It is the one that would actually
+     * contain an XSS, and it is also the one that silently breaks a page if a
+     * directive is wrong — it needs a pass over every page with the console
+     * open, not a guess added at the end of a session.
+     */
+    '/**': {
+      headers: {
+        // Stops a response being reinterpreted as a type it did not declare.
+        'X-Content-Type-Options': 'nosniff',
+        // The authenticated app has buttons that submit and delete; framing it
+        // is how those get clicked by someone else.
+        'X-Frame-Options': 'DENY',
+        // URLs here carry exercise ids. Full paths should not reach third
+        // parties through the Referer header.
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        // Nothing here uses these, and saying so means a future dependency
+        // cannot start.
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+      },
+    },
     '/': { ssr: true },
     '/tracks/**': { ssr: true },
     '/tutorials/**': { ssr: true },
