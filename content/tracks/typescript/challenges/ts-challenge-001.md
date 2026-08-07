@@ -101,3 +101,38 @@ describe('Counter', () => {
   })
 })
 ```
+
+## Solution
+
+```typescript
+export class Counter {
+  // Private so the only way to change it is through the methods that keep the
+  // "never negative" rule; a public field would let callers bypass it.
+  #count: number
+
+  constructor(initial = 0) {
+    this.#count = initial
+  }
+
+  increment(): number {
+    this.#count += 1
+    return this.#count
+  }
+
+  decrement(): number {
+    if (this.#count <= 0) {
+      throw new Error('Count cannot be negative')
+    }
+    this.#count -= 1
+    return this.#count
+  }
+
+  getValue(): number {
+    return this.#count
+  }
+
+  reset(): void {
+    this.#count = 0
+  }
+}
+```

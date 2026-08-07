@@ -138,3 +138,42 @@ describe('groupBy', () => {
   })
 })
 ```
+
+## Solution
+
+```typescript
+export function first<T>(arr: T[]): T | undefined {
+  return arr[0]
+}
+
+export function last<T>(arr: T[]): T | undefined {
+  return arr[arr.length - 1]
+}
+
+export function sum(arr: number[]): number {
+  return arr.reduce((total, value) => total + value, 0)
+}
+
+export function unique<T>(arr: T[]): T[] {
+  // A Set preserves insertion order, so the first occurrence of each value
+  // keeps its position rather than the last one winning.
+  return [...new Set(arr)]
+}
+
+export function groupBy<T, K extends string | number | symbol>(
+  arr: T[],
+  keyFn: (item: T) => K
+): Record<K, T[]> {
+  const groups = {} as Record<K, T[]>
+
+  for (const item of arr) {
+    const key = keyFn(item)
+    // `??=` rather than a `in` check: a group named "constructor" would
+    // otherwise find the one on Object.prototype and never be created.
+    groups[key] ??= []
+    groups[key].push(item)
+  }
+
+  return groups
+}
+```

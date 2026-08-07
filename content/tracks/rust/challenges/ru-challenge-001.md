@@ -117,3 +117,36 @@ mod tests {
     }
 }
 ```
+
+## Solution
+
+```rust
+pub fn is_some_and<T, F>(opt: Option<T>, f: F) -> bool
+where
+    F: FnOnce(T) -> bool,
+{
+    match opt {
+        Some(value) => f(value),
+        None => false,
+    }
+}
+
+pub fn zip_options<T, U>(opt1: Option<T>, opt2: Option<U>) -> Option<(T, U)> {
+    // `?` gives the short-circuit for free: the first None ends the function.
+    Some((opt1?, opt2?))
+}
+
+pub fn first_some<T>(opts: &[Option<T>]) -> Option<&T> {
+    // Returns a reference so the slice keeps ownership; returning T would mean
+    // moving out of a borrow, which the caller almost never wants.
+    opts.iter().find_map(|opt| opt.as_ref())
+}
+
+pub fn count_some<T>(opts: &[Option<T>]) -> usize {
+    opts.iter().filter(|opt| opt.is_some()).count()
+}
+
+pub fn flatten_options<T>(opts: &[Option<Option<T>>]) -> Option<&T> {
+    opts.iter().find_map(|opt| opt.as_ref().and_then(|inner| inner.as_ref()))
+}
+```

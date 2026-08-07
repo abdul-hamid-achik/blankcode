@@ -167,3 +167,43 @@ describe('retry', () => {
   })
 })
 ```
+
+## Solution
+
+```typescript
+export interface RetryOptions {
+  maxRetries?: number
+  delay?: number
+  backoff?: number
+  shouldRetry?: (error: Error, attempt: number) => boolean
+}
+
+export async function retry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
+  const { maxRetries = 3, delay = 1000, backoff = 1, shouldRetry } = options
+
+  let lastError: Error = new Error('retry called with no attempts')
+
+  // maxRetries counts *retries*, so the loop runs one more time than that: the
+  // first call is not a retry.
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+
+      const attemptNumber = attempt + 1
+      const isLastAttempt = attempt === maxRetries
+      if (isLastAttempt) break
+
+      // Asked only when a retry is actually available; calling it on the final
+      // failure would report an attempt that was never going to happen.
+      if (shouldRetry && !shouldRetry(lastError, attemptNumber)) break
+
+      const wait = delay * backoff ** attempt
+      await new Promise((resolve) => setTimeout(resolve, wait))
+    }
+  }
+
+  throw lastError
+}
+```

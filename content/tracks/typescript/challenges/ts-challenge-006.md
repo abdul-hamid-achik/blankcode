@@ -222,3 +222,126 @@ describe('QueryBuilder', () => {
   })
 })
 ```
+
+## Solution
+
+```typescript
+export type WhereValue =
+  | string
+  | number
+  | boolean
+  | null
+  | { gt: number | string }
+  | { lt: number | string }
+  | { gte: number | string }
+  | { lte: number | string }
+  | { in: (string | number)[] }
+  | { like: string }
+
+export type WhereCondition = Record<string, WhereValue>
+
+export class QueryBuilder {
+  #columns: string[] = []
+  #table = ''
+  #conditions: WhereCondition[] = []
+  #orders: string[] = []
+  #limit: number | null = null
+  #offset: number | null = null
+  #joins: { table: string; on: string }[] = []
+
+  select(...columns: string[]): QueryBuilder {
+    this.#columns = columns
+    return this
+  }
+
+  from(table: string): QueryBuilder {
+    this.#table = table
+    return this
+  }
+
+  where(condition: WhereCondition): QueryBuilder {
+    // Accumulated rather than replaced, so repeated calls read as AND — which
+    // is what chaining implies.
+    this.#conditions.push(condition)
+    return this
+  }
+
+  orderBy(column: string, direction: 'ASC' | 'DESC' = 'ASC'): QueryBuilder {
+    this.#orders.push(`${column} ${direction}`)
+    return this
+  }
+
+  limit(n: number): QueryBuilder {
+    this.#limit = n
+    return this
+  }
+
+  offset(n: number): QueryBuilder {
+    this.#offset = n
+    return this
+  }
+
+  join(table: string, on: string): QueryBuilder {
+    this.#joins.push({ table, on })
+    return this
+  }
+
+  build(): { query: string; params: any[] } {
+    const params: any[] = []
+    // Every value goes through here, so nothing a caller supplies is ever
+    // concatenated into the SQL text. That is the whole point of the builder.
+    const placeholder = (value: any): string => {
+      params.push(value)
+      return `$${params.length}`
+    }
+
+    const parts = [`SELECT ${this.#columns.join(', ')}`, `FROM ${this.#table}`]
+
+    for (const { table, on } of this.#joins) {
+      parts.push(`JOIN ${table} ON ${on}`)
+    }
+
+    const clauses: string[] = []
+    for (const condition of this.#conditions) {
+      for (const [column, value] of Object.entries(condition)) {
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          const [operator, operand] = Object.entries(value)[0]!
+          switch (operator) {
+            case 'gt':
+              clauses.push(`${column} > ${placeholder(operand)}`)
+              break
+            case 'lt':
+              clauses.push(`${column} < ${placeholder(operand)}`)
+              break
+            case 'gte':
+              clauses.push(`${column} >= ${placeholder(operand)}`)
+              break
+            case 'lte':
+              clauses.push(`${column} <= ${placeholder(operand)}`)
+              break
+            case 'like':
+              clauses.push(`${column} LIKE ${placeholder(operand)}`)
+              break
+            case 'in': {
+              const values = (operand as (string | number)[]).map(placeholder)
+              clauses.push(`${column} IN (${values.join(', ')})`)
+              break
+            }
+            default:
+              throw new Error(`Unknown operator: ${operator}`)
+          }
+          continue
+        }
+        clauses.push(`${column} = ${placeholder(value)}`)
+      }
+    }
+
+    if (clauses.length > 0) parts.push(`WHERE ${clauses.join(' AND ')}`)
+    if (this.#orders.length > 0) parts.push(`ORDER BY ${this.#orders.join(', ')}`)
+    if (this.#limit !== null) parts.push(`LIMIT ${placeholder(this.#limit)}`)
+    if (this.#offset !== null) parts.push(`OFFSET ${placeholder(this.#offset)}`)
+
+    return { query: parts.join(' '), params }
+  }
+}
+```

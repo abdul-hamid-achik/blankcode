@@ -95,7 +95,7 @@ mod tests {
     #[test]
     fn test_checked_divide_overflow() {
         // Division resulting in infinity should be an error
-        let result = checked_divide(1.0, 0.00000000000000000000000000000000000001);
+        let result = checked_divide(f64::MAX, 0.5);
         assert!(result.is_err());
     }
 
@@ -109,5 +109,63 @@ mod tests {
         let err = DivisionError::DivisionByZero;
         assert_eq!(format!("{}", err), "Division by zero");
     }
+}
+```
+
+## Solution
+
+```rust
+use std::fmt;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DivisionError {
+    DivisionByZero,
+    Overflow,
+    InvalidInput,
+}
+
+impl fmt::Display for DivisionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let message = match self {
+            DivisionError::DivisionByZero => "Division by zero",
+            DivisionError::Overflow => "Overflow",
+            DivisionError::InvalidInput => "Invalid input",
+        };
+        write!(f, "{}", message)
+    }
+}
+
+impl std::error::Error for DivisionError {}
+
+pub fn divide(a: f64, b: f64) -> Result<f64, DivisionError> {
+    if a.is_nan() || b.is_nan() {
+        return Err(DivisionError::InvalidInput);
+    }
+    if b == 0.0 {
+        return Err(DivisionError::DivisionByZero);
+    }
+    Ok(a / b)
+}
+
+pub fn safe_divide(a: f64, b: f64) -> Option<f64> {
+    // Discarding which error occurred is the whole difference between the two
+    // functions; callers who care use `divide`.
+    divide(a, b).ok()
+}
+
+pub fn divide_all(nums: &[f64], divisor: f64) -> Result<Vec<f64>, DivisionError> {
+    // collect into Result stops at the first error rather than producing a
+    // partial vector alongside one.
+    nums.iter().map(|&n| divide(n, divisor)).collect()
+}
+
+pub fn checked_divide(a: f64, b: f64) -> Result<f64, DivisionError> {
+    let result = divide(a, b)?;
+    if result.is_infinite() {
+        // Both operands were finite, so an infinite result means the quotient
+        // is too large to represent — not a division by zero.
+        return Err(DivisionError::Overflow);
+    }
+    Ok(result)
 }
 ```

@@ -143,9 +143,24 @@ export const SANDBOX_IMAGES: SandboxImage[] = [
           '',
           '[dependencies]',
           'tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "sync", "time"] }',
+          'serde = { version = "1", features = ["derive"] }',
+          'serde_json = "1"',
         ].join('\n'),
-        'src/lib.rs':
-          'pub fn add(a: i32, b: i32) -> i32 { a + b }\n\n#[cfg(test)]\nmod t { use super::*; #[test] fn w() { assert_eq!(add(1,1), 2); } }\n',
+        'src/lib.rs': [
+          '#[derive(serde::Serialize, serde::Deserialize)]',
+          'pub struct Warm { pub a: i32 }',
+          '',
+          'pub fn add(a: i32, b: i32) -> i32 { a + b }',
+          '',
+          '#[cfg(test)]',
+          'mod t {',
+          '  use super::*;',
+          '  #[test] fn w() { assert_eq!(add(1,1), 2); }',
+          // Referencing each crate is what gets it compiled into the prebuilt
+          // target, so a submission using it does not pay for the build.
+          '  #[test] fn s() { let j = serde_json::to_string(&Warm { a: 1 }).unwrap(); assert_eq!(j, "{\\"a\\":1}"); }',
+          '}',
+        ].join('\n'),
       },
       command: {
         cmd: 'sh',

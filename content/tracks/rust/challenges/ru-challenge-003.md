@@ -190,3 +190,97 @@ mod tests {
     }
 }
 ```
+
+## Solution
+
+```rust
+use std::collections::HashMap;
+use std::hash::Hash;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+struct Entry<V> {
+    value: V,
+    expires_at: Instant,
+}
+
+/// A TTL cache that is shared, not owned exclusively.
+///
+/// Every method takes `&self`, including the mutating ones. That is what lets
+/// an `Arc<Cache<..>>` be handed to several threads at once — with `&mut self`
+/// the callers would need a lock around the whole cache anyway, so the lock
+/// belongs inside it.
+pub struct Cache<K, V> {
+    entries: Arc<Mutex<HashMap<K, Entry<V>>>>,
+}
+
+impl<K, V> Cache<K, V>
+where
+    K: Eq + Hash + Clone,
+    V: Clone,
+{
+    pub fn new() -> Self {
+        Cache { entries: Arc::new(Mutex::new(HashMap::new())) }
+    }
+
+    pub fn insert(&self, key: K, value: V, ttl: Duration) -> Option<V> {
+        let mut entries = self.entries.lock().unwrap();
+        entries
+            .insert(key, Entry { value, expires_at: Instant::now() + ttl })
+            // An expired previous value is not a value the caller should get
+            // back, so it reads as if the key had been absent.
+            .filter(|previous| previous.expires_at > Instant::now())
+            .map(|previous| previous.value)
+    }
+
+    pub fn get(&self, key: &K) -> Option<V> {
+        let entries = self.entries.lock().unwrap();
+        entries
+            .get(key)
+            .filter(|entry| entry.expires_at > Instant::now())
+            .map(|entry| entry.value.clone())
+    }
+
+    pub fn remove(&self, key: &K) -> Option<V> {
+        let mut entries = self.entries.lock().unwrap();
+        entries
+            .remove(key)
+            .filter(|entry| entry.expires_at > Instant::now())
+            .map(|entry| entry.value)
+    }
+
+    pub fn len(&self) -> usize {
+        let entries = self.entries.lock().unwrap();
+        let now = Instant::now();
+        // Counts what is still live rather than what is still stored: an
+        // expired entry is gone as far as any caller is concerned.
+        entries.values().filter(|entry| entry.expires_at > now).count()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    pub fn clear(&self) {
+        self.entries.lock().unwrap().clear();
+    }
+
+    pub fn cleanup_expired(&self) -> usize {
+        let mut entries = self.entries.lock().unwrap();
+        let now = Instant::now();
+        let before = entries.len();
+        entries.retain(|_, entry| entry.expires_at > now);
+        before - entries.len()
+    }
+}
+
+impl<K, V> Default for Cache<K, V>
+where
+    K: Eq + Hash + Clone,
+    V: Clone,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+```

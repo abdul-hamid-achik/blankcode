@@ -193,3 +193,67 @@ describe('createStore', () => {
   })
 })
 ```
+
+## Solution
+
+```typescript
+export type Action = { type: string; [key: string]: any }
+export type Reducer<T> = (state: T, action: Action) => T
+export type Middleware<T> = (
+  store: { getState: () => T; dispatch: (action: Action) => any }
+) => (next: (action: Action) => any) => (action: Action) => any
+
+export interface Store<T> {
+  getState: () => T
+  dispatch: (action: Action) => void
+  subscribe: (listener: () => void) => () => void
+}
+
+const INIT: Action = { type: '@@blankcode/INIT' }
+
+export function createStore<T>(
+  reducer: Reducer<T>,
+  initialState: T,
+  middlewares: Middleware<T>[] = []
+): Store<T> {
+  let state = initialState
+  const listeners = new Set<() => void>()
+
+  const baseDispatch = (action: Action): Action => {
+    // The reducer returns the next state rather than mutating this one, which
+    // is what lets a caller hold on to an earlier getState() safely.
+    state = reducer(state, action)
+    for (const listener of [...listeners]) listener()
+    return action
+  }
+
+  const storeApi = {
+    getState: () => state,
+    dispatch: (action: Action) => dispatch(action),
+  }
+
+  // Composed in reverse so the first middleware in the array ends up outermost,
+  // and its before/after work brackets everything after it.
+  let dispatch: (action: Action) => any = baseDispatch
+  for (let i = middlewares.length - 1; i >= 0; i--) {
+    dispatch = middlewares[i]!(storeApi)(dispatch)
+  }
+
+  // Populates the state from the reducer's own defaults and lets middleware see
+  // that the store has started.
+  dispatch(INIT)
+
+  return {
+    getState: () => state,
+    dispatch: (action: Action) => {
+      dispatch(action)
+    },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+  }
+}
+```

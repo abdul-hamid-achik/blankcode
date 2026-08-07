@@ -57,6 +57,8 @@ RUN set -eux; \
       '' \
       '[dependencies]' \
       'tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "sync", "time"] }' \
+      'serde = { version = "1", features = ["derive"] }' \
+      'serde_json = "1"' \
       > Cargo.toml
 
 # Download every dependency and lay it out as an offline directory source.

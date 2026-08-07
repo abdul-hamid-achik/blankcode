@@ -13,6 +13,10 @@ import type { ExecutionContext, ExecutionResult, LanguageExecutor } from '../typ
 const VENDORED_CRATES: Record<string, string> = {
   tokio:
     'tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "sync", "time"] }',
+  // serde is the serialization crate in Rust; an exercise about building a
+  // request or parsing a payload is artificial without it.
+  serde: 'serde = { version = "1", features = ["derive"] }',
+  serde_json: 'serde_json = "1"',
 }
 
 /** Module the submission's tests are compiled into, inside the solution crate. */

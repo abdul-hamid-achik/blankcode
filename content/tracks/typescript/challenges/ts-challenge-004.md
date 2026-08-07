@@ -192,3 +192,64 @@ describe('EventEmitter', () => {
   })
 })
 ```
+
+## Solution
+
+```typescript
+/*
+ * The constraint is written over `keyof Events` rather than as
+ * `Record<string, ...>` on purpose: an interface has no implicit index
+ * signature, so an interface of event signatures — which is exactly how
+ * callers declare their event map — would never satisfy a Record.
+ */
+export class EventEmitter<Events extends { [K in keyof Events]: (...args: any[]) => void }> {
+  // Sets, not arrays: subscribing the same listener twice should not make it
+  // fire twice, and removal is then unambiguous.
+  #listeners = new Map<keyof Events, Set<(...args: any[]) => void>>()
+
+  on<K extends keyof Events>(event: K, listener: Events[K]): void {
+    const existing = this.#listeners.get(event) ?? new Set()
+    existing.add(listener)
+    this.#listeners.set(event, existing)
+  }
+
+  off<K extends keyof Events>(event: K, listener: Events[K]): void {
+    this.#listeners.get(event)?.delete(listener)
+  }
+
+  once<K extends keyof Events>(event: K, listener: Events[K]): void {
+    const wrapper = ((...args: Parameters<Events[K]>) => {
+      // Removed before calling, so a listener that emits the same event again
+      // cannot re-enter itself.
+      this.off(event, wrapper)
+      listener(...args)
+    }) as Events[K]
+
+    this.on(event, wrapper)
+  }
+
+  emit<K extends keyof Events>(event: K, ...args: Parameters<Events[K]>): void {
+    const listeners = this.#listeners.get(event)
+    if (!listeners) return
+
+    // Copied first: a listener may unsubscribe itself or others, and mutating
+    // the set mid-iteration would skip whoever came next.
+    for (const listener of [...listeners]) {
+      try {
+        listener(...args)
+      } catch {
+        // One broken subscriber must not stop the rest from being told. The
+        // emitter has no way to report this to a caller who did not opt in.
+      }
+    }
+  }
+
+  removeAllListeners<K extends keyof Events>(event?: K): void {
+    if (event === undefined) {
+      this.#listeners.clear()
+      return
+    }
+    this.#listeners.delete(event)
+  }
+}
+```
