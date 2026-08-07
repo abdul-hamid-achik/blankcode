@@ -23,6 +23,7 @@ import { ExercisesServiceLive } from './modules/exercises/exercises.service.js'
 import { ProgressServiceLive } from './modules/progress/progress.service.js'
 import { ReviewsServiceLive } from './modules/reviews/reviews.service.js'
 import { SubmissionsServiceLive } from './modules/submissions/submissions.service.js'
+import { PathsServiceLive } from './modules/paths/paths.service.js'
 import { TracksServiceLive } from './modules/tracks/tracks.service.js'
 import { UsersServiceLive } from './modules/users/users.service.js'
 // Services
@@ -41,6 +42,7 @@ import { JwtServiceLive } from './services/jwt.service.js'
 const ServicesLive = Layer.mergeAll(
   AuthServiceLive,
   UsersServiceLive,
+  PathsServiceLive,
   TracksServiceLive,
   ExercisesServiceLive,
   SubmissionsServiceLive,
