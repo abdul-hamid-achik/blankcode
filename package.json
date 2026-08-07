@@ -24,7 +24,6 @@
     "content:import": "bun run --filter @blankcode/content-importer start",
     "content:validate": "bun run --filter @blankcode/exercise-validator start",
     "content:generate": "bun run --filter @blankcode/exercise-generator start",
-    "worker": "bun run --filter @blankcode/api start:worker",
     "runners:build": "bash docker/runners/build-all.sh",
     "runners:rebuild": "docker compose up --force-recreate --no-deps runner-images",
     "prepare": "lefthook install || true",

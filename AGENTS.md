@@ -8,10 +8,12 @@ BlankCode is a monorepo coding exercise platform built with:
 
 - **Frontend**: Nuxt 4 (Vue 3 + Composition API), Pinia, TailwindCSS v4, CodeMirror 6, Radix Vue
 - **Backend**: Effect.ts (`@effect/platform` HttpApiBuilder), PostgreSQL, Drizzle ORM
-- **Workflows**: `@effect/cluster` (wired but currently unused — execution path is a SQL-polling worker in `apps/api/src/workers/`)
-- **Sandboxing**: Docker per-language runner images (`docker/runners/Dockerfile.{typescript,python,go,rust,react}`) with hardened flags
+- **Execution**: submissions run inline in the request that creates them — `POST /api/submissions` → `createAndExecute` → `runSubmission` (`apps/api/src/modules/submissions/run-submission.ts`, which also records completion, attempts, and the SM-2 review schedule). A run takes 2–12s, comfortably inside a request, so there is no queue, no worker process, and no lease reaper.
+- **Sandboxing**: two backends behind `EXECUTION_BACKEND` — Docker per-language runner images (`docker/runners/Dockerfile.{typescript,react,vue,python,go,rust}`) with hardened flags for local work; Vercel Sandbox microVMs in production, where a Function cannot start a container. Snapshots are built with `bun run sandbox:build` and **expire after 30 days unused**, which silently breaks all execution for that language — a weekly cron (`apps/web/server/routes/cron/warm-snapshots.ts`, wired in `apps/web/vercel.json`, guarded by `CRON_SECRET`) boots one sandbox per language to reset the clock.
+- **Deployment**: one Vercel project. `apps/api/src/app.ts` exports `ApiLive` — the whole API as a layer, no server attached — and `apps/web/server/routes/api/[...].ts` mounts it inside Nitro via `HttpApiBuilder.toWebHandler`, stripping the `/api` prefix. `apps/api/src/main.ts` is the standalone Node server for local development only. CI (`.github/workflows/ci.yml`) runs `bun run verify` and nothing else; Vercel builds and deploys from its own git integration.
 - **Testing**: Vitest unit tests in every workspace. There is **no Playwright suite** — end-to-end coverage lives in the external `cairntrace` engine, so do not add one.
 - **Component workshop**: Histoire (`bun run story`), stories are `*.story.vue`
+- **Content & SEO**: blog posts on `@nuxt/content` (`content/blog/*.md`, rendered by `apps/web/pages/blog/`). The sitemap and robots.txt are plain Nitro routes (`apps/web/server/routes/sitemap.xml.ts`, `robots.txt.ts`) — robots disallows everything on preview deployments so a preview never competes with production for indexing. `apps/web/composables/useSiteUrl.ts` is the single source for the canonical origin. Quote frontmatter dates and any title containing a colon — unquoted, YAML mis-parses both, and a bare date reaches the page as `null`.
 - **AI generation**: Vercel AI SDK (`ai@7`) through the AI Gateway — one credential (`AI_GATEWAY_API_KEY`), model chosen by `LLM_MODEL` slug (`tools/exercise-generator/src/llm.ts`). Never add a direct provider SDK or raw `fetch` to an LLM API.
 - **Tooling**: Turbo, Bun, oxlint + oxfmt (oxc), Knip, Lefthook
 - **Runtime/Package Manager**: Bun (`bun`/`bunx`) — never npm/npx/yarn/pnpm
@@ -53,12 +55,12 @@ Break work into logical, independently testable chunks.
 **This is non-negotiable.** Before considering any task complete:
 
 ```bash
-bun run verify   # lint + typecheck + test + knip
+bun run verify   # lint + typecheck + test + knip + content validation
 ```
 
-All four checks must pass before committing changes. Run them individually
-(`bun run test`, `bun run typecheck`, `bun run lint`, `bun run knip`) while
-iterating.
+All five checks must pass before committing changes. Run them individually
+(`bun run test`, `bun run typecheck`, `bun run lint`, `bun run knip`,
+`bun run content:validate`) while iterating.
 
 ### 4. Write Tests for New Code
 
@@ -156,12 +158,13 @@ blankcode/
 │   │   │   ├── modules/     # Services (auth, exercises, progress, ...)
 │   │   │   ├── middleware/  # Auth, admin, rate limiting
 │   │   │   ├── services/    # Execution engine + per-language executors
-│   │   │   ├── workflows/   # @effect/workflow definitions (mostly unused)
-│   │   │   ├── workers/     # SQL-polling submission worker (the live path)
+│   │   │   ├── app.ts       # ApiLive — the whole API as a layer, no server
+│   │   │   ├── main.ts      # Standalone Node server (local dev only)
 │   │   │   └── __tests__/   # Vitest unit tests
 │   └── web/                 # Nuxt 4 frontend (flat layout, no src/)
 │       ├── components/      # Vue components + *.story.vue
 │       ├── pages/           # File-based routes
+│       ├── server/          # Nitro: API mount, sitemap/robots, cron, plugins
 │       ├── stores/          # Pinia stores
 │       ├── composables/     # Vue composables
 │       ├── utils/           # Pure helpers
@@ -172,8 +175,10 @@ blankcode/
 │   └── exercise-parser/     # Markdown exercise parser
 ├── tools/
 │   ├── content-importer/    # markdown -> database
-│   └── exercise-generator/  # LLM-generated exercises (src/llm.ts)
-├── content/                 # Exercise + tutorial markdown
+│   ├── exercise-generator/  # LLM-generated exercises (src/llm.ts)
+│   ├── exercise-validator/  # enforces the authoring rules (content:validate)
+│   └── sandbox-images/      # builds the Vercel Sandbox snapshots
+├── content/                 # Exercise, tutorial and blog markdown
 └── docker/runners/          # Per-language sandbox images
 ```
 
@@ -264,7 +269,7 @@ there — `apps/web/__tests__/error-copy.test.ts` enforces the coverage list.
 ### Effect.ts Specifics
 
 - Services are defined as `Context.Tag` and provided via `Layer.effect`
-- Wire all layers in `apps/api/src/main.ts` — `Layer.mergeAll` for siblings, `Layer.provide` for dependencies
+- Wire all layers in `apps/api/src/app.ts` (`ApiLive`) — `Layer.mergeAll` for siblings, `Layer.provide` for dependencies. `main.ts` only attaches a Node server to `ApiLive` for local development; production serves the same layer through Nitro, so neither transport may gain behaviour the other lacks
 - Use `@effect/schema` (re-exported as `effect/Schema`) for validation; share schemas via `@blankcode/shared/schemas`
 - Apply `AuthRateLimit` / `SubmissionRateLimit` middleware to public endpoints in `apps/api/src/api/`
 - Map domain errors via `Effect.tryPromise({ try, catch: () => new SomeError(...) })`; never `catch: () => undefined` (silently swallows)
@@ -365,15 +370,55 @@ does. Always extract multi-statement handlers into a named function.
 deliberately aligned comments in `content/tutorials/`.
 
 **oxlint on Vue**: unused-variable rules are off for `.vue` (the linter cannot
-see template usage). Console rules are off in `tools/**` and the worker.
+see template usage). Console rules are off in `tools/**` and the execution
+service (`apps/api/src/services/execution/**`).
 
-### 2. Turbo cache and test inputs
+### 2. Server-side Vue: feature flags and duplicate runtimes
+
+Two production-only failures share a symptom: every server-rendered page
+returns 500 while `ssr: false` routes stay up, so the site looks half alive
+rather than plainly broken.
+
+**Feature flags.** Vue expects a bundler to substitute its compile-time flags
+via `define`, but Nitro externalises Pinia into the server bundle's own
+`node_modules` instead of bundling it, so Pinia's copy still contains a bare
+`__VUE_PROD_DEVTOOLS__` and the first server-side `createPinia()` throws a
+ReferenceError. `apps/web/server/plugins/vue-feature-flags.ts` defines the
+flags on `globalThis`. **The flag names in that plugin are assembled from
+string pieces on purpose**: the build's replacement is plain text and rewrites
+property names too, so writing the token whole compiles
+`globalThis.__VUE_PROD_DEVTOOLS__ ??= false` into `globalThis.false ??= false`
+— a silent no-op that looks completely correct in source. Do not "tidy" the
+concatenation; `apps/web/__tests__/vue-feature-flags.test.ts` fails if a whole
+token appears.
+
+**Duplicate runtimes.** The root `package.json` `overrides` pin every Vue
+package to one version, alongside the CodeMirror pins, because two copies of a
+library that assumes it is a singleton produce failures that do not look like
+dependency problems — `@codemirror/state` did exactly that here, and the editor
+silently never mounted.
+
+A warning about that pin, though: it was added while chasing the feature-flag
+bug above, on the theory that a duplicate `@vue/runtime-core` explained it. That
+theory was **wrong**. A clean install removed the duplicates and the failure was
+unchanged; the cause was the ReferenceError. The pin is reasonable insurance and
+the CodeMirror precedent is real, but do not cite it as the fix for anything
+Pinia-shaped.
+
+Two lessons worth keeping from how long that took. A hypothesis that explains
+the symptom is not evidence — three separate explanations here all fit the
+symptom perfectly and only one was true. And the reason the wrong ones survived
+was a broken reproduction: a stale server still listening on a reused port
+answered several experiments, which made "it works locally" look true when it
+never was. Give each experiment a fresh port.
+
+### 3. Turbo cache and test inputs
 
 `turbo.json` lists explicit `inputs` for the `test` task. If you add tests in a
 new directory, add that directory to `inputs` — otherwise Turbo replays a stale
 cached pass and your new tests never run.
 
-### 3. Vue Test Utils Selectors
+### 4. Vue Test Utils Selectors
 
 Be specific with CSS selectors in tests. `div > div` may not select what you expect:
 
@@ -386,7 +431,7 @@ wrapper.find('.my-class > div')
 wrapper.find('[data-testid="my-element"]')
 ```
 
-### 4. Async Test Patterns
+### 5. Async Test Patterns
 
 Always await async operations in tests:
 
@@ -421,7 +466,7 @@ When modifying the database schema:
 2. Share request/response schemas via `@blankcode/shared/schemas`
 3. Implement the service in `apps/api/src/modules/`
 4. Wire the handler in `apps/api/src/handlers/*.handlers.ts`
-5. Provide the layer in `apps/api/src/main.ts`
+5. Provide the layer in `apps/api/src/app.ts` (`ApiLive`)
 6. Apply `AuthRateLimit` / `SubmissionRateLimit` if the endpoint is public
 7. **Write tests for the service** in `apps/api/src/__tests__/`
 8. Add the client method to `apps/web/composables/useApi.ts`
@@ -485,11 +530,13 @@ Before marking any task as complete:
 ### API Issues
 
 ```bash
-# Check API logs
-docker compose logs -f api
+# Check app logs — the API runs inside the `web` service (Nuxt with the API
+# mounted at /api); the container holds the Docker socket so submissions can
+# be sandboxed locally
+docker compose logs -f web
 
-# Test endpoint manually
-curl -X GET http://localhost:3000/health
+# Test endpoint manually (compose maps the app to 3001)
+curl -X GET http://localhost:3001/api/health
 
 # Check database connection
 bun run db:studio
