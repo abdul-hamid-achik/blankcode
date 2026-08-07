@@ -5,6 +5,7 @@ import EmptyState from '~/components/error/empty-state.vue'
 import Card from '~/components/ui/card.vue'
 import DifficultyTag from '~/components/ui/difficulty-tag.vue'
 import { useAsync } from '~/composables/useAsync'
+import { usePageSeo } from '~/composables/usePageSeo'
 
 definePageMeta({ requiresAuth: false })
 
@@ -27,12 +28,6 @@ const { data: allExercises, pending: exercisesLoading } = await useAsyncData(
   'challenge-exercises',
   () => $fetch<Exercise[]>('/api/exercises')
 )
-
-useSeoMeta({
-  title: 'Challenges',
-  description:
-    'Open-ended coding challenges across seven languages. No blanks to fill — write the whole thing, and real tests decide.',
-})
 
 const isLoading = computed(() => tracksLoading.value || exercisesLoading.value)
 
@@ -88,6 +83,13 @@ const trackIcons: Record<string, string> = {
   react: '⚛️',
   vue: '💚',
 }
+
+usePageSeo({
+  title: 'Challenges — BlankCode',
+  description:
+    'Write the whole thing, not just the blanks. Graded by the exercise’s real test suite in a sandbox.',
+  path: '/challenges',
+})
 </script>
 
 <template>

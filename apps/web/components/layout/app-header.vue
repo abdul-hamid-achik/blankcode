@@ -97,6 +97,14 @@ function closeMenus() {
 
         <NuxtLink to="/tracks" class="nav-link">Tracks</NuxtLink>
 
+        <!--
+          Top level, not inside the More menu. The blog is how most people
+          arrive from a search engine, and a dropdown's contents are not in the
+          server-rendered HTML at all — putting it there left it invisible to
+          both a reader and a crawler.
+        -->
+        <NuxtLink to="/blog" class="nav-link">Blog</NuxtLink>
+
         <div class="relative">
           <button
             class="nav-link"

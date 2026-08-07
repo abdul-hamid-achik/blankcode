@@ -217,8 +217,25 @@ describe('public index pages render and describe themselves', () => {
     'pages/blog/index.vue',
   ])('%s has its own title and description', (file) => {
     const source = readFileSync(join(process.cwd(), file), 'utf-8')
-    expect(source).toContain('useSeoMeta')
+    // Either the shared composable — which also emits the canonical and the
+    // social card — or a hand-rolled useSeoMeta. The property is that the page
+    // describes itself, not which helper it used.
+    expect(source).toMatch(/usePageSeo|useSeoMeta/)
     expect(source).toMatch(/description:/)
+  })
+
+  it.each([
+    'pages/index.vue',
+    'pages/tracks/index.vue',
+    'pages/paths/index.vue',
+    'pages/challenges/index.vue',
+    'pages/tutorials/index.vue',
+  ])('%s carries a canonical and a social card', (file) => {
+    // The landing page had neither. Pasting blankcode.dev into Slack produced
+    // a bare link, and preview.blankcode.dev serves the same pages, so without
+    // a canonical a crawler can index the preview copy instead of production.
+    const source = readFileSync(join(process.cwd(), file), 'utf-8')
+    expect(source).toContain('usePageSeo')
   })
 
   it.each(['pages/tracks/index.vue', 'pages/challenges/index.vue'])(

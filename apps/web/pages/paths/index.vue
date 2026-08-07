@@ -2,6 +2,7 @@
 import { LEARNING_PATHS } from '@blankcode/shared'
 import { computed } from 'vue'
 import Card from '~/components/ui/card.vue'
+import { usePageSeo } from '~/composables/usePageSeo'
 
 definePageMeta({ requiresAuth: false })
 
@@ -25,10 +26,11 @@ const getProgress = (path: { challengeIds: readonly string[] }) => {
   return { completed: 0, total: path.challengeIds.length }
 }
 
-useSeoMeta({
-  title: 'Learning paths',
+usePageSeo({
+  title: 'Learning paths — BlankCode',
   description:
-    'Guided sequences of challenges, ordered so each one builds on the last. Pick a path and work through it.',
+    'Curated sequences through the exercises: working with models, a language end to end, or the problems that are the same in Vue and React.',
+  path: '/paths',
 })
 </script>
 

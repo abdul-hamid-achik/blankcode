@@ -5,16 +5,13 @@ import PracticeLoop from '~/components/landing/practice-loop.vue'
 import ProductFrame from '~/components/landing/product-frame.vue'
 import PricingPlans from '~/components/landing/pricing-plans.vue'
 import StartPractising from '~/components/landing/start-practising.vue'
+import { usePageSeo } from '~/composables/usePageSeo'
 
-useHead({
+usePageSeo({
   title: 'BlankCode — keep your hands from forgetting',
-  meta: [
-    {
-      name: 'description',
-      content:
-        "Read almost-finished code, fill in the blanks, and run the exercise's real test suite in an isolated sandbox. Spaced repetition brings each exercise back before you forget it. Nothing to install.",
-    },
-  ],
+  description:
+    "Read almost-finished code, fill in the blanks, and run the exercise's real test suite in an isolated sandbox. Spaced repetition brings each exercise back before you forget it. Nothing to install.",
+  path: '/',
 })
 </script>
 

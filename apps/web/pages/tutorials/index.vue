@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { usePageSeo } from '~/composables/usePageSeo'
 /**
  * The shape `content.config.ts` declares for the tutorials collection, plus
  * the `path` @nuxt/content adds. Declared rather than cast at each use: the
@@ -41,12 +42,6 @@ const trackTutorials = computed(() => {
   return (selected ? filtered.filter((t) => t.track === selected) : filtered).toSorted(byOrder)
 })
 
-useSeoMeta({
-  title: 'Tutorials',
-  description:
-    'Guides on the concepts behind the exercises — what to understand before the syntax has to come back from memory.',
-})
-
 const difficultyColor: Record<string, string> = {
   beginner: 'bg-green-500/10 text-green-500',
   intermediate: 'bg-yellow-500/10 text-yellow-500',
@@ -57,6 +52,13 @@ function getSlug(tutorial: Tutorial): string {
   // Extract slug from path: /tutorials/go/foo => go/foo or /tutorials/foo => foo
   return tutorial.path?.replace(/^\/tutorials\//, '') ?? tutorial.slug ?? ''
 }
+
+usePageSeo({
+  title: 'Tutorials — BlankCode',
+  description:
+    'Written walkthroughs of the ideas the exercises practise, from spaced repetition to reviewing code you did not write.',
+  path: '/tutorials',
+})
 </script>
 
 <template>

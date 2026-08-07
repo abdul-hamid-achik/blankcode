@@ -5,6 +5,7 @@ import EmptyState from '~/components/error/empty-state.vue'
 import { useApi } from '~/composables/useApi'
 import { useAsync } from '~/composables/useAsync'
 import { useAuthStore } from '~/stores/auth'
+import { usePageSeo } from '~/composables/usePageSeo'
 
 /**
  * A track row's job is to tell you where you are in it. Descriptions were
@@ -33,12 +34,6 @@ onMounted(() => {
   if (authStore.isAuthenticated) loadSummary()
 })
 
-useSeoMeta({
-  title: 'Tracks',
-  description:
-    'Practice tracks for TypeScript, React, Vue, Node, Go, Rust and Python. Fill in the blanks on real code and keep the syntax from fading.',
-})
-
 /** Progress keyed by track slug, so a row can render its own state. */
 const progressBySlug = computed(() => {
   const map = new Map<string, { completed: number; total: number; mastery: number }>()
@@ -55,6 +50,13 @@ const progressBySlug = computed(() => {
 function percent(completed: number, total: number): number {
   return total > 0 ? Math.round((completed / total) * 100) : 0
 }
+
+usePageSeo({
+  title: 'Tracks — BlankCode',
+  description:
+    'Seven languages, from TypeScript and Python to Go and Rust. Each track is real code with the pieces that matter taken out.',
+  path: '/tracks',
+})
 </script>
 
 <template>

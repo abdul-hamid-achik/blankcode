@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Button from '~/components/ui/button.vue'
+import { useLandingCta } from '~/composables/useLandingCta'
 
 /**
  * The close. The page has shown the gesture (hero), the screen (frame), the
@@ -20,6 +21,8 @@ const KEEPS = [
     detail: 'Streaks and achievements as the practice accumulates.',
   },
 ]
+
+const { primary, secondary } = useLandingCta()
 </script>
 
 <template>
@@ -38,11 +41,11 @@ const KEEPS = [
           </p>
 
           <div class="flex flex-wrap items-center gap-3">
-            <NuxtLink to="/register">
-              <Button size="lg">Create an account</Button>
+            <NuxtLink :to="primary.to">
+              <Button size="lg">{{ primary.label }}</Button>
             </NuxtLink>
-            <NuxtLink to="/tracks">
-              <Button variant="outline" size="lg">Browse the tracks</Button>
+            <NuxtLink :to="secondary.to">
+              <Button variant="outline" size="lg">{{ secondary.label }}</Button>
             </NuxtLink>
           </div>
         </div>

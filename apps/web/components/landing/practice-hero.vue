@@ -4,6 +4,7 @@ import Button from '~/components/ui/button.vue'
 import { EXERCISE_COUNT, LANDING_TRACKS } from '~/utils/landing-tracks'
 import { useAnalytics } from '~/composables/useAnalytics'
 import { evaluateFibDemo, FIB_DEMO_EXPECTED } from '~/utils/fib-demo'
+import { useLandingCta } from '~/composables/useLandingCta'
 
 /**
  * The hero is a real exercise, not a mockup of one.
@@ -95,6 +96,8 @@ const resultLine = computed(() => {
       return null
   }
 })
+
+const { primary, secondary } = useLandingCta()
 </script>
 
 <template>
@@ -124,11 +127,11 @@ const resultLine = computed(() => {
           </p>
 
           <div class="flex flex-wrap items-center gap-3">
-            <NuxtLink to="/register">
-              <Button size="lg">Create an account</Button>
+            <NuxtLink :to="primary.to">
+              <Button size="lg">{{ primary.label }}</Button>
             </NuxtLink>
-            <NuxtLink to="/tracks">
-              <Button variant="outline" size="lg">Browse the tracks</Button>
+            <NuxtLink :to="secondary.to">
+              <Button variant="outline" size="lg">{{ secondary.label }}</Button>
             </NuxtLink>
           </div>
 
