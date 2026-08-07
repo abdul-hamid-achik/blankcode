@@ -13,29 +13,56 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   running: ['passed', 'failed', 'error'],
 }
 
+/** A submission row exactly as the table defines it. */
+export type SubmissionRow = typeof submissions.$inferSelect
+
+/**
+ * What the service actually hands back.
+ *
+ * The interface used to say `any` for every one of these, which meant the
+ * contract promised nothing: a handler could read a field that does not exist
+ * and nothing would object until a user saw the undefined.
+ *
+ * `exercise` is present only on the reads that join it, and always redacted —
+ * `redactExercise` strips `solutionCode` and the blanks' answers, so the type
+ * is deliberately loose about its shape rather than claiming to be the full
+ * exercise row it is not.
+ */
+export interface SubmissionWithFeedback extends SubmissionRow {
+  blankFeedback: ReturnType<typeof gradeBlanks> | null
+  // Required, not optional: every read that returns this type joins the
+  // exercise. `exactOptionalPropertyTypes` makes the distinction real, and
+  // claiming it might be absent would push a needless check onto every caller.
+  exercise: Record<string, unknown>
+}
+
 interface SubmissionsServiceShape {
   readonly create: (
     userId: string,
     input: SubmissionCreateInput
-  ) => Effect.Effect<any, NotFoundError | BadRequestError>
+  ) => Effect.Effect<SubmissionRow, NotFoundError | BadRequestError>
   readonly createAndExecute: (
     userId: string,
     input: SubmissionCreateInput
-  ) => Effect.Effect<any, NotFoundError | BadRequestError>
-  readonly findById: (id: string, userId?: string) => Effect.Effect<any, NotFoundError>
+  ) => Effect.Effect<SubmissionRow | SubmissionWithFeedback, NotFoundError | BadRequestError>
+  readonly findById: (
+    id: string,
+    userId?: string
+  ) => Effect.Effect<SubmissionWithFeedback, NotFoundError>
+  /** No exercise join, so nothing to redact and no blanks to grade. */
   readonly findByExercise: (
     exerciseId: string,
     userId: string
-  ) => Effect.Effect<any[], NotFoundError>
+  ) => Effect.Effect<SubmissionRow[], NotFoundError>
   readonly findByUser: (
     userId: string,
     limit?: number,
     offset?: number
-  ) => Effect.Effect<any[], NotFoundError>
+  ) => Effect.Effect<SubmissionWithFeedback[], NotFoundError>
   readonly retry: (
     id: string,
     userId: string
-  ) => Effect.Effect<any, NotFoundError | BadRequestError>
+  ) => Effect.Effect<SubmissionRow, NotFoundError | BadRequestError>
   readonly updateStatus: (
     id: string,
     status: 'running' | 'passed' | 'failed' | 'error',
@@ -47,7 +74,7 @@ interface SubmissionsServiceShape {
     }>,
     executionTimeMs?: number,
     errorMessage?: string
-  ) => Effect.Effect<any, NotFoundError | BadRequestError | InvalidTransitionError>
+  ) => Effect.Effect<SubmissionRow, NotFoundError | BadRequestError | InvalidTransitionError>
 }
 
 export class SubmissionsService extends Context.Tag('SubmissionsService')<
@@ -237,14 +264,20 @@ export const SubmissionsServiceLive = Layer.effect(
 
       findByUser: (userId, limit = 20, offset = 0) =>
         Effect.tryPromise({
-          try: () =>
-            db.query.submissions.findMany({
+          try: async () => {
+            const rows = await db.query.submissions.findMany({
               where: eq(submissions.userId, userId),
               orderBy: desc(submissions.createdAt),
               limit,
               offset,
               with: { exercise: true },
-            }),
+            })
+            // This join used to be returned untouched, so the submission list
+            // shipped `solutionCode` and every blank's answer for each attempt.
+            // The same leak was closed in the exercises service; this path was
+            // missed, and `any` on the return type meant nothing pointed at it.
+            return rows.map((row) => withBlankFeedback(row))
+          },
           catch: () => new NotFoundError({ resource: 'Submissions', id: userId }),
         }),
 
@@ -254,7 +287,10 @@ export const SubmissionsServiceLive = Layer.effect(
             try: () =>
               db.query.submissions.findFirst({
                 where: and(eq(submissions.id, id), eq(submissions.userId, userId)),
-                with: { exercise: true },
+                // No exercise join: this only reads `status`, and the joined
+                // exercise was being spread into the response untouched —
+                // shipping `solutionCode` and every blank's answer. Not
+                // fetching it is a better fix than redacting it.
               }),
             catch: () => new NotFoundError({ resource: 'Submission', id }),
           })
@@ -319,6 +355,13 @@ export const SubmissionsServiceLive = Layer.effect(
                 .returning(),
             catch: () => new BadRequestError({ message: 'Failed to update submission status' }),
           })
+
+          // `.returning()` yields nothing when the row vanished between the
+          // read above and this write. Returning `undefined` here would
+          // serialise as an empty body with a 200, which reads as success.
+          if (!submission) {
+            return yield* Effect.fail(new NotFoundError({ resource: 'Submission', id }))
+          }
 
           return submission
         }),

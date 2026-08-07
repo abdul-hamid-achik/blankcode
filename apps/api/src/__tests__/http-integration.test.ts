@@ -87,6 +87,27 @@ const MOCK_EXERCISE = {
   concept: MOCK_CONCEPT,
 }
 
+/*
+ * A complete submission row. `attemptCount` and `errorMessage` were missing
+ * until the service interface stopped saying `any` and TypeScript pointed at
+ * the gap: the mock was handing handlers a shape the real service never
+ * returns, so every test here was exercising a submission that cannot exist.
+ */
+/** The row on its own, for the reads that do not join the exercise. */
+const MOCK_SUBMISSION_ROW = {
+  id: 'submission-1',
+  userId: 'user-1',
+  exerciseId: 'exercise-1',
+  code: 'const x = 1',
+  status: 'pending',
+  testResults: null,
+  executionTimeMs: null,
+  errorMessage: null,
+  attemptCount: 0,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+}
+
 const MOCK_SUBMISSION = {
   id: 'submission-1',
   userId: 'user-1',
@@ -95,6 +116,8 @@ const MOCK_SUBMISSION = {
   status: 'pending',
   testResults: null,
   executionTimeMs: null,
+  errorMessage: null,
+  attemptCount: 0,
   createdAt: new Date(),
   updatedAt: new Date(),
   exercise: MOCK_EXERCISE,
@@ -282,10 +305,11 @@ const MockSubmissionsService = Layer.succeed(SubmissionsService, {
   },
   findById: (id, _userId) => {
     if (id !== 'submission-1') return Effect.fail(new NotFoundError({ resource: 'Submission', id }))
-    return Effect.succeed(MOCK_SUBMISSION)
+    return Effect.succeed({ ...MOCK_SUBMISSION, blankFeedback: null })
   },
-  findByExercise: () => Effect.succeed([MOCK_SUBMISSION]),
-  findByUser: () => Effect.succeed([MOCK_SUBMISSION]),
+  // No exercise join on this one, matching the service.
+  findByExercise: () => Effect.succeed([{ ...MOCK_SUBMISSION_ROW }]),
+  findByUser: () => Effect.succeed([{ ...MOCK_SUBMISSION, blankFeedback: null }]),
   retry: (id, _userId) => {
     if (id !== 'submission-1') return Effect.fail(new NotFoundError({ resource: 'Submission', id }))
     return Effect.succeed({ ...MOCK_SUBMISSION, status: 'pending' })

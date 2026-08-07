@@ -502,7 +502,9 @@ describe('SubmissionsService', () => {
 
       expect(result.status).toBe('failed')
       expect(result.testResults).toHaveLength(1)
-      expect(result.testResults[0].passed).toBe(false)
+      // `testResults` is nullable on the row, so the assertion has to say it is
+      // present before reading into it — which is the point of the type.
+      expect(result.testResults?.[0]?.passed).toBe(false)
     })
 
     it('performs valid transition from running to error', async () => {

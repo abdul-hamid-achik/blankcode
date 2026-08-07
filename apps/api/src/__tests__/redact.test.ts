@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { gradeBlanks } from '@blankcode/shared'
 import { describe, expect, it } from 'vitest'
 import { redactBlank, redactExercise, redactExercises } from '../modules/exercises/redact.js'
@@ -121,5 +123,49 @@ describe('gradeBlanks', () => {
     const s = 'f(___)'
     const b = [{ id: 'arg', from: 2, to: 5, placeholder: '___', solution: 'g(1)' }]
     expect(gradeBlanks('f(g(1))', s, b)).toEqual({ arg: 'correct' })
+  })
+})
+
+/**
+ * `GET /submissions` returned the joined exercise untouched, so a learner's own
+ * submission list shipped `solutionCode` and every blank's answer for each
+ * attempt — the same leak that was closed in the exercises service, through a
+ * path that was missed.
+ *
+ * Nothing pointed at it because the service interface returned `any`. It
+ * surfaced the moment those types were written down, which is the argument for
+ * writing them down.
+ */
+describe('the submissions list does not leak answers', () => {
+  const service = readFileSync(
+    join(process.cwd(), 'src/modules/submissions/submissions.service.ts'),
+    'utf-8'
+  )
+
+  it('redacts every read that joins the exercise', () => {
+    // Each `with: { exercise: ... }` has to pass through withBlankFeedback,
+    // which is where redactExercise is applied.
+    const joins = service.split('with: { exercise').length - 1
+    const redacted = service.split('withBlankFeedback(').length - 1
+    expect(redacted).toBeGreaterThanOrEqual(joins)
+  })
+
+  it('findByUser maps its rows rather than returning them raw', () => {
+    // Sliced from the implementation, not the interface — `findByUser:`
+    // appears in both, and the first hit is the type declaration.
+    const implementation = service.slice(service.indexOf('SubmissionsServiceLive'))
+    const method = implementation.slice(implementation.indexOf('findByUser:'))
+    expect(method.slice(0, 800)).toContain('withBlankFeedback(row)')
+  })
+
+  it('the service contract is not `any`', () => {
+    // `any` is what hid this. A contract that promises nothing cannot be
+    // checked, and the leak lived behind exactly that.
+    const shape = service.slice(
+      service.indexOf('interface SubmissionsServiceShape'),
+      service.indexOf('export class SubmissionsService')
+    )
+    expect(shape).not.toContain('Effect.Effect<any')
+    expect(shape).not.toContain('Effect.Effect<any[]')
   })
 })
