@@ -6,7 +6,7 @@ import {
   SUBMISSION_STATUSES,
   TRACK_SLUGS,
 } from '@blankcode/shared/types'
-import { relations } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 import {
   boolean,
   index,
@@ -30,6 +30,12 @@ export const submissionStatusEnum = pgEnum('submission_status', [...SUBMISSION_S
 ])
 
 export const trackSlugEnum = pgEnum('track_slug', [...TRACK_SLUGS] as [string, ...string[]])
+
+export const turnSessionStatusEnum = pgEnum('turn_session_status', [
+  'open',
+  'submitted',
+  'abandoned',
+])
 
 export const exerciseTypeEnum = pgEnum('exercise_type', [...EXERCISE_TYPES] as [
   string,
@@ -406,6 +412,57 @@ export const reviewSchedulesRelations = relations(reviewSchedules, ({ one }) => 
  * a moving window ("in the last hour"), and a counter cannot answer that
  * without also storing when it was last reset.
  */
+/**
+ * One attempt at a turn-budget exercise.
+ *
+ * The exercise being practised is *directing a model with a fixed number of
+ * messages*, so the state that matters is not the code — it is how many turns
+ * are left and what has already been said. None of that can live in the client:
+ * a budget the browser reports is not a budget.
+ *
+ * `messages` holds the transcript. It is written on every turn rather than
+ * reconstructed, because the model's replies are not reproducible and a session
+ * that loses them cannot be resumed or reviewed afterwards.
+ *
+ * `revealedAt` is what stops the obvious cheat. The hidden tests are the whole
+ * grading mechanism, and a learner who can see them will paste them to the
+ * model — at which point the skill being practised is copy-paste. Tests are
+ * served only once this is set, and it is set only when the session ends.
+ */
+export const turnSessions = pgTable(
+  'turn_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    exerciseId: uuid('exercise_id')
+      .notNull()
+      .references(() => exercises.id, { onDelete: 'cascade' }),
+    /** Fixed when the session starts, so changing the default cannot move it. */
+    maxTurns: integer('max_turns').notNull(),
+    turnsUsed: integer('turns_used').notNull().default(0),
+    messages: jsonb('messages')
+      .$type<Array<{ role: 'user' | 'assistant'; content: string }>>()
+      .notNull()
+      .default([]),
+    /** The code the learner finally submitted, once they end the session. */
+    finalCode: text('final_code'),
+    status: turnSessionStatusEnum('status').notNull().default('open'),
+    revealedAt: timestamp('revealed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('turn_sessions_user_idx').on(table.userId, table.createdAt),
+    // One open session per exercise per user: starting a second one to get a
+    // fresh budget is exactly the thing the budget exists to prevent.
+    uniqueIndex('turn_sessions_one_open_idx')
+      .on(table.userId, table.exerciseId)
+      .where(sql`status = 'open'`),
+  ]
+)
+
 export const usageEvents = pgTable(
   'usage_events',
   {
