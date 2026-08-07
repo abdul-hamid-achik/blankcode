@@ -300,7 +300,7 @@ vaultSet(vault, 'STRIPE_PRICE_ID', price.id, dryRun)
  * not reach a deployment, and a loop over its contents would ship them the
  * first time someone stored one.
  */
-const RUNTIME_SECRETS = ['RESEND_API_KEY'] as const
+const RUNTIME_SECRETS = ['RESEND_API_KEY', 'GITHUB_CLIENT_SECRET', 'GOOGLE_CLIENT_SECRET'] as const
 
 /**
  * Config the runtime needs that is not a secret.
@@ -309,7 +309,14 @@ const RUNTIME_SECRETS = ['RESEND_API_KEY'] as const
  * An email address is not a credential, and storing one sensitive is how the
  * sandbox snapshot ids became unreadable.
  */
-const RUNTIME_CONFIG = ['ADMIN_EMAILS'] as const
+const RUNTIME_CONFIG = [
+  'ADMIN_EMAILS',
+  // An OAuth client id is public by design — it travels in the authorize URL
+  // the browser follows. Storing it sensitive would buy nothing and would stop
+  // `vercel env pull` from bringing it back for local work.
+  'GITHUB_CLIENT_ID',
+  'GOOGLE_CLIENT_ID',
+] as const
 
 console.log('\n  Vercel')
 // Identifiers, stored readable on purpose: `vercel env pull` has to be able to
