@@ -202,6 +202,20 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
           <p class="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
             {{ exerciseStore.exercise.description }}
           </p>
+
+          <!--
+            The one thing a review has to say before anything else. The editor
+            looks the same as any other exercise, and code that reads as
+            finished is exactly what stops people from reading it properly.
+          -->
+          <p
+            v-if="exerciseStore.isReviewMode"
+            class="mt-3 max-w-2xl border-l-2 border-signal bg-signal/5 py-2 pl-3 text-sm text-foreground"
+          >
+            <span class="font-medium">This code is wrong.</span>
+            It was generated, it passes the tests it came with, and it still has a defect. Find it
+            before you submit — you are graded on tests you cannot see.
+          </p>
         </div>
 
         <div class="min-h-0 flex-1 overflow-auto p-5 md:p-6">

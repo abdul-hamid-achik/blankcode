@@ -24,6 +24,13 @@ export const useExerciseStore = defineStore('exercise', () => {
   const hasPassedSubmission = computed(() => submissions.value.some((s) => s.status === 'passed'))
   const isBlankMode = computed(() => exercise.value?.type === 'blank' && blanks.value.length > 0)
   const isChallengeMode = computed(() => exercise.value?.type === 'challenge')
+  /*
+   * A review starts from code that already looks finished and is wrong.
+   * Without saying so, the editor is indistinguishable from a challenge's
+   * stub — and a learner who thinks they are completing something will never
+   * go looking for the defect.
+   */
+  const isReviewMode = computed(() => exercise.value?.type === 'review')
 
   /**
    * What CodeMirror renders.
@@ -324,6 +331,7 @@ export const useExerciseStore = defineStore('exercise', () => {
     blankFeedback,
     isBlankMode,
     isChallengeMode,
+    isReviewMode,
     filledBlanksCount,
     isSubmitting,
     isSaving,

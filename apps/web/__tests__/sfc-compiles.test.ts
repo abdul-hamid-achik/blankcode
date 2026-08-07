@@ -67,3 +67,30 @@ describe('Vue SFCs compile', () => {
     }
   })
 })
+
+/**
+ * A review exercise hands the learner code that looks finished and is wrong.
+ * If the page does not say so, the editor is indistinguishable from a stub to
+ * complete, and nobody goes looking for the defect — which makes the exercise
+ * measure nothing.
+ */
+describe('review exercises announce themselves', () => {
+  const page = readFileSync(join(process.cwd(), 'pages/exercise/[exerciseId].vue'), 'utf-8')
+  const store = readFileSync(join(process.cwd(), 'stores/exercise.ts'), 'utf-8')
+
+  it('the store can tell a review from the other types', () => {
+    expect(store).toContain("exercise.value?.type === 'review'")
+    expect(store).toContain('isReviewMode')
+  })
+
+  it('the page warns the code is wrong', () => {
+    expect(page).toContain('exerciseStore.isReviewMode')
+    expect(page).toContain('This code is wrong')
+  })
+
+  it('says the grading tests are hidden', () => {
+    // Without this the learner assumes the visible tests are the grade, which
+    // is the exact belief the exercise exists to break.
+    expect(page).toMatch(/graded on tests\s+you\s+cannot see/)
+  })
+})
