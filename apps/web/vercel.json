@@ -2,5 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nuxtjs",
   "installCommand": "cd ../.. && bun install --frozen-lockfile",
-  "buildCommand": "cd ../.. && bunx turbo build --filter=@blankcode/web"
+  "buildCommand": "cd ../.. && bunx turbo build --filter=@blankcode/web",
+  "crons": [
+    {
+      "path": "/cron/warm-snapshots",
+      "schedule": "0 6 * * 1"
+    }
+  ]
 }
