@@ -18,6 +18,9 @@ const PRIVATE_PATHS = [
   '/review',
   '/exercise/',
   '/achievements',
+  // Operator-only. It answers 404 to anyone else, but there is no reason for a
+  // crawler to be probing it in the first place.
+  '/admin',
   '/login',
   '/register',
 ]
