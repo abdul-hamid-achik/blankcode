@@ -3,6 +3,7 @@ import type { Concept, Track } from '@blankcode/shared'
 import CodeEditor from '~/components/editor/code-editor.vue'
 import TestResults from '~/components/editor/test-results.vue'
 import HintsPanel from '~/components/exercise/hints-panel.vue'
+import TurnSessionView from '~/components/exercise/turn-session-view.vue'
 import Button from '~/components/ui/button.vue'
 import { useKeyboard } from '~/composables/useKeyboard'
 import { useExerciseStore } from '~/stores/exercise'
@@ -78,11 +79,10 @@ const concept = computed(
 )
 
 /**
- * The session forms (turn budget, context selection) are graded conversations,
- * not files to edit. Until their session surfaces exist, opening one in the
- * plain editor promises mechanics it does not have — a budget nothing counts,
- * sources nothing sells, a report nothing writes. So the editor does not open:
- * the page says what this exercise is and that its surface is on the way.
+ * The session forms are graded conversations, not files to edit. `turn` now
+ * has its surface (TurnSessionView); `context` still gates until its own
+ * exists — opening it in the plain editor would promise sources nothing
+ * sells and a receipt nothing writes.
  */
 const sessionForm = computed(() => {
   const type = exerciseStore.exercise?.type
@@ -289,24 +289,27 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
           </p>
         </div>
 
-        <!-- Session-form gate: honest about what this is and what is missing. -->
-        <div v-if="sessionForm" class="min-h-0 flex-1 overflow-auto p-5 md:p-6">
+        <!-- Form C is live; the context form still gates until its surface exists. -->
+        <TurnSessionView
+          v-if="sessionForm === 'turn'"
+          :exercise="{
+            id: exerciseStore.exercise.id,
+            title: exerciseStore.exercise.title,
+            description: exerciseStore.exercise.description,
+            starterCode: exerciseStore.exercise.starterCode,
+            turnBudget: (exerciseStore.exercise as { turnBudget?: number | null }).turnBudget,
+          }"
+          :language="language"
+        />
+
+        <div v-else-if="sessionForm === 'context'" class="min-h-0 flex-1 overflow-auto p-5 md:p-6">
           <div class="max-w-2xl border-l-2 border-signal bg-signal/5 p-5">
-            <p class="eyebrow mb-3">
-              {{ sessionForm === 'turn' ? 'turn-budget session' : 'context session' }}
-            </p>
+            <p class="eyebrow mb-3">context session</p>
             <p class="display mb-3 text-lg">This exercise runs as a live session.</p>
             <p class="mb-3 text-sm leading-relaxed text-muted-foreground">
-              <template v-if="sessionForm === 'turn'">
-                You get a fixed number of messages to a model and are graded by a suite you never
-                see. A plain editor cannot keep either promise — nothing counts the budget, nothing
-                writes the report — so it stays closed rather than pretend.
-              </template>
-              <template v-else>
-                You are shown a menu of sources with prices and buy only what the question needs.
-                The sources, the prices, and the receipt all live in the session — a plain editor
-                has none of them, so it stays closed rather than pretend.
-              </template>
+              You are shown a menu of sources with prices and buy only what the question needs. The
+              sources, the prices, and the receipt all live in the session — a plain editor has none
+              of them, so it stays closed rather than pretend.
             </p>
             <p class="mb-5 text-sm leading-relaxed text-muted-foreground">
               The session surface is being built. This page will become it.

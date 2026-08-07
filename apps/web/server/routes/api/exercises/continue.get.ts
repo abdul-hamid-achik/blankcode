@@ -55,10 +55,10 @@ export default defineEventHandler(async (event) => {
         eq(concepts.trackId, recent.trackId),
         eq(exercises.isPublished, true),
         eq(concepts.isPublished, true),
-        // The session forms are gated until their surfaces exist; a
-        // "continue" that lands on a gate is a dead end wearing a button.
-        // Drop this once the turn/context views ship.
-        notInArray(exercises.type, ['turn', 'context']),
+        // The context form is gated until its surface exists; a "continue"
+        // that lands on a gate is a dead end wearing a button. Drop once the
+        // context view ships.
+        notInArray(exercises.type, ['context']),
         ...(doneIds.length > 0 ? [notInArray(exercises.id, doneIds)] : [])
       )
     )

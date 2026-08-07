@@ -7,6 +7,10 @@
     "./app": {
       "types": "./dist/app.d.ts",
       "import": "./dist/app.js"
+    },
+    "./run-submission": {
+      "types": "./dist/modules/submissions/run-submission.d.ts",
+      "import": "./dist/modules/submissions/run-submission.js"
     }
   },
   "scripts": {

@@ -165,18 +165,23 @@ describe('missing resources are real 404s', () => {
 describe('track pages render on the server', () => {
   const page = readFileSync(join(process.cwd(), 'pages/tracks/[trackSlug]/index.vue'), 'utf-8')
 
-  it('fetches during the render, not on mount', () => {
+  it('fetches its content during the render, not on mount', () => {
+    // The page's CONTENT (track, concepts) must be server-rendered. The
+    // user's own progress marks are the one thing that may arrive after
+    // mount, because the page is complete and crawlable without them.
     expect(page).toContain('useAsyncData')
-    // The call, not the word — the comment above the fix explains what it used
-    // to do, and matching that would fail on the explanation rather than the code.
-    expect(page).not.toContain('onMounted(')
+    const beforeMount = page.slice(
+      0,
+      page.indexOf('onMounted(') === -1 ? page.length : page.indexOf('onMounted(')
+    )
+    expect(beforeMount).toContain('useAsyncData')
   })
 
-  it('uses $fetch, which works on the server', () => {
+  it('uses $fetch for the content, which works on the server', () => {
     // `useApi` builds a relative URL and calls `fetch` directly — fine in a
-    // browser, impossible in Node.
-    expect(page).toContain('$fetch')
-    expect(page).not.toContain('useApi()')
+    // browser, impossible in Node. It may appear for the after-mount marks,
+    // but the render-blocking fetch has to be $fetch.
+    expect(page).toMatch(/useAsyncData\([\s\S]*?\$fetch</)
   })
 
   it('404s an unknown slug from the static list', () => {
