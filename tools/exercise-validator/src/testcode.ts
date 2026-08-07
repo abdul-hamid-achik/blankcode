@@ -19,7 +19,10 @@ const SEGMENTERS: Record<string, RegExp> = {
   go: /^func[ \t]+(Test\w+)[ \t]*\(/gm,
   python: /^[ \t]*def[ \t]+(test_\w+)[ \t]*\(/gm,
   rust: /#\[(?:tokio::)?test\][\s\S]{0,80}?fn[ \t]+(\w+)[ \t]*\(/g,
-  typescript: /\b(?:it|test)[ \t]*\(\s*['"`]([^'"`]*)/g,
+  // `(?<![.\w])` and not `\b`: a word boundary matches after a dot, so
+  // `accept.test('select …')` — a RegExp method call — was being read as a test
+  // declaration and then reported for having no assertion in it.
+  typescript: /(?<![.\w])(?:it|test)[ \t]*\(\s*['"`]([^'"`]*)/g,
 }
 
 const LANG_ALIASES: Record<string, string> = {

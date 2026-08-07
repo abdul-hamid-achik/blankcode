@@ -126,6 +126,7 @@
         "@blankcode/shared": "workspace:*",
         "effect": "^3.22.1",
         "gray-matter": "^4.0.3",
+        "yaml": "2.9.0",
       },
       "devDependencies": {
         "typescript": "^7.0.2",

@@ -140,6 +140,19 @@ export const exercises = pgTable(
     solutionCode: text('solution_code').notNull(),
     testCode: text('test_code').notNull(),
     hints: jsonb('hints').$type<string[]>().notNull().default([]),
+    /**
+     * Context-selection exercises only: the menu of sources, their prices, and
+     * which of them the question genuinely needs.
+     *
+     * On the exercise rather than in a table of its own because it is authored
+     * content that changes with the markdown, and a separate table would have
+     * to be kept in step with an import that already rewrites this row.
+     */
+    contextSources: jsonb('context_sources').$type<{
+      sources: Array<{ id: string; label: string; tokens: number; content: string }>
+      required: string[]
+      accept: string
+    } | null>(),
     blanks: jsonb('blanks').$type<BlankRegionInStarter[]>().notNull().default([]),
     order: integer('order').notNull().default(0),
     isPublished: boolean('is_published').notNull().default(false),

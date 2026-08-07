@@ -7,6 +7,8 @@ import type {
 import { exerciseFrontmatterSchema } from '@blankcode/shared'
 import { Either, Schema } from 'effect'
 import matter from 'gray-matter'
+import type { ContextSourceDefinition } from '@blankcode/shared/types'
+import { parse as parseYaml } from 'yaml'
 
 const BLANK_START_MARKER = '___blank_start___'
 const BLANK_END_MARKER = '___blank_end___'
@@ -96,6 +98,7 @@ export function parseExercise(markdown: string, options: ParseOptions = {}): Par
         starterCode,
         solutionCode,
         type: exerciseType,
+        contextSources: extractContextSources(content),
       },
     }
   } catch (error) {
@@ -366,3 +369,26 @@ export function stripBlankMarkers(code: string): string {
 }
 
 export { BLANK_END_MARKER, BLANK_START_MARKER }
+
+/**
+ * The `## Context` section of a context-selection exercise.
+ *
+ * YAML rather than fenced code per source, because a source has a price and a
+ * label as well as contents, and encoding three fields in a code fence means
+ * inventing a convention that only this file understands.
+ *
+ * Returns null when the section is absent, which is every other exercise.
+ */
+export function extractContextSources(markdown: string): ContextSourceDefinition | null {
+  const yaml = extractSectionCode(markdown, 'Context')
+  if (!yaml) return null
+
+  const parsed = parseYaml(yaml) as Partial<ContextSourceDefinition> | null
+  if (!parsed?.sources || !Array.isArray(parsed.sources)) return null
+
+  return {
+    sources: parsed.sources,
+    required: parsed.required ?? [],
+    accept: parsed.accept ?? '.',
+  }
+}

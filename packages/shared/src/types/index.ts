@@ -103,6 +103,13 @@ export interface BlankRegionInStarter {
   solution: string
 }
 
+export interface ContextSourceDefinition {
+  sources: Array<{ id: string; label: string; tokens: number; content: string }>
+  required: string[]
+  /** A regular expression, as a string, that an accepted answer must match. */
+  accept: string
+}
+
 export interface ParsedExercise {
   frontmatter: ExerciseFrontmatter
   content: string
@@ -111,6 +118,8 @@ export interface ParsedExercise {
   starterCode: string
   solutionCode: string
   type: ExerciseType
+  /** Present only on context-selection exercises. */
+  contextSources: ContextSourceDefinition | null
 }
 
 export interface ExerciseFrontmatter {
