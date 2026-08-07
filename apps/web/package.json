@@ -39,6 +39,7 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/sandbox": "^2.9.2",
     "ai": "^7.0.55",
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^13.0.3",
     "effect": "^3.22.1",
     "jose": "^6.2.8",

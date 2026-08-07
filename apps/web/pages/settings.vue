@@ -12,6 +12,57 @@ const preferencesStore = usePreferencesStore()
 
 const displayName = ref(authStore.user?.displayName ?? '')
 
+/** Linked sign-in methods, and whether a password exists to fall back on. */
+interface IdentityState {
+  identities: Array<{ provider: string; email: string | null; createdAt: string }>
+  hasPassword: boolean
+}
+
+const identityState = ref<IdentityState | null>(null)
+const identityBusy = ref(false)
+const identityError = ref('')
+
+const oauthProviders = computed(() =>
+  (['github', 'google'] as const).map((name) => ({
+    name,
+    label: name === 'github' ? 'GitHub' : 'Google',
+    linkedEmail:
+      identityState.value?.identities.find((identity) => identity.provider === name)?.email ??
+      (identityState.value?.identities.some((identity) => identity.provider === name)
+        ? 'connected'
+        : null),
+  }))
+)
+
+async function loadIdentities() {
+  try {
+    identityState.value = await $fetch<IdentityState>('/api/account/identities', {
+      headers: reminderHeaders(),
+    })
+  } catch {
+    // The section renders as "not connected", which is not a lie so much as
+    // the safe reading; connecting again is a no-op for a linked provider.
+  }
+}
+
+async function unlink(provider: string) {
+  identityBusy.value = true
+  identityError.value = ''
+  try {
+    await $fetch('/api/account/identities', {
+      method: 'DELETE',
+      headers: reminderHeaders(),
+      body: { provider },
+    })
+    await loadIdentities()
+  } catch (error) {
+    identityError.value =
+      (error as { statusMessage?: string })?.statusMessage ?? 'Could not disconnect.'
+  } finally {
+    identityBusy.value = false
+  }
+}
+
 /** The reminder toggle. Read once; written on click. */
 const remindersEnabled = ref(true)
 const remindersLoading = ref(false)
@@ -20,6 +71,8 @@ function reminderHeaders(): Record<string, string> {
   const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
+
+onMounted(loadIdentities)
 
 onMounted(async () => {
   try {
@@ -114,6 +167,42 @@ function decreaseFontSize() {
                 {{ saveMessage }}
               </span>
             </div>
+          </div>
+        </Card>
+
+        <!-- Sign-in methods -->
+        <Card>
+          <h2 class="display text-lg mb-1">Sign-in methods</h2>
+          <p class="text-xs text-muted-foreground leading-relaxed mb-4 max-w-sm">
+            Connect GitHub or Google to sign in with them. The last remaining method cannot be
+            disconnected — it is how you get back in.
+          </p>
+          <div class="space-y-3">
+            <div
+              v-for="provider in oauthProviders"
+              :key="provider.name"
+              class="flex items-center justify-between gap-4"
+            >
+              <div>
+                <p class="text-sm font-medium">{{ provider.label }}</p>
+                <p class="font-mono text-xs text-muted-foreground">
+                  {{ provider.linkedEmail ?? 'not connected' }}
+                </p>
+              </div>
+              <Button
+                v-if="provider.linkedEmail"
+                variant="outline"
+                size="sm"
+                :disabled="identityBusy"
+                @click="unlink(provider.name)"
+              >
+                Disconnect
+              </Button>
+              <a v-else :href="`/api/oauth/${provider.name}/start`">
+                <Button variant="outline" size="sm">Connect</Button>
+              </a>
+            </div>
+            <p v-if="identityError" class="text-xs text-fail">{{ identityError }}</p>
           </div>
         </Card>
 
