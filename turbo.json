@@ -1,5 +1,32 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "NODE_ENV",
+    "VERCEL",
+    "VERCEL_ENV",
+    "VERCEL_URL",
+    "DATABASE_URL",
+    "JWT_SECRET",
+    "JWT_EXPIRES_IN",
+    "ADMIN_EMAILS",
+    "CORS_ORIGIN",
+    "NUXT_PUBLIC_API_URL",
+    "NUXT_PUBLIC_SITE_URL",
+    "AI_GATEWAY_API_KEY",
+    "LLM_MODEL",
+    "CRON_SECRET",
+    "EXECUTION_BACKEND",
+    "DOCKER_ENABLED",
+    "EXECUTION_TIMEOUT_MS",
+    "EXECUTION_MEMORY_MB",
+    "EXECUTION_WORKSPACE_PATH",
+    "SANDBOX_SNAPSHOT_TYPESCRIPT",
+    "SANDBOX_SNAPSHOT_REACT",
+    "SANDBOX_SNAPSHOT_VUE",
+    "SANDBOX_SNAPSHOT_PYTHON",
+    "SANDBOX_SNAPSHOT_GO",
+    "SANDBOX_SNAPSHOT_RUST"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

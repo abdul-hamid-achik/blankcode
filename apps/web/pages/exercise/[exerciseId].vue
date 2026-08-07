@@ -32,6 +32,31 @@ const justPassed = computed(() => {
   return sub?.status === 'passed' && ratingSubmittedFor.value !== sub.id
 })
 
+const {
+  explanation,
+  streaming: explaining,
+  error: explainError,
+  explain,
+  reset: resetExplanation,
+} = useExplainFailure()
+
+const justFailed = computed(() => {
+  const sub = exerciseStore.latestSubmission
+  return sub?.status === 'failed' || sub?.status === 'error'
+})
+
+// A new attempt invalidates the previous explanation. Leaving it on screen
+// would have it describe code the learner has already changed.
+watch(
+  () => exerciseStore.latestSubmission?.id,
+  () => resetExplanation()
+)
+
+function handleExplain() {
+  const id = exerciseStore.latestSubmission?.id
+  if (id) void explain(id)
+}
+
 const concept = computed(
   () =>
     (exerciseStore.exercise as (typeof exerciseStore.exercise & ExerciseWithRelations) | null)
@@ -266,6 +291,33 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
           :timed-out="exerciseStore.timedOut"
           @retry="handleRetry"
         />
+
+        <!--
+          Opt-in, and only after a failure. The failed attempt is the retrieval
+          the whole product is built on, so being told why has to be a decision
+          rather than something that happens to you the moment you are wrong.
+        -->
+        <div v-if="justFailed" class="mt-4">
+          <Button
+            v-if="!explanation && !explaining"
+            variant="ghost"
+            size="sm"
+            @click="handleExplain"
+          >
+            Explain why this failed
+          </Button>
+
+          <p v-if="explaining && !explanation" class="text-sm text-muted-foreground">thinking…</p>
+
+          <div
+            v-if="explanation"
+            class="border-l-2 border-rule-strong pl-4 text-sm text-muted-foreground whitespace-pre-wrap"
+          >
+            {{ explanation }}
+          </div>
+
+          <p v-if="explainError" class="text-sm text-fail">{{ explainError }}</p>
+        </div>
 
         <!-- The recall rating sets the schedule. It earns its own block. -->
         <div
