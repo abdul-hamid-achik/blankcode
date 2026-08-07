@@ -8,8 +8,15 @@
  * any exercise without running anything, which defeats the entire premise of
  * the product.
  *
- * `testCode` is deliberately kept: the tests are what you are being measured
- * against, and seeing them is part of the exercise.
+ * `testCode` is stripped too, for every type. The comment that used to live
+ * here said keeping it was deliberate — "seeing them is part of the exercise" —
+ * but nothing in the client ever rendered it, and for review and turn-budget
+ * exercises the exercise's own text promises the opposite: "you are graded on
+ * tests you cannot see", while the suite sat in the JSON of the endpoint that
+ * served it. A human needed the Network tab; an agent connected to the API
+ * receives that JSON as its working context. Default-closed; a surface that
+ * wants to show tests for a type where that is the point (blank exercises in
+ * a future agent tool) opts in explicitly from the unredacted row.
  */
 
 interface BlankLike {
@@ -38,18 +45,20 @@ export function redactBlank(blank: BlankLike): RedactedBlank {
  */
 export function redactExercise<T extends Record<string, unknown>>(
   exercise: T
-): Omit<T, 'solutionCode' | 'blanks'> & { blanks: RedactedBlank[] } {
+): Omit<T, 'solutionCode' | 'blanks' | 'testCode'> & { blanks: RedactedBlank[] } {
   const {
     solutionCode: _solutionCode,
+    testCode: _testCode,
     blanks,
     ...rest
   } = exercise as T & {
     solutionCode?: unknown
+    testCode?: unknown
     blanks?: BlankLike[] | null
   }
 
   return {
-    ...(rest as Omit<T, 'solutionCode' | 'blanks'>),
+    ...(rest as Omit<T, 'solutionCode' | 'blanks' | 'testCode'>),
     blanks: Array.isArray(blanks) ? blanks.map(redactBlank) : [],
   }
 }

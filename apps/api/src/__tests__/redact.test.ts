@@ -38,9 +38,17 @@ describe('redactExercise', () => {
     const redacted = redactExercise(EXERCISE)
     expect(redacted.starterCode).toBe(EXERCISE.starterCode)
     expect(redacted.hints).toEqual(['think'])
-    // The tests are what you are measured against — seeing them is the exercise.
-    expect(redacted.testCode).toBe(EXERCISE.testCode)
     expect(redacted.blanks[0]).toMatchObject({ id: 'b1', from: 10, to: 13, placeholder: '___' })
+  })
+
+  it('strips the test suite', () => {
+    // This asserted the opposite once — "seeing them is the exercise" — while
+    // nothing in the client rendered them and the review exercises promised
+    // hidden tests with the suite sitting in the response JSON. For a human
+    // that is a Network-tab curiosity; for an agent reading the API, the
+    // hidden suite lands in its working context and the exercise is void.
+    const redacted = redactExercise(EXERCISE) as Record<string, unknown>
+    expect(redacted['testCode']).toBeUndefined()
   })
 
   it('preserves relations', () => {
