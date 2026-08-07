@@ -1,0 +1,8 @@
+{
+  "name": "@blankcode/ops",
+  "private": true,
+  "description": "Recurring operator tooling: things run more than once, on purpose. One-time scripts do not get committed at all.",
+  "scripts": {
+    "seed": "bun run seed.ts"
+  }
+}

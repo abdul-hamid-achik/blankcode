@@ -29,6 +29,19 @@ BlankCode is a monorepo coding exercise platform built with:
 
 ## Critical Rules
 
+### 0. No One-Time Scripts in the Repository
+
+**Do not create a `scripts/` folder — or commit any file — for something that
+runs once.** A one-off (a data fix, a backfill, a probe, a migration already
+applied) runs from the scratchpad or inline and is then gone; committing it
+leaves a folder of stale, unowned code that reads as if it were part of the
+product. This happened here and the folder was deleted.
+
+Recurring operator tooling — things run *on purpose, more than once* — lives in
+`tools/ops/` (the plan seed, the local-dev environment script). The test for
+where something goes: "will this be run again next month, by someone who is not
+me?" If no, it does not get committed at all.
+
 ### 1. Plan Before You Code
 
 **Before writing any code, describe your approach and wait for approval.** Always ask clarifying questions if requirements are ambiguous. Don't assume - ask.

@@ -2,355 +2,137 @@
 
 A coding-practice platform, live at <https://blankcode.dev>. You read real code
 with strategic gaps, fill in the blanks, and a sandboxed runner executes the
-exercise's real test suite against your answer. Built to keep programming muscle
-memory alive across several languages.
+exercise's real test suite against your answer. Spaced repetition brings each
+exercise back before you would have forgotten it.
 
 BlankCode is a hosted service. This repository is where it is built; the setup
 below is for working on it, not for running a copy of it.
 
-## Features
+## What is actually here
 
-- **7 language tracks**: TypeScript, Node, Python, Go, Rust, Vue, and React
-- **Fill-in-the-blank exercises**: CodeMirror editor with inline blank widgets, Tab navigation, and per-blank feedback
-- **Real test execution**: submissions run in a Vercel Sandbox microVM, one per submission, and the output is parsed per language
-- **Spaced repetition**: SM-2 scheduler resurfaces exercises before you forget them
-- **Progress tracking**: mastery levels, completion rates, streaks, achievements, and learning paths
-- **AI exercise generation**: author new exercises through the Vercel AI Gateway (DeepSeek by default)
+- **101 exercises** across six tracks (TypeScript, Python, Go, Rust, Vue,
+  React), each with a reference solution that is executed in the sandbox by
+  `content:verify` — an exercise that cannot be solved cannot ship.
+- **Three exercise kinds**: `blank` (fill the gaps), `challenge` (write the
+  whole thing against hidden tests), `review` (the code looks finished and is
+  wrong; the starter must fail its own suite or the build rejects it).
+- **Vibecoding practice** — working with AI agents as a trained skill, in seven
+  forms: specifying, reviewing, prompting under a turn budget, debugging,
+  context selection, building tools, and root-causing the error that is not
+  the error. The turn-budget and context-selection forms have full server
+  flows (`turn_sessions`, `context_sessions`) graded by the same hidden-test
+  sandbox as everything else.
+- **Spaced repetition** (SM-2: the 1/3/8/20/50/125-day ladder at default
+  ease), with a daily reminder email whose opt-out lives in Settings.
+- **Real execution**: every submission boots a Vercel Sandbox microVM
+  (1 vCPU, ~3s, destroyed after). Per-language snapshots are kept warm by a
+  weekly cron so they never expire.
+- **Auth**: email+password and OAuth (GitHub, Google), linkable per account in
+  Settings; the last sign-in method cannot be removed.
+- **Billing**: Stripe, MXN-based price with explicit USD/EUR amounts, free
+  tier enforced server-side (10 submissions/day, 3 AI explanations/day).
+- **Content**: markdown everywhere — exercises import into Postgres, blog and
+  tutorials render via @nuxt/content with build-time Shiki highlighting.
 
-## Quick Start
-
-```bash
-git clone https://github.com/abdul-hamid-achik/blankcode.git
-cd blankcode
-bun install
-
-# JWT_SECRET is required — the API refuses to boot without it
-cp .env.example .env
-echo "JWT_SECRET=$(openssl rand -base64 48)" >> .env
-
-# Postgres + the app (Nuxt with the API mounted inside it) + runner images
-docker compose up -d
-
-# Load the exercise content into the database
-bun run content:import
-```
-
-Everything is on <http://localhost:3001>; the API lives under `/api`.
-
-### Running without Docker
-
-Only Postgres is strictly required. Set `DOCKER_ENABLED=false` to execute
-submissions directly on the host — much faster to iterate on, but **without
-sandbox isolation**, so only do it with content you trust.
-
-```bash
-docker compose up -d postgres
-bun run db:push
-bun run content:import
-bun run dev        # app on :3001, API mounted at /api
-```
-
-## Prerequisites
-
-- [Bun](https://bun.sh/) >= 1.3.7
-- [Docker](https://www.docker.com/) and Docker Compose (for Postgres and the sandbox runners)
-- Node.js >= 22 (some tooling shells out to it)
-
-## Project Structure
+## Layout
 
 ```
-blankcode/
-├── apps/
-│   ├── api/          # Effect.ts HttpApi — mounted into the web app's Nitro server
-│   └── web/          # Nuxt 4 frontend
-├── packages/
-│   ├── db/           # Drizzle ORM schema and migrations
-│   ├── shared/       # Shared types, schemas, and utilities
-│   └── exercise-parser/  # Markdown exercise parser
-├── tools/
-│   ├── content-importer/   # CLI: markdown -> database
-│   └── exercise-generator/ # CLI: AI-generated exercises
-├── content/          # Exercise + tutorial content (markdown)
-└── docker/runners/   # Per-language sandbox images
+apps/web         Nuxt 4 site + Nitro server routes (OAuth, billing, sessions,
+                 admin, crons). The Effect API is mounted under /api.
+apps/api         Effect HttpApi: auth, exercises (redacted — hidden tests
+                 never leave the server), submissions (createAndExecute runs
+                 the sandbox inline), reviews, tracks, paths.
+packages/db      Drizzle schema + migrations.
+packages/shared  Types, schemas, entitlement rules, blank grading.
+packages/exercise-parser   Markdown → starter/solution/blanks/tests.
+tools/ops        Recurring operator tooling: `seed.ts` (Stripe/tvault/Vercel
+                 reconciliation), `dev-against-preview.sh`. One-time scripts
+                 are never committed (AGENTS.md, Critical Rule 0).
+tools/content-importer     content/tracks + LEARNING_PATHS → Postgres.
+tools/exercise-validator   Static rules; also consumed by the generator.
+tools/exercise-generator   AI generation, gated by the real validator.
+content/         tracks/ (exercises), blog/, tutorials/.
 ```
 
 ## Development
 
-### Against the preview database and real sandboxes
+```bash
+bun install
+bash tools/ops/dev-against-preview.sh   # writes .env.development.local
+bun run dev                             # site on :3001, API under /api
+```
+
+The env script points `DATABASE_URL` at the **preview** Neon branch and sets
+`EXECUTION_BACKEND=vercel-sandbox` with a fresh OIDC token, so a submission
+runs in a real microVM from your machine. Secrets come from tvault
+(`blankcode-preview`); the file is disposable — delete it and re-run.
+
+### Gates
 
 ```bash
-bash scripts/dev-against-preview.sh
-bun run dev
+bun run verify           # lint (oxlint+oxfmt), typecheck, tests, knip
+bun run content:validate # static exercise rules
+bun run content:verify   # reference solutions actually run in the sandbox
+bun run content:import   # content/tracks + paths → the DATABASE_URL you set
 ```
 
-This writes `.env.development.local` (gitignored) pointing at the **preview**
-Neon branch, with `EXECUTION_BACKEND=vercel-sandbox` and the OIDC token that
-authenticates `Sandbox.create()` off-platform — so a submission runs in a real
-microVM without Docker. Production is never touched.
+`content:verify` is the one that matters: this repository shipped eleven
+unsolvable exercises that read fine, and four of five AI-generated ones passed
+every static check while failing execution.
 
-The OIDC token is short lived; re-run the script when sandboxes start answering
-401. `DATABASE_URL` comes from `neonctl` rather than the pull, and `JWT_SECRET`
-is generated per machine so a local token cannot authenticate against preview.
+## Environments
 
-If a snapshot id ever comes back as `[SENSITIVE]`, it was stored with the
-sensitive flag and nobody can read it back — not even you. They are ids, not
-secrets. Re-add them with `--no-sensitive`, which is required rather than
-merely omitting `--sensitive`: this project defaults new variables to
-sensitive.
+| | git | Neon | domain |
+|---|---|---|---|
+| production | `main` | `main` | blankcode.dev |
+| preview | `preview` | `preview` | preview.blankcode.dev |
 
+Pushes to `main` deploy production. Pushes to `preview` deploy and re-point
+preview.blankcode.dev (`.github/workflows/preview-domain.yml`). Migrations run
+in CI on push when `packages/db` changes — preview automatically, production
+behind a required reviewer (`.github/workflows/migrations.yml`), with secrets
+delivered via tvault identity mode and sealed artifacts in `ci/`.
+
+Operator changes (plan, prices, keys) are one command:
 
 ```bash
-bun run dev          # app on :3001, with the API mounted at /api
-bun run story        # Histoire component workshop (:6006)
-bun run verify       # lint + typecheck + test + knip
+bun run seed             # sandbox Stripe → tvault + Vercel preview/dev
+bun run seed -- --live   # live Stripe → tvault + Vercel production
 ```
 
-### Available Scripts
+It is an upsert and never prints a secret. Vercel reads new environment
+variables only on a fresh build; `vercel redeploy` reuses the previous one.
 
-| Script | Description |
-|--------|-------------|
-| `bun run dev` | Start API and web in watch mode |
-| `bun run build` | Build every workspace |
-| `bun run test` | Run all unit tests |
-| `bun run verify` | Full gate: lint, typecheck, test, knip |
-| `bun run lint` / `lint:fix` | oxlint + oxfmt check / autofix |
-| `bun run format` | Format with oxfmt |
-| `bun run typecheck` | TypeScript across all workspaces |
-| `bun run knip` | Detect unused files, exports, and dependencies |
-| `bun run story` | Histoire component workshop |
-| `bun run story:build` | Build the static component workshop |
-| `bun run db:push` | Push schema changes to the database |
-| `bun run db:studio` | Drizzle Studio |
-| `bun run content:import` | Import exercises from markdown into the DB |
-| `bun run content:generate` | Generate a new exercise with an LLM |
-| `bun run runners:build` | Build all sandbox runner images |
+## Exercise authoring
 
-### Component workshop (Histoire)
+Exercises are markdown with YAML frontmatter under
+`content/tracks/<track>/<concept>/`. The full rules live in AGENTS.md; the
+ones that reject a file outright:
 
-`bun run story` opens an isolated workshop at <http://localhost:6006> for the
-presentational components (`*.story.vue`). Histoire runs its own Vite server and
-does **not** boot Nuxt, so stories must avoid Nuxt auto-imports; `NuxtLink` is
-stubbed in `apps/web/histoire.setup.ts`.
+- blanks use `___blank_start___`/`___blank_end___`; a blank answer must not
+  contain a quote character (per-blank feedback is an exact compare)
+- challenges and reviews put the reference solution under `## Solution`
+- a `review` exercise's starter must fail the suite
+- `## Tests` is required, and a test with no assertion is a finding
 
-> Histoire 1.0.0-beta.1 declares a `vite ^7` peer while Nuxt 4 ships Vite 8.
-> It works, but `@vitejs/plugin-vue`, Tailwind, and the `~`/`@` aliases are
-> registered explicitly in `histoire.config.ts` to compensate.
+AI generation (`bun run content:generate <track> <concept> <difficulty>
+[topic]`) is gated by the same validator and defaults to a model measured to
+hold the format. Generated exercises still go through `content:verify` before
+import — the measured yield of generate-then-execute is one usable exercise in
+five, which is why execution is not optional.
 
-### Testing
+## The numbers that shape decisions
 
-Unit tests run on Vitest in every workspace:
+- A submission costs ~$0.00082 (the one-minute provisioned-memory floor is 87%
+  of it — the reason sandboxes run 1 vCPU).
+- Stripe in Mexico: 3.6% + MXN 3 + 0.5% international + 0.7% Billing, plus
+  IVA. The price is MXN-based because a Mexican account settles only in MXN
+  and Adaptive Pricing requires the price currency to be a settlement
+  currency.
+- A maxed-out free account costs ~$0.25/month.
 
-```bash
-bun run test                          # everything
-bun run test --filter=@blankcode/api  # one workspace
-cd apps/web && bun run test:watch     # watch mode
-```
+## Docs and notes
 
-There is no Playwright suite in this repo — end-to-end coverage lives in the
-external `cairntrace` engine.
-
-## Architecture
-
-### Backend (Effect.ts)
-
-The API is built with `@effect/platform` (`HttpApiBuilder`) on Node's HTTP server:
-
-- **Auth**: JWT access tokens + rotating refresh tokens, bcrypt password hashing
-- **Tracks / Concepts / Exercises**: hierarchical learning content
-- **Submissions**: executed inline in the request that creates them
-- **Progress / Mastery / Reviews**: completion tracking + SM-2 spaced repetition
-- **Achievements / Paths / Challenges**: gamification layer
-- The same layer (`apps/api/src/app.ts`) is served two ways: as a Node process for local work, and as a web handler mounted in Nitro (`apps/web/server/routes/api/[...].ts`) in production
-
-### Frontend (Nuxt 4)
-
-- **Pinia** for state management
-- **Nuxt Content** for static markdown tutorials
-- **Radix Vue** for accessible primitives
-- **TailwindCSS v4** for styling
-- **CodeMirror 6** for the editor (with blank-region widgets)
-
-### Code Execution
-
-Submissions run inline, in the request that creates them:
-
-1. `POST /api/submissions` inserts the row and executes it before responding
-2. Code runs in a sandbox — a Vercel Sandbox microVM (`EXECUTION_BACKEND=vercel-sandbox`)
-   or a hardened Docker container locally (network=none, read-only fs, dropped
-   caps, pid/memory/cpu/file limits)
-3. Test output is parsed per language and stored back on the submission row
-4. Progress, mastery, and the SM-2 review schedule are updated from the result
-5. The finished submission — verdict and all — is what the request returns
-
-Execution takes 2-12s, which fits inside a request. There is no queue, no
-worker, and no polling: those existed only because a separate process had to
-find the work. Postgres is the only datastore.
-
-## AI Exercise Generation
-
-`bun run content:generate` authors new exercises with an LLM. Everything runs
-through the **Vercel AI Gateway** via the AI SDK, so there is exactly one
-credential and swapping models is a config edit, not a code change.
-
-```bash
-# .env — the only credential needed
-AI_GATEWAY_API_KEY=vck_...
-
-bun run content:generate --models                                   # list model slugs
-bun run content:generate typescript generics advanced "conditional types"
-bun run content:generate --init react --name "React"
-bun run content:generate vue composition-api beginner --dry-run
-```
-
-The CLI prints the active model before each call.
-
-### Model configuration
-
-| Variable | Default | Meaning |
-|----------|---------|---------|
-| `AI_GATEWAY_API_KEY` | — | Vercel AI Gateway key ([docs](https://vercel.com/docs/ai-gateway)) |
-| `LLM_MODEL` | `deepseek/deepseek-v4-flash` | Any gateway slug — see `--models` |
-| `LLM_FALLBACK_MODELS` | — | Comma-separated failover chain |
-| `LLM_TEMPERATURE` | `0.6` | Enough variety that exercise 002 differs from 001 |
-| `LLM_MAX_TOKENS` | `4000` | |
-| `LLM_MAX_RETRIES` | `2` | Transient failures are retried by the AI SDK |
-
-Model slugs are `provider/model` and use **dots** for versions
-(`anthropic/claude-sonnet-4.6`, not `-4-6`). DeepSeek is the default because it
-is roughly 20-50x cheaper than frontier models for this workload; switching to
-Anthropic is a one-line env change:
-
-```bash
-LLM_MODEL=anthropic/claude-sonnet-5
-LLM_FALLBACK_MODELS=deepseek/deepseek-v4-pro
-```
-
-`VERCEL_OIDC_TOKEN` (from `vercel env pull`) is accepted as an alternative
-credential. With neither set, the generator emits a placeholder exercise instead
-of failing, so the pipeline stays testable with no credentials.
-
-Requests are tagged `app:blankcode` / `feature:exercise-generation`, so
-generation spend is attributable in the Vercel AI Gateway dashboard. Generated
-output is validated (frontmatter, blank markers, `## Tests` section, code
-blocks) and retried once with the failures fed back into the prompt.
-
-## Content Authoring
-
-Exercises are Markdown with YAML frontmatter:
-
-```markdown
----
-slug: hello-world
-title: Hello World
-description: Write your first program
-difficulty: beginner
-hints:
-  - Use console.log() to print output
-  - Strings should be wrapped in quotes
-tags:
-  - basics
-  - output
----
-
-Write a function that returns the string "Hello, World!".
-
-\`\`\`typescript
-export function hello(): string {
-  return ___blank_start___"Hello, World!"___blank_end___;
-}
-\`\`\`
-
-## Tests
-
-\`\`\`typescript
-import { expect, test } from 'vitest'
-
-test('greets', () => {
-  expect(hello()).toBe('Hello, World!')
-})
-\`\`\`
-```
-
-Place files in `content/tracks/{language}/{concept}/`, then run
-`bun run content:import`. Adding a new track means adding a
-`content/tracks/{slug}/` directory — and updating the language list in
-`apps/web/components/landing/language-showcase.vue`, which links straight to
-track slugs.
-
-## API Reference
-
-### Authentication
-
-```bash
-POST /auth/register   { "email", "username", "password" }
-POST /auth/login      { "email", "password" }
-POST /auth/refresh    { "refreshToken" }
-```
-
-### Exercises and submissions
-
-```bash
-GET  /exercises
-GET  /exercises/:exerciseId
-GET  /exercises/:exerciseId/progress
-POST /submissions     { "exerciseId", "code" }
-GET  /submissions/:id
-```
-
-### Rate Limits
-
-| Endpoint | Limit |
-|----------|-------|
-| General | 100 requests/minute |
-| Auth | 5 requests/minute |
-| Submissions | 30 requests/minute |
-
-## Docker Deployment
-
-```bash
-docker compose up -d          # full stack
-docker compose watch          # rebuild on change
-bun run runners:build         # rebuild sandbox images only
-```
-
-The `runner-images` one-shot service builds every per-language sandbox image
-before the app starts. Execution fails fast if an image is missing, pointing at
-`docker compose up runner-images`.
-
-| Service | Port | Description |
-|---------|------|-------------|
-| `web` | 3001 | Nuxt dev server, with the Effect API mounted at `/api` (needs the Docker socket to sandbox submissions) |
-| `postgres` | 5432 | PostgreSQL 17 |
-| `runner-images` | — | One-shot: builds the per-language sandbox images |
-
-## Toolchain notes
-
-- **Bun** is the runtime and package manager — never npm/npx/yarn/pnpm.
-- **TypeScript 7** everywhere except `apps/web`, which is pinned to 5.9.3
-  because `vue-tsc` cannot yet resolve TS 7's package exports.
-- TS 7 removed `baseUrl`; all `paths` in `tsconfig.base.json` are relative, and
-  workspaces that need Node/Bun globals declare `"types"` explicitly.
-- **oxlint** for linting and **oxfmt** for formatting (both Rust, from the oxc
-  project), **Knip** for dead code, **Lefthook** for hooks (pre-commit: format +
-  lint + typecheck + knip; pre-push: tests).
-- oxfmt is scoped to JS/TS/Vue/JSON. Markdown and YAML are **excluded on
-  purpose**: it reformats fenced code blocks, which would destroy the aligned
-  comments in `content/tutorials/`.
-- oxfmt 0.62 can reflow a multi-statement inline Vue handler
-  (`@click="a(); b = false"`) into semicolon-less lines that Vue's template
-  parser rejects — and `vue-tsc` does **not** catch it. Use a named handler
-  instead; `apps/web/__tests__/sfc-compiles.test.ts` compiles every SFC to
-  catch any recurrence.
-
-## Contributing
-
-1. Create a feature branch
-2. Make your changes
-3. Run `bun run verify`
-4. Commit with a conventional-commit message
-
-See [AGENTS.md](./AGENTS.md) for AI-assisted development guidelines.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+`AGENTS.md` is the contract: architecture, design system, voice, authoring
+rules, pre-flight checklist. `CLAUDE.md` is the short version agents load
+first. Product thinking lives in Obsidian at `~/notes/projects/blankcode/`.
