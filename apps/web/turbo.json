@@ -1,0 +1,24 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    // Two things the root config gets wrong for this package.
+    //
+    // Outputs: Nuxt writes the deployable server bundle to .output, and the
+    // root config only lists .nuxt. A cache hit therefore restored the build
+    // artifacts and left .output alone — stale on a machine that had built
+    // before, and absent entirely on a clean one. `turbo build` would report
+    // FULL TURBO in 37ms and leave nothing to deploy.
+    //
+    // Inputs: the content collections live at the repository root, outside
+    // this package, so turbo's default inputs do not see them. Adding a blog
+    // post or an exercise did not invalidate the build, and the site was
+    // rebuilt without it. $TURBO_DEFAULT$ keeps the normal file set and adds
+    // the content directory to it.
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "../../content/**"],
+      "outputs": [".nuxt/**", ".output/**"]
+    }
+  }
+}
