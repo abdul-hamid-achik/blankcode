@@ -36,6 +36,7 @@
     "@nuxt/fonts": "^0.14.0",
     "@pinia/nuxt": "^1.0.1",
     "@tailwindcss/vite": "^4.3.3",
+    "@vercel/analytics": "^2.0.1",
     "@vercel/sandbox": "^2.9.2",
     "ai": "^7.0.55",
     "better-sqlite3": "^13.0.3",

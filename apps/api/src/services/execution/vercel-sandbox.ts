@@ -49,6 +49,21 @@ export async function executeInVercelSandbox(
     // A submission is throwaway. Persistence snapshots the filesystem on stop,
     // which cost 5-7s per run and storage for state nobody reads again.
     persistent: false,
+    /*
+     * One vCPU, not the default two.
+     *
+     * Provisioned memory is 2 GB per vCPU and is billed with a one-minute
+     * minimum, so a three-second run pays for a full minute either way. That
+     * floor — not CPU time — is where almost all the cost of a submission is:
+     * at two vCPUs it is roughly 87% of it.
+     *
+     * Halving the vCPUs halves the provisioned memory and therefore halves the
+     * bill. Active CPU is metered on what is actually used, so a single-
+     * threaded test run costs about the same CPU-seconds on one vCPU as on
+     * two; and since our runs finish far inside the one-minute floor, even a
+     * slower wall time does not cost more.
+     */
+    resources: { vcpus: 1 },
     timeout: context.timeoutMs,
   })
 

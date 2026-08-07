@@ -60,6 +60,10 @@ export default defineNuxtConfig({
       // Canonical origin for canonical tags, OG urls and the sitemap. Set this
       // per environment so a preview never claims to be the production site.
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL ?? 'https://blankcode.dev',
+      // Set by Vercel on every deployment and absent everywhere else, which is
+      // exactly the signal the analytics plugin needs: it must not report from
+      // a laptop into production's numbers.
+      vercelEnv: process.env.VERCEL_ENV ?? '',
     },
     // Server-only: the sitemap needs it, the browser does not.
     publishedTrackSlugs,
