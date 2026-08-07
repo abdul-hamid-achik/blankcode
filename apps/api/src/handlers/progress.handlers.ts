@@ -13,6 +13,13 @@ export const ProgressHandlers = HttpApiBuilder.group(BlankCodeApi, 'progress', (
         return yield* svc.getSummary(user.id)
       })
     )
+    .handle('completed', () =>
+      Effect.gen(function* () {
+        const user = yield* CurrentUser
+        const svc = yield* ProgressService
+        return yield* svc.getCompletedExerciseIds(user.id)
+      })
+    )
     .handle('stats', () =>
       Effect.gen(function* () {
         const user = yield* CurrentUser

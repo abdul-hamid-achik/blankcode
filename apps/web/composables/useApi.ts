@@ -189,6 +189,7 @@ export function useApi() {
     },
     progress: {
       getExercise: (exerciseId: string) => request(`/progress/exercises/${exerciseId}`),
+      completed: () => request<string[]>('/progress/completed'),
       getConcept: (conceptId: string) => request(`/progress/concepts/${conceptId}`),
       getTrack: (trackSlug: string) => request(`/progress/tracks/${trackSlug}`),
       getSummary: () =>

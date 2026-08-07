@@ -3,11 +3,12 @@ name: Migrations
 # Runs drizzle migrations against the matching Neon branch when the schema or
 # the migration files change.
 #
-# Both run on push. Preview goes straight through; production waits for a
-# reviewer, which its GitHub Environment enforces — this repository is public,
-# so required reviewers are available and the gate is real rather than
-# decorative. (An earlier version of this comment said the repository was
-# private and used that to justify leaving production out. It was wrong.)
+# Both run on push and go straight through. Production used to wait for a
+# required reviewer, but Vercel deploys main the moment it is pushed, so an
+# unapproved migration left new code running against an old schema until
+# someone noticed the pending approval. The gate was removed on 2026-08-07;
+# expand-contract migration ordering is what keeps a deploy safe, not a
+# manual pause that the deploy does not wait for.
 #
 # Each Environment is also pinned to one branch, so a job asking for the
 # production identity from anywhere but `main` cannot start.

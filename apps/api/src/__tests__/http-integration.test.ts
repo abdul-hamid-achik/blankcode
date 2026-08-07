@@ -318,6 +318,7 @@ const MockSubmissionsService = Layer.succeed(SubmissionsService, {
 })
 
 const MockProgressService = Layer.succeed(ProgressService, {
+  getCompletedExerciseIds: () => Effect.succeed(['exercise-1']),
   getSummary: () =>
     Effect.succeed([
       {

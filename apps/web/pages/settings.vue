@@ -106,8 +106,16 @@ async function saveProfile() {
   isSaving.value = true
   saveMessage.value = ''
   try {
-    // TODO: Implement user update API
-    saveMessage.value = 'Profile updated successfully!'
+    const saved = await $fetch<{ displayName: string | null }>('/api/account/profile', {
+      method: 'POST',
+      headers: reminderHeaders(),
+      body: { displayName: displayName.value },
+    })
+    // Reflect what the server actually stored (trimmed, bounded), everywhere
+    // the name is shown, without waiting for a refetch.
+    displayName.value = saved.displayName ?? ''
+    if (authStore.user) authStore.user.displayName = saved.displayName
+    saveMessage.value = 'Saved.'
   } catch (e) {
     saveMessage.value = e instanceof Error ? e.message : 'Failed to save'
   } finally {

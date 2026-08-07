@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { LEARNING_PATHS } from '@blankcode/shared'
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Card from '~/components/ui/card.vue'
 import { usePageSeo } from '~/composables/usePageSeo'
+import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({ requiresAuth: false })
 
@@ -21,10 +22,40 @@ const sortedPaths = computed(() =>
 // Kept so the template's loading branch stays valid; there is nothing to wait for.
 const isLoading = computed(() => false)
 
-const getProgress = (path: { challengeIds: readonly string[] }) => {
-  // Placeholder until per-path progress exists.
-  return { completed: 0, total: path.challengeIds.length }
-}
+/*
+ * Real completion, or nothing. This used to hardcode `{ completed: 0 }` and
+ * render it as if it were the user's progress — a page whose numbers are
+ * invented teaches you to stop reading its numbers. Signed out, the fraction
+ * simply is not shown.
+ *
+ * The intersection runs against the DB-backed paths, not the constant above:
+ * the constant lists exercises by slug for authoring, and the importer
+ * resolves those to the UUIDs that progress rows actually carry.
+ */
+const auth = useAuthStore()
+const api = useApi()
+const progressBySlug = ref<Map<string, { completed: number; total: number }> | null>(null)
+
+onMounted(async () => {
+  if (!auth.isAuthenticated) return
+  try {
+    const [dbPaths, completed] = await Promise.all([api.paths.getAll(), api.progress.completed()])
+    const done = new Set(completed)
+    progressBySlug.value = new Map(
+      dbPaths.map((p) => [
+        p.slug,
+        {
+          completed: p.challengeIds.filter((id) => done.has(id)).length,
+          total: p.challengeIds.length,
+        },
+      ])
+    )
+  } catch {
+    // Signed in but the fetch failed: show nothing rather than a wrong zero.
+  }
+})
+
+const getProgress = (path: { slug: string }) => progressBySlug.value?.get(path.slug) ?? null
 
 usePageSeo({
   title: 'Learning paths — BlankCode',
@@ -60,7 +91,7 @@ usePageSeo({
             </div>
             <div class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-purple-500"></span>
-              <span>Earn completion badges</span>
+              <span>Progress tracked per exercise</span>
             </div>
           </div>
         </div>
@@ -104,13 +135,18 @@ usePageSeo({
               </p>
 
               <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2 text-xs text-muted-foreground">
+                <!-- Only rendered when it is the user's real number. -->
+                <div
+                  v-if="getProgress(path)"
+                  class="flex items-center gap-2 text-xs text-muted-foreground"
+                >
                   <span>📚</span>
                   <span
-                    >{{ getProgress(path).completed }} /
-                    {{ getProgress(path).total }} completed</span
+                    >{{ getProgress(path)?.completed }} /
+                    {{ getProgress(path)?.total }} completed</span
                   >
                 </div>
+                <div v-else aria-hidden="true"></div>
                 <div
                   class="flex items-center gap-1 text-sm font-medium"
                   :style="{ color: path.color }"

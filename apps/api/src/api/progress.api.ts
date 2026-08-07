@@ -10,6 +10,15 @@ export class ProgressApi extends HttpApiGroup.make('progress')
       .addError(NotFoundError)
   )
   .add(
+    // The IDs of every exercise this user has completed. One flat list rather
+    // than a per-surface aggregate, because done-marks are wanted by paths,
+    // track pages, and concept pages alike, and each can intersect it with
+    // whatever it is rendering.
+    HttpApiEndpoint.get('completed', '/progress/completed')
+      .addSuccess(Schema.Array(Schema.String))
+      .addError(NotFoundError)
+  )
+  .add(
     HttpApiEndpoint.get('stats', '/progress/stats')
       .addSuccess(Schema.Unknown)
       .addError(NotFoundError)

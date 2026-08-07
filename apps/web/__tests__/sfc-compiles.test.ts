@@ -246,10 +246,16 @@ describe('public index pages render and describe themselves', () => {
     }
   )
 
-  it('the paths index needs no request at all', () => {
-    // Learning paths are a static array both the API and the page can import.
+  it('the paths index renders its content without a request', () => {
+    // Learning paths are a static array both the API and the page can import,
+    // so the server render must not depend on a fetch — that bug once served
+    // crawlers a page with one heading on it. The user's own progress is the
+    // one thing that IS remote, and it may be fetched after mount because the
+    // page is complete without it.
     const source = readFileSync(join(process.cwd(), 'pages/paths/index.vue'), 'utf-8')
     expect(source).toContain('LEARNING_PATHS')
-    expect(source).not.toContain('api.paths')
+    expect(source).not.toContain('useAsyncData')
+    const beforeMount = source.slice(0, source.indexOf('onMounted('))
+    expect(beforeMount).not.toContain('await ')
   })
 })

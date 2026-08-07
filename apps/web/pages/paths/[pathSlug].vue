@@ -5,6 +5,7 @@ import Button from '~/components/ui/button.vue'
 import Card from '~/components/ui/card.vue'
 import DifficultyTag from '~/components/ui/difficulty-tag.vue'
 import { useAsync } from '~/composables/useAsync'
+import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({ requiresAuth: false })
 
@@ -40,11 +41,30 @@ const {
   )
 })
 
+/*
+ * Real done-marks, or none. `progress` was a ref hardcoded to `completed: 0`
+ * rendered as if it were the user's number. Now the completed-exercise list is
+ * fetched when signed in, each step carries its own mark, and the fraction is
+ * simply absent when there is no one to have a fraction.
+ */
+const auth = useAuthStore()
+const completedIds = ref<Set<string> | null>(null)
+
 // The exercise fetch reads `path.value`, so it has to run after the path
 // resolves — `useAsync` never fires either of these on its own.
 onMounted(async () => {
   await loadPath()
-  await loadExercises()
+  await Promise.all([
+    loadExercises(),
+    (async () => {
+      if (!auth.isAuthenticated) return
+      try {
+        completedIds.value = new Set(await api.progress.completed())
+      } catch {
+        // Show nothing rather than a wrong zero.
+      }
+    })(),
+  ])
 })
 
 const isLoading = computed(() => pathLoading.value || exercisesLoading.value)
@@ -53,13 +73,19 @@ const validExercises = computed(() => {
   return (exercises.value || []).filter((e) => e !== null)
 })
 
-const progress = ref({
-  completed: 0,
-  total: path.value?.challengeIds.length || 0,
+const progress = computed(() => {
+  if (!completedIds.value || !path.value) return null
+  return {
+    completed: path.value.challengeIds.filter((id) => completedIds.value?.has(id)).length,
+    total: path.value.challengeIds.length,
+  }
 })
 
+const isDone = (id: string) => completedIds.value?.has(id) ?? false
+
+// Start where you left off: the first step not yet completed, not step one.
 const startChallenge = () => {
-  const first = validExercises.value[0]
+  const first = validExercises.value.find((e) => !isDone(e.id)) ?? validExercises.value[0]
   if (first) {
     router.push(`/exercise/${first.id}`)
   }
@@ -103,7 +129,7 @@ const startChallenge = () => {
                     <span>📚</span>
                     {{ path.challengeIds.length }} challenges
                   </span>
-                  <span class="flex items-center gap-1">
+                  <span v-if="progress" class="flex items-center gap-1">
                     <span>📊</span>
                     {{ progress.completed }} / {{ progress.total }} completed
                   </span>
@@ -129,15 +155,17 @@ const startChallenge = () => {
             <Card class="hover:border-rule-strong hover:shadow-lg transition-all cursor-pointer">
               <div class="p-6">
                 <div class="flex items-start gap-4">
-                  <!-- Step Number -->
+                  <!-- Step number, or the mark that this step is behind you. -->
                   <div
                     class="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg"
                     :style="{
                       backgroundColor: `${path.color}20`,
                       color: path.color,
                     }"
+                    :title="isDone(exercise.id) ? 'Completed' : undefined"
                   >
-                    {{ index + 1 }}
+                    <span v-if="isDone(exercise.id)" aria-label="Completed">✓</span>
+                    <span v-else>{{ index + 1 }}</span>
                   </div>
 
                   <!-- Content -->

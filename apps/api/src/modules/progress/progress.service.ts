@@ -79,6 +79,7 @@ interface ProgressServiceShape {
     exerciseId: string
   ) => Effect.Effect<void, BadRequestError>
   readonly getSummary: (userId: string) => Effect.Effect<TrackSummary[], NotFoundError>
+  readonly getCompletedExerciseIds: (userId: string) => Effect.Effect<string[], NotFoundError>
   readonly getStats: (userId: string) => Effect.Effect<ProgressStats, NotFoundError>
   readonly getActivityTimeline: (userId: string) => Effect.Effect<ActivityDay[], NotFoundError>
   readonly updateConceptMastery: (
@@ -374,6 +375,16 @@ export const ProgressServiceLive = Layer.effect(
               }),
           catch: () => new BadRequestError({ message: 'Failed to increment attempts' }),
         }).pipe(Effect.map(() => undefined)),
+
+      getCompletedExerciseIds: (userId) =>
+        Effect.tryPromise({
+          try: () =>
+            db.query.userProgress.findMany({
+              where: and(eq(userProgress.userId, userId), eq(userProgress.isCompleted, true)),
+              columns: { exerciseId: true },
+            }),
+          catch: () => new NotFoundError({ resource: 'Progress', id: userId }),
+        }).pipe(Effect.map((rows) => rows.map((row) => row.exerciseId))),
 
       getSummary: (userId) =>
         Effect.gen(function* () {
