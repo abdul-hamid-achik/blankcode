@@ -74,6 +74,17 @@ export const users = pgTable(
     subscriptionPriceId: varchar('subscription_price_id', { length: 255 }),
     /** When paid access lapses. Access is denied on time, not on a webhook. */
     subscriptionEndsAt: timestamp('subscription_ends_at', { withTimezone: true }),
+    /**
+     * Opt-out for the review reminder, defaulting to on.
+     *
+     * On by default because the reminder IS the product: spaced repetition
+     * without a nudge depends on people remembering on their own, which is the
+     * exact failure the mechanism exists to remove. The email itself says how
+     * to turn it off, which is the honest version of a default.
+     */
+    reviewRemindersEnabled: boolean('review_reminders_enabled').notNull().default(true),
+    /** When the last reminder went out, so one bad cron cannot double-send. */
+    lastReminderAt: timestamp('last_reminder_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

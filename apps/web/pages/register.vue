@@ -32,7 +32,11 @@ async function handleSubmit() {
 
   try {
     await authStore.register(email.value, username.value, password.value)
-    navigateTo('/dashboard')
+    // Straight to picking a track. A brand-new account has nothing to review,
+    // so the dashboard's only answer is "pick something new" — with one more
+    // click in the way of the first exercise, right after the most expensive
+    // commitment a visitor makes.
+    navigateTo('/tracks')
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Registration failed'
   } finally {

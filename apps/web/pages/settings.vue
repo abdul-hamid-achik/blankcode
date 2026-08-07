@@ -3,6 +3,7 @@ import Button from '~/components/ui/button.vue'
 import Card from '~/components/ui/card.vue'
 import { useAuthStore } from '~/stores/auth'
 import { usePreferencesStore } from '~/stores/preferences'
+import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
 
@@ -10,6 +11,41 @@ const authStore = useAuthStore()
 const preferencesStore = usePreferencesStore()
 
 const displayName = ref(authStore.user?.displayName ?? '')
+
+/** The reminder toggle. Read once; written on click. */
+const remindersEnabled = ref(true)
+const remindersLoading = ref(false)
+
+function reminderHeaders(): Record<string, string> {
+  const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+onMounted(async () => {
+  try {
+    const state = await $fetch<{ enabled: boolean }>('/api/account/reminders', {
+      headers: reminderHeaders(),
+    })
+    remindersEnabled.value = state.enabled
+  } catch {
+    // The default shown (on) matches the database default, so a failed read
+    // does not display a lie.
+  }
+})
+
+async function toggleReminders() {
+  remindersLoading.value = true
+  try {
+    const state = await $fetch<{ enabled: boolean }>('/api/account/reminders', {
+      method: 'POST',
+      headers: reminderHeaders(),
+      body: { enabled: !remindersEnabled.value },
+    })
+    remindersEnabled.value = state.enabled
+  } finally {
+    remindersLoading.value = false
+  }
+}
 const isSaving = ref(false)
 const saveMessage = ref('')
 
@@ -78,6 +114,28 @@ function decreaseFontSize() {
                 {{ saveMessage }}
               </span>
             </div>
+          </div>
+        </Card>
+
+        <!-- Email -->
+        <Card>
+          <h2 class="display text-lg mb-4">Email</h2>
+          <div class="flex items-start justify-between gap-6">
+            <div>
+              <p class="text-sm font-medium mb-1">Review reminders</p>
+              <p class="text-xs text-muted-foreground leading-relaxed max-w-sm">
+                One email on days you have exercises due, never more. This is what makes the
+                schedule work when you are not thinking about it.
+              </p>
+            </div>
+            <Button
+              :variant="remindersEnabled ? 'primary' : 'outline'"
+              size="sm"
+              :disabled="remindersLoading"
+              @click="toggleReminders"
+            >
+              {{ remindersEnabled ? 'On' : 'Off' }}
+            </Button>
           </div>
         </Card>
 
