@@ -54,6 +54,18 @@ watch(
   () => resetExplanation()
 )
 
+/*
+ * Fetch "what comes next" on the pass itself, not inside the rating handler.
+ * Rating is optional — someone who passes and skips the rating used to get
+ * no onward path at all, because the only call site was rateRecall.
+ */
+watch(
+  () => exerciseStore.latestSubmission?.status,
+  (status) => {
+    if (status === 'passed') void loadWhatsNext()
+  }
+)
+
 function handleExplain() {
   const id = exerciseStore.latestSubmission?.id
   if (id) void explain(id)
@@ -450,6 +462,19 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
               Easy
             </Button>
           </div>
+
+          <!--
+            The onward path exists even before the rating. Rating stays the
+            featured action — it sets the schedule — but skipping it must not
+            strand someone on a finished exercise.
+          -->
+          <NuxtLink
+            v-if="whatsNext?.next"
+            :to="`/exercise/${whatsNext.next.id}`"
+            class="mt-4 block font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            next: {{ whatsNext.next.title }} →
+          </NuxtLink>
         </div>
 
         <!--

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import EmptyState from '~/components/error/empty-state.vue'
 import Button from '~/components/ui/button.vue'
 import { useReviewStore } from '~/stores/review'
+import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 import { speakNextBatch } from '~/utils/review-dates'
 
 /**
@@ -20,13 +21,28 @@ const api = useApi()
 const upcoming = ref<Awaited<ReturnType<typeof api.reviews.getUpcoming>> | null>(null)
 const nextBatch = computed(() => speakNextBatch(upcoming.value?.next ?? null))
 
+interface ContinueTarget {
+  next: { id: string; title: string; conceptName: string; trackName: string } | null
+}
+
+/**
+ * The concrete next thing, for the empty state. "Browse tracks" is the
+ * product shrugging; "Continue: Narrowing with typeof" is the product
+ * knowing where you left off.
+ */
+const continueTarget = ref<ContinueTarget['next']>(null)
+
 onMounted(async () => {
   reviewStore.loadDueReviews()
-  try {
-    upcoming.value = await api.reviews.getUpcoming()
-  } catch {
-    // The empty state reads fine without the horizon line.
-  }
+  const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
+  const [upcomingResult, continueResult] = await Promise.allSettled([
+    api.reviews.getUpcoming(),
+    $fetch<ContinueTarget>('/api/exercises/continue', { headers }),
+  ])
+  // Each line is extra; the empty state reads fine without either.
+  if (upcomingResult.status === 'fulfilled') upcoming.value = upcomingResult.value
+  if (continueResult.status === 'fulfilled') continueTarget.value = continueResult.value.next
 })
 
 const first = computed(() => reviewStore.dueExercises[0])
@@ -109,12 +125,17 @@ function lastSeen(iso: string | null | undefined): string {
         description="Exercises come back when the interval says you are starting to lose them. Until then, the useful move is new material."
       >
         <template #action>
-          <div class="flex flex-wrap gap-3">
-            <NuxtLink to="/tracks"><Button>Browse tracks</Button></NuxtLink>
-            <NuxtLink to="/challenges">
-              <Button variant="outline">Try a challenge</Button>
+          <div class="flex flex-wrap items-center gap-3">
+            <NuxtLink v-if="continueTarget" :to="`/exercise/${continueTarget.id}`">
+              <Button>Continue: {{ continueTarget.title }}</Button>
+            </NuxtLink>
+            <NuxtLink to="/tracks">
+              <Button :variant="continueTarget ? 'outline' : 'primary'">Browse tracks</Button>
             </NuxtLink>
           </div>
+          <p v-if="continueTarget" class="mt-2 font-mono text-xs text-muted-foreground">
+            next up in {{ continueTarget.trackName }} · {{ continueTarget.conceptName }}
+          </p>
         </template>
       </EmptyState>
     </template>

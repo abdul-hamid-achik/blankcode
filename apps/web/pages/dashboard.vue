@@ -7,6 +7,7 @@ import { useAsync } from '~/composables/useAsync'
 import { useAuthStore } from '~/stores/auth'
 import { useProgressStore } from '~/stores/progress'
 import { useReviewStore } from '~/stores/review'
+import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 import { speakNextBatch } from '~/utils/review-dates'
 import { getStatusLabel } from '~/utils/submission-status'
 
@@ -40,15 +41,27 @@ const { data: submissions, execute: loadSubmissions } = useAsync(
  */
 const upcoming = ref<Awaited<ReturnType<typeof api.reviews.getUpcoming>> | null>(null)
 
+interface ContinueTarget {
+  next: { id: string; title: string; conceptName: string; trackName: string } | null
+}
+
+/** "Pick something new" gets to name the pick: first unfinished exercise
+ * in the track the user last touched. */
+const continueTarget = ref<ContinueTarget['next']>(null)
+
 onMounted(async () => {
   loadSubmissions()
   progressStore.loadStats()
   reviewStore.loadDueCount()
-  try {
-    upcoming.value = await api.reviews.getUpcoming()
-  } catch {
-    // The heading stands on its own; the horizon line is extra.
-  }
+  const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
+  const [upcomingResult, continueResult] = await Promise.allSettled([
+    api.reviews.getUpcoming(),
+    $fetch<ContinueTarget>('/api/exercises/continue', { headers }),
+  ])
+  // Both lines are extra; the heading stands on its own.
+  if (upcomingResult.status === 'fulfilled') upcoming.value = upcomingResult.value
+  if (continueResult.status === 'fulfilled') continueTarget.value = continueResult.value.next
 })
 
 const name = computed(() => authStore.user?.displayName || authStore.user?.username || 'you')
@@ -101,8 +114,13 @@ function statusTone(status: string): string {
       <NuxtLink v-if="dueCount > 0" to="/review">
         <Button size="lg">Start review</Button>
       </NuxtLink>
+      <NuxtLink v-if="dueCount === 0 && continueTarget" :to="`/exercise/${continueTarget.id}`">
+        <Button size="lg">Continue: {{ continueTarget.title }}</Button>
+      </NuxtLink>
       <NuxtLink to="/tracks">
-        <Button :variant="dueCount > 0 ? 'outline' : 'primary'" size="lg">Browse tracks</Button>
+        <Button :variant="dueCount > 0 || continueTarget ? 'outline' : 'primary'" size="lg"
+          >Browse tracks</Button
+        >
       </NuxtLink>
     </div>
 
