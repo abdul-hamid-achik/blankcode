@@ -1,7 +1,7 @@
 ---
 title: "Vue Reactivity Deep Dive"
 slug: "vue-reactivity-deep-dive"
-description: "Understand how Vue's reactivity system works under the hood with ref, reactive, computed, and watchers."
+description: "How Proxy-based dependency tracking actually decides what to re-run, why ref beats reactive as the default, and the synchronous-tracking rule that breaks watchEffect after an await."
 track: "vue"
 order: 2
 difficulty: "intermediate"
@@ -11,241 +11,113 @@ practice:
   label: "Composition API"
 ---
 
-Vue's reactivity system is what makes your UI automatically update when data changes. Understanding how it works helps you write better, more efficient components.
+Vue's reactivity is not magic — it's a `Proxy` around your data plus a stack that tracks which function is currently running. Understanding the mechanism, not just the API, is what tells you why some perfectly reasonable-looking code silently stops updating.
 
-## How Vue Reactivity Works
+## Dependency tracking: what a read actually does
 
-Vue 3's reactivity is built on JavaScript's `Proxy` object. When you create reactive state with `ref` or `reactive`, Vue wraps your data in a Proxy that intercepts property access (`get`) and modification (`set`). During a component's render (or inside a `computed`/`watchEffect`), Vue tracks which reactive properties are read — this is called **dependency tracking**. When a tracked property changes, Vue knows exactly which effects (renders, computeds, watchers) depend on it and re-runs only those. This fine-grained tracking is what makes Vue efficient — it never re-renders more than necessary.
+Every reactive value — a `ref`'s `.value`, a property on a `reactive()` object — is backed by a `get` trap. When Vue runs a render function, a `computed` getter, or a `watchEffect` callback, it pushes that function onto an internal stack as the "active effect." Any reactive property read while that function is on the stack gets one line added to its dependency list: wake this effect when I change. A `set` trap on the same property later walks that list and re-runs exactly those effects — nothing else. That is the entire trick: which effects re-run is determined by what was actually read, not by which template happens to mention a variable.
 
-## ref vs reactive
-
-Vue 3's Composition API provides two ways to create reactive state: `ref` and `reactive`.
-
-### ref — The Recommended Default
-
-`ref` is the general-purpose, recommended choice for reactive state. It works with any value type — primitives, objects, arrays, or anything else:
-
-```vue
-<script setup lang="ts">
-import { ref } from 'vue';
-
-const count = ref(0);
-const name = ref('Alice');
-const user = ref({ name: 'Alice', age: 30 });
-
-// Access/modify with .value in script
-count.value++;
-console.log(count.value); // 1
-
-// Objects work just as well
-user.value.name = 'Bob';
-</script>
-
-<template>
-  <!-- In template, .value is automatically unwrapped -->
-  <span>{{ count }}</span>
-  <span>{{ user.name }}</span>
-</template>
-```
-
-`ref` is recommended because it works consistently regardless of value type, can be reassigned freely, and maintains reactivity when passed to functions or destructured.
-
-### reactive — A Niche Alternative
-
-`reactive` creates a reactive proxy around an object. It has no `.value` wrapper, which can feel cleaner for object state, but comes with important limitations:
+The rule has a sharp edge: tracking only happens for reads that occur synchronously, before the function yields control. Inside `watchEffect`, everything read before the first `await` is tracked; everything read after it is invisible to Vue, because by the time the microtask resumes, the effect has already been popped off the stack.
 
 ```typescript
-import { reactive } from 'vue';
+const status = ref('idle')
+const query = ref('')
 
-const state = reactive({
-  count: 0,
-  user: { name: 'Alice' },
-});
-
-// No .value needed
-state.count++;
-state.user.name = 'Bob';
+// BROKEN — status is read after an await, so changing it later
+// never re-runs this effect
+watchEffect(async () => {
+  const q = query.value // tracked — read before the await
+  await fetch(`/api/search?q=${q}`)
+  console.log(status.value) // NOT tracked
+})
 ```
 
-**Caveats of `reactive`:**
+Fix it by reading everything reactive up front, or by switching to `watch` with explicit sources, which builds its dependency list once and does not re-derive it from execution order at all.
 
-1. **Only works with objects** — not primitives like strings or numbers.
-2. **Destructuring breaks reactivity:**
+## ref vs reactive: why ref is the default
+
+`ref` wraps any value — primitive or object — in a small box with a `.value` property, and that box is what carries the `get`/`set` traps. Because the box itself is what is reactive, not the value inside it, passing a ref into a function, returning it from a composable, or storing it in an array all preserve tracking; only unwrapping it with `.value` loses the connection, and you do that explicitly.
 
 ```typescript
-// BAD — loses reactivity
-const { count } = state;
-
-// GOOD — use toRefs or toRef
-import { toRefs, toRef } from 'vue';
-const { count } = toRefs(state);
-const singleRef = toRef(state, 'count');
+const count = ref(0)
+count.value++
 ```
 
-3. **Reassigning the whole object breaks reactivity:**
+`reactive()` instead proxies the object directly, so the tracking lives on the object's own properties rather than on a box you carry around. Destructure a property out of a `reactive()` object and you get a plain value at that instant — the proxy that would have tracked further reads is gone, because you are no longer going through it. `toRefs()` fixes this by wrapping each property in its own ref-shaped box before you destructure, so the tracking travels with each variable instead of staying behind on the object.
 
 ```typescript
-// BAD — the component still points to the old proxy
-state = reactive({ count: 5, user: { name: 'Charlie' } });
+const state = reactive({ count: 0 })
 
-// GOOD — mutate properties instead
-state.count = 5;
-state.user = { name: 'Charlie' };
-
-// Or use ref for the whole object and reassign .value
-const state2 = ref({ count: 0 });
-state2.value = { count: 5 }; // works fine
+const { count } = state // plain number, frozen at this instant
+const { count: tracked } = toRefs(state) // ref, still connected
 ```
 
-Use `toRef` (singular) to create a ref linked to a single property, and `toRefs` to convert all properties at once. Both maintain the reactive connection to the original object.
+This is also why `reactive()` cannot hold a primitive on its own and cannot be reassigned wholesale — `state = reactive({ count: 5 })` builds a brand-new proxy that nothing else is pointing at. `ref` has neither limitation, which is the real argument for defaulting to it: one API that behaves the same way for every value type, with no destructuring trap waiting for a caller who doesn't know the object came from `reactive()`.
 
-## shallowRef and shallowReactive
+::code-blank{lang="typescript" href="/tracks/vue/composition-api" label="practice composition api for real"}
+---
+code: |
+  // The general-purpose reactive primitive — works for any value type
+  const count = ___blank_start___ref___blank_end___(0)
+---
+::
 
-By default, `ref` and `reactive` deeply convert nested objects into reactive proxies. When you have large data structures where you only need top-level reactivity, use the shallow variants for better performance:
+## computed: cached, and only as fresh as its dependencies
+
+A `computed` re-evaluates only when a dependency it read last time has changed — call `.value` on it a hundred times between changes and the getter runs once. That laziness is also why the getter must stay pure: put a side effect (pushing to an array, calling an API) inside a computed getter and it runs whenever Vue decides the cache is stale, which is not the same as whenever you would want a side effect to fire. Use `watch` for side effects and keep `computed` a pure derivation.
 
 ```typescript
-import { shallowRef, shallowReactive, triggerRef } from 'vue';
-
-// Only .value assignment is tracked — nested mutations are NOT reactive
-const largeList = shallowRef([{ id: 1, name: 'Alice' }]);
-
-// This will NOT trigger updates:
-largeList.value[0].name = 'Bob';
-
-// This WILL trigger updates (replacing .value):
-largeList.value = [...largeList.value];
-
-// Or manually trigger reactivity after mutation:
-largeList.value[0].name = 'Bob';
-triggerRef(largeList);
-
-// shallowReactive — only top-level properties are reactive
-const state = shallowReactive({
-  count: 0,              // reactive
-  nested: { deep: true } // NOT reactive
-});
-
-state.count++;          // triggers updates
-state.nested.deep = false; // does NOT trigger updates
-state.nested = { deep: false }; // triggers updates (top-level assignment)
-```
-
-`shallowRef` is especially useful for large arrays, external library objects, or data from APIs where you replace the whole value rather than mutating nested properties.
-
-## computed
-
-Computed properties automatically track their dependencies and only re-evaluate when those dependencies change.
-
-### Read-only computed
-
-```typescript
-import { ref, computed } from 'vue';
-
-const items = ref([1, 2, 3, 4, 5]);
-const filter = ref('even');
-
-const filteredItems = computed(() => {
-  if (filter.value === 'even') {
-    return items.value.filter(n => n % 2 === 0);
-  }
-  return items.value.filter(n => n % 2 !== 0);
-});
-```
-
-### Writable computed
-
-Sometimes you need a computed that can also be set. Use the getter/setter form:
-
-```vue
-<script setup lang="ts">
-import { ref, computed } from 'vue';
-
-const firstName = ref('Alice');
-const lastName = ref('Smith');
+const firstName = ref('Ada')
+const lastName = ref('Lovelace')
 
 const fullName = computed({
   get: () => `${firstName.value} ${lastName.value}`,
-  set: (newValue: string) => {
-    const [first, ...rest] = newValue.split(' ');
-    firstName.value = first;
-    lastName.value = rest.join(' ');
+  set: (value: string) => {
+    const [first, ...rest] = value.split(' ')
+    firstName.value = first
+    lastName.value = rest.join(' ')
   },
-});
-
-// Reading works as usual
-console.log(fullName.value); // 'Alice Smith'
-
-// Setting splits the value back into parts
-fullName.value = 'Bob Jones';
-// firstName.value === 'Bob', lastName.value === 'Jones'
-</script>
-
-<template>
-  <input v-model="fullName" />
-  <p>First: {{ firstName }}, Last: {{ lastName }}</p>
-</template>
+})
 ```
 
-Writable computeds are useful for v-model bindings where the display format differs from the stored format.
+::code-blank{lang="typescript" href="/tracks/vue/composition-api" label="practice composition api for real"}
+---
+code: |
+  // Cached — the getter only re-runs when items or filter changes
+  const filtered = ___blank_start___computed___blank_end___(() => items.value.filter((i) => i.active))
+---
+::
 
-## watchEffect vs watch
+## shallowRef and shallowReactive: opting out on purpose
 
-Both let you run side effects when reactive state changes.
-
-### watchEffect
-
-`watchEffect` runs immediately and automatically tracks every reactive dependency accessed during execution:
-
-```vue
-<script setup lang="ts">
-import { ref, watchEffect } from 'vue';
-
-const query = ref('');
-const results = ref<string[]>([]);
-
-// Runs immediately, then re-runs whenever query.value changes
-watchEffect(async () => {
-  if (query.value.length < 2) {
-    results.value = [];
-    return;
-  }
-  const response = await fetch(`/api/search?q=${encodeURIComponent(query.value)}`);
-  results.value = await response.json();
-});
-</script>
-
-<template>
-  <input v-model="query" placeholder="Search..." />
-  <ul>
-    <li v-for="result in results" :key="result">{{ result }}</li>
-  </ul>
-</template>
-```
-
-### watch
-
-`watch` requires you to specify the dependencies explicitly, and gives you access to both the old and new values:
+Deep reactivity means Vue recursively wraps every nested object the first time it's touched, at a cost proportional to the size of the structure. For a large value you replace wholesale — an API response, a big dataset — that cost buys you nothing, because nothing ever mutates a nested field in place.
 
 ```typescript
-import { ref, watch } from 'vue';
+const rows = shallowRef<Row[]>([])
 
-const query = ref('');
+rows.value = await fetchRows() // tracked — reassigning .value
+rows.value[0].name = 'edited' // NOT tracked — nested mutation
 
-// Explicit dependency, access to old value
-watch(query, (newVal, oldVal) => {
-  console.log(`Changed from "${oldVal}" to "${newVal}"`);
-});
-
-// Watch multiple sources
-watch([query, results], ([newQuery, newResults], [oldQuery, oldResults]) => {
-  console.log('Something changed');
-});
+// Force a re-render after a nested mutation without a full reassignment:
+triggerRef(rows)
 ```
 
-Use `watchEffect` when you want automatic dependency tracking and immediate execution. Use `watch` when you need the previous value, want lazy execution, or need to watch specific sources.
+`shallowReactive` applies the same idea to an object's own properties: top-level assignment is tracked, anything nested is not.
 
-## Practice
+::code-blank{lang="typescript" href="/tracks/vue/composition-api" label="practice composition api for real"}
+---
+code: |
+  // Only .value reassignment is tracked, not nested mutations
+  const rows = ___blank_start___shallowRef___blank_end___<Row[]>([])
+---
+::
 
-Try the [Vue Composition API exercises](/tracks/vue) to practice these concepts with interactive code completion challenges.
+## Where this bites
 
-Next up: [State with Pinia](/tutorials/vue-state-with-pinia)
+**Reading a value after an `await` inside `watchEffect`.** Anything read past the first suspension point never joins the dependency list, so the effect silently stops reacting to it while everything read before the `await` still works — the bug looks intermittent because half the function is reactive and half isn't. Read what you need up front, or switch to `watch` with an explicit source list.
+
+**Destructuring a `reactive()` object.** `const { user } = state` compiles, runs, and returns a value that looks correct in a debugger — it simply never updates again, because the destructure severed the connection to the proxy. Use `toRefs(state)` before destructuring, or don't destructure `reactive()` state at all.
+
+**Reassigning a whole `reactive()` object.** `state = reactive({ ...newData })` replaces the variable's proxy, but every template and computed that captured the original `state` reference is still watching the old one. Mutate the existing object's properties instead, or use `ref` for anything you intend to swap wholesale.
+
+**Mutating nested data on a `shallowRef` and expecting a re-render.** The shallow variants only track the `.value` assignment itself, so `rows.value[0].name = 'x'` changes the data in memory with no UI update and no error. Either reassign `.value` to a new array or object, or call `triggerRef()` right after the mutation.

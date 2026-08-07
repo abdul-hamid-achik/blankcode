@@ -192,6 +192,33 @@
    styles what @nuxt/content renders inside it. Headings take the display
    voice, code sits on the editor's surface (--code-bg), and separation is
    done with 1px rules, not boxes or shadows. */
+/* The quiet copy button useCodeCopy injects into article code blocks. */
+.code-copy {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.6875rem;
+  color: hsl(var(--muted-foreground));
+  background: hsl(var(--background) / 0.85);
+  border: 1px solid hsl(var(--rule));
+  border-radius: 3px;
+  padding: 0.1rem 0.45rem;
+  opacity: 0;
+  transition:
+    opacity 0.15s ease,
+    color 0.15s ease;
+}
+
+pre:hover .code-copy,
+.code-copy:focus-visible {
+  opacity: 1;
+}
+
+.code-copy:hover {
+  color: hsl(var(--foreground));
+}
+
 .article-body {
   font-size: 1.0625rem;
   line-height: 1.75;

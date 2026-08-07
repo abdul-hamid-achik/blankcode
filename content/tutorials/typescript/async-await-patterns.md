@@ -1,7 +1,7 @@
 ---
 title: "Async/Await Patterns in TypeScript"
 slug: "typescript-async-await-patterns"
-description: "Write clean asynchronous code with Promises, async/await, and proper error handling in TypeScript."
+description: "Promises, async/await, and structured error handling — and why Promise.all doesn't cancel the requests it stops waiting for."
 track: "typescript"
 order: 3
 difficulty: "intermediate"
@@ -11,284 +11,207 @@ practice:
   label: "Async patterns"
 ---
 
-Asynchronous programming is at the heart of modern TypeScript applications. Whether you're fetching data from an API, reading files, or querying a database, you need to handle operations that complete in the future. TypeScript's type system makes async code safer by ensuring you handle Promise types correctly.
+An `async` function always returns a `Promise`, even when the body returns a plain value — TypeScript wraps it for you, and the return type annotation describes what's inside the `Promise`, not the `Promise` itself. Once that clicks, most of what looks like async-specific syntax is just the type system tracking a value that isn't there yet.
 
-## Promises Basics
-
-A Promise represents a value that may not be available yet. It can be in one of three states: pending, fulfilled, or rejected.
+## Promises and async/await
 
 ```typescript
 interface User {
-  id: number;
-  name: string;
-  email: string;
+  id: number
+  name: string
+  email: string
 }
 
 function fetchUser(id: number): Promise<User> {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       if (id > 0) {
-        resolve({ id, name: "Alice", email: "alice@example.com" });
+        resolve({ id, name: "Alice", email: "alice@example.com" })
       } else {
-        reject(new Error("Invalid user ID"));
+        reject(new Error("Invalid user ID"))
       }
-    }, 1000);
-  });
+    }, 1000)
+  })
 }
 
-// Consuming a Promise with .then()
 fetchUser(1)
   .then((user) => console.log(user.name))
-  .catch((err) => console.error(err.message));
+  .catch((err) => console.error(err.message))
 ```
 
-TypeScript infers that `user` is of type `User` inside the `.then()` callback, giving you full autocompletion and type checking.
-
-## Async/Await Syntax
-
-The `async`/`await` syntax is syntactic sugar over Promises that makes asynchronous code read like synchronous code:
+`await` is that same `.then()` chain written so it reads top to bottom:
 
 ```typescript
 async function getUser(id: number): Promise<User> {
-  const response = await fetch(`/api/users/${id}`);
-
+  const response = await fetch(`/api/users/${id}`)
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: Failed to fetch user`);
+    throw new Error(`HTTP ${response.status}: Failed to fetch user`)
   }
-
-  // Note: response.json() returns Promise<any> by default.
-  // In production code, validate the response at runtime (e.g., with Zod)
-  // to ensure the data matches the expected shape.
-  const data: User = await response.json();
-  return data;
+  const data: User = await response.json()
+  return data
 }
 ```
 
-Any function marked `async` automatically returns a `Promise`. TypeScript enforces that the return type annotation matches the resolved value wrapped in `Promise<T>`.
+Marking a function `async` does two things: every `await` inside it pauses until the awaited value resolves, and every `return` gets wrapped in a `Promise`, however many layers deep the returned value already was. Return a `Promise<string>` from an `async` function and the caller still gets `Promise<string>`, not `Promise<Promise<string>>` — the runtime flattens nested promises when it resolves one, and the built-in `Awaited<T>` type exists specifically because that flattening can happen more than once.
 
-## Error Handling with Try/Catch
-
-Always wrap `await` calls in `try`/`catch` blocks when errors are possible:
+## Errors: try/catch, and what the caught value's type is
 
 ```typescript
 interface Post {
-  id: number;
-  title: string;
-  body: string;
+  id: number
+  title: string
+  body: string
 }
 
 interface UserWithPosts extends User {
-  posts: Post[];
+  posts: Post[]
 }
 
 async function loadUserProfile(id: number): Promise<UserWithPosts | null> {
   try {
-    const user = await getUser(id);
-    const posts = await fetchPosts(user.id);
-    return { ...user, posts };
+    const user = await getUser(id)
+    const posts = await fetchPosts(user.id)
+    return { ...user, posts }
   } catch (error) {
     if (error instanceof TypeError) {
-      console.error("Network error:", error.message);
+      console.error("Network error:", error.message)
     } else if (error instanceof Error) {
-      console.error("Failed to load profile:", error.message);
+      console.error("Failed to load profile:", error.message)
     }
-    return null;
+    return null
   }
 }
 ```
 
-Notice how TypeScript narrows the `error` type inside each `instanceof` check. In a `catch` block, `error` is typed as `unknown` by default, so you must narrow it before accessing properties.
+Inside a `catch`, `error` is typed `unknown` by default under `strict` — the same type as everything else that crosses a boundary TypeScript didn't see the other side of. `instanceof` narrows it the normal way; `fetch` itself throws `TypeError` on a network failure before a response ever exists, which is why that check comes first here, separate from the `response.ok` check for an HTTP error that did get a response.
 
-## Typing Async Functions
+::code-blank{lang="typescript" href="/tracks/typescript/async-patterns" label="practice async patterns for real"}
+---
+code: |
+  async function loadUserProfile(id: number): Promise<UserWithPosts | null> {
+    try {
+      const user = await getUser(id)
+      const posts = await fetchPosts(user.id)
+      return { ...user, posts }
+    } ___blank_start___catch___blank_end___ (error) {
+      return null
+    }
+  }
+---
+::
 
-TypeScript offers several ways to type your async code precisely:
-
-```typescript
-// Explicit return type
-async function fetchItems(): Promise<string[]> {
-  const res = await fetch("/api/items");
-  return res.json();
-}
-
-// Arrow function with async
-const fetchCount = async (): Promise<number> => {
-  const res = await fetch("/api/count");
-  const data = await res.json();
-  return data.count;
-};
-
-// The built-in Awaited<T> type (available since TypeScript 4.5)
-// unwraps Promise types, including nested ones.
-type UserResult = Awaited<ReturnType<typeof getUser>>; // User
-type NestedResult = Awaited<Promise<Promise<string>>>;  // string
-
-// For educational purposes, here is how you could implement it yourself:
-// type MyAwaited<T> = T extends Promise<infer U> ? MyAwaited<U> : T;
-```
-
-## Parallel Execution with Promise.all
-
-When you have multiple independent async operations, run them in parallel instead of sequentially:
+## Running promises together: all, allSettled, race
 
 ```typescript
-interface Notification {
-  id: number;
-  message: string;
-}
-
-interface DashboardData {
-  user: User;
-  posts: Post[];
-  notifications: Notification[];
-}
-
-// Sequential — slow, each waits for the previous one
+// Sequential — each request waits for the previous one to finish
 async function loadDashboardSlow(userId: number): Promise<DashboardData> {
-  const user = await getUser(userId);
-  const posts = await fetchPosts(userId);
-  const notifications = await fetchNotifications(userId);
-  return { user, posts, notifications };
+  const user = await getUser(userId)
+  const posts = await fetchPosts(userId)
+  const notifications = await fetchNotifications(userId)
+  return { user, posts, notifications }
 }
 
-// Parallel — fast, all requests fire at once
+// Parallel — every request fires immediately
 async function loadDashboard(userId: number): Promise<DashboardData> {
   const [user, posts, notifications] = await Promise.all([
     getUser(userId),
     fetchPosts(userId),
     fetchNotifications(userId),
-  ]);
-  return { user, posts, notifications };
+  ])
+  return { user, posts, notifications }
 }
 ```
 
-`Promise.all` rejects immediately if any promise rejects. Use it when you need all results and any failure should abort the operation.
+`Promise.all` is correct here because the three requests don't depend on each other — nothing about fetching posts needs the user to have already loaded. It rejects as soon as any one promise rejects, which is a real cost worth knowing: the other requests are not cancelled, they keep running to completion in the background, unobserved, because a `Promise` has no way to signal a running operation to stop on its own.
 
-## Promise.allSettled and Promise.race
-
-When you need more control over how multiple promises resolve, use `allSettled` or `race`:
+When partial success is acceptable, `allSettled` waits for every promise regardless of outcome:
 
 ```typescript
-// allSettled — wait for everything, never rejects
 async function fetchAllUsers(ids: number[]) {
-  const results = await Promise.allSettled(
-    ids.map((id) => getUser(id))
-  );
-
-  const users: User[] = [];
-  const errors: string[] = [];
-
+  const results = await Promise.allSettled(ids.map((id) => getUser(id)))
+  const users: User[] = []
+  const errors: string[] = []
   for (const result of results) {
     if (result.status === "fulfilled") {
-      users.push(result.value);
+      users.push(result.value)
     } else {
-      // result.reason is unknown — check before accessing .message
-      const reason = result.reason;
-      errors.push(
-        reason instanceof Error ? reason.message : String(reason)
-      );
+      errors.push(result.reason instanceof Error ? result.reason.message : String(result.reason))
     }
   }
-
-  return { users, errors };
+  return { users, errors }
 }
-
-// race — first to settle wins
-async function fetchWithTimeout<T>(
-  promise: Promise<T>,
-  ms: number
-): Promise<T> {
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("Request timed out")), ms)
-  );
-
-  return Promise.race([promise, timeout]);
-}
-
-const user = await fetchWithTimeout(getUser(1), 5000);
 ```
 
-`Promise.allSettled` is ideal when partial success is acceptable. `Promise.race` is useful for timeouts and fallback patterns.
+`Promise.race` settles as soon as the first promise does, win or lose — the standard shape for a timeout:
+
+```typescript
+function fetchWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Request timed out")), ms)
+  )
+  return Promise.race([promise, timeout])
+}
+```
+
+::code-blank{lang="typescript" href="/tracks/typescript/async-patterns" label="practice async patterns for real"}
+---
+code: |
+  async function loadDashboard(userId: number): Promise<DashboardData> {
+    const [user, posts, notifications] = await Promise.___blank_start___all___blank_end___([
+      getUser(userId),
+      fetchPosts(userId),
+      fetchNotifications(userId),
+    ])
+    return { user, posts, notifications }
+  }
+---
+::
 
 ## Cancellation with AbortController
 
-When you need to cancel in-flight requests — for example, when a user navigates away or types a new search query — use `AbortController`:
-
 ```typescript
-async function fetchWithCancel(
-  url: string,
-  signal: AbortSignal
-): Promise<User> {
-  const response = await fetch(url, { signal });
-
+async function fetchWithCancel(url: string, signal: AbortSignal): Promise<User> {
+  const response = await fetch(url, { signal })
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+    throw new Error(`HTTP ${response.status}`)
   }
-
-  return response.json();
+  return response.json()
 }
 
-// Usage
-const controller = new AbortController();
+const controller = new AbortController()
+const userPromise = fetchWithCancel("/api/users/1", controller.signal)
 
-// Start the request
-const userPromise = fetchWithCancel("/api/users/1", controller.signal);
+controller.abort() // e.g. the user navigated away
 
-// Cancel it if needed (e.g., user navigates away)
-controller.abort();
-
-// The fetch will reject with an AbortError
 try {
-  const user = await userPromise;
+  const user = await userPromise
 } catch (error) {
   if (error instanceof DOMException && error.name === "AbortError") {
-    console.log("Request was cancelled");
+    console.log("Request was cancelled")
   } else {
-    throw error; // re-throw unexpected errors
+    throw error
   }
 }
 ```
 
-`AbortController` is the standard mechanism for cooperative cancellation. Pass the `signal` to `fetch` or any other API that supports it.
+This is the actual answer to the problem the previous section left open — `AbortController` gives a running operation a way to be told to stop, which a bare `Promise` cannot do on its own. Pass the same `signal` to more than one `fetch` call and one `abort()` cancels all of them, which is the pattern behind a search box: abort the previous request the moment a new keystroke fires another one.
 
-## Common Pitfalls
-
-There are a few mistakes that trip up even experienced developers:
-
-```typescript
-// Pitfall 1: Forgetting to await
-async function saveUser(user: User) {
-  // Bug: this returns a Promise, not the result
-  const result = saveToDatabase(user);
-  console.log(result); // Promise { <pending> }
-
-  // Fix: always await async calls
-  const saved = await saveToDatabase(user);
-  console.log(saved);
-}
-
-// Pitfall 2: Sequential awaits in a loop
-async function processItems(items: string[]) {
-  // Slow: processes one at a time
-  for (const item of items) {
-    await processItem(item);
+::code-blank{lang="typescript" href="/tracks/typescript/async-patterns" label="practice async patterns for real"}
+---
+code: |
+  async function fetchWithCancel(url: string, signal: AbortSignal): Promise<User> {
+    const response = await fetch(url, { ___blank_start___signal___blank_end___ })
+    return response.json()
   }
+---
+::
 
-  // Fast: processes all in parallel
-  await Promise.all(items.map((item) => processItem(item)));
-}
+## Where this bites
 
-// Pitfall 3: Swallowing errors with empty catch
-async function riskyOperation() {
-  try {
-    await dangerousAction();
-  } catch {
-    // Bad: error is silently ignored
-  }
-}
-```
+**Assuming `Promise.all` cancels the losing requests.** It stops *waiting* on the first rejection, but every other promise keeps running until it settles on its own — if one of them has a side effect, that side effect still happens. Use `AbortController` if you actually need the others to stop.
 
-## Practice
+**Forgetting the `await`.** `const result = saveToDatabase(user)` returns the `Promise` itself, not the value it resolves to, so `console.log(result)` prints `Promise { <pending> }` instead of the data. TypeScript catches some of these — passing a `Promise<T>` where `T` is expected — but not a bare, unused expression statement.
 
-Ready to write async TypeScript with confidence? Head to the [TypeScript track](/tracks/typescript) to practice async patterns with interactive fill-in-the-blank exercises.
+**Awaiting inside a loop when the calls don't depend on each other.** `for (const item of items) { await processItem(item) }` processes one at a time even though nothing stops them running together; `await Promise.all(items.map((item) => processItem(item)))` does the same work concurrently.
 
-Next up: [Type Narrowing](/tutorials/typescript-type-narrowing)
+**An empty `catch` block.** `catch { }` swallows the error completely — no log, no rethrow, nothing — turning a real failure into a silent no-op that looks, from the outside, exactly like success. Catch specifically what you can handle, and let everything else propagate.

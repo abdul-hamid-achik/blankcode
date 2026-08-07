@@ -1,7 +1,7 @@
 ---
 title: "State Management"
 slug: "react-state-management"
-description: "Learn patterns for managing complex state with useReducer, Context API, and composition."
+description: "useReducer, Context, and lifting state up cover nearly everything client state needs — the real argument for a state library is usually about caching server data, not about React running out of room."
 track: "react"
 order: 3
 difficulty: "intermediate"
@@ -11,15 +11,13 @@ practice:
   label: "State and events"
 ---
 
-As your application grows, `useState` alone can become difficult to manage. This tutorial covers `useReducer` for predictable state transitions, Context for avoiding prop drilling, and composition patterns that keep your architecture clean.
+"State management" gets treated as a library decision before it's understood as a design decision. The built-in tools — `useState`, `useReducer`, Context, and lifting state to a common ancestor — handle the overwhelming majority of what applications need. This tutorial covers when each one is the right level of abstraction, and closes with the actual reason teams reach for something more: it's rarely because React "can't scale," it's because they're modeling a problem client state was never meant to solve.
 
-## useReducer for Complex State
+## useReducer: when actions beat setters
 
-`useReducer` works well when state has multiple sub-values or the next state depends on the previous one:
+`useState` scales fine until a piece of state has several sub-values that change together, or the next state depends on nontrivial logic rather than a single new value. At that point a pile of `setX` calls scattered across handlers becomes harder to reason about than one function that takes the current state and an action and returns the next state.
 
 ```tsx
-import { useReducer } from "react";
-
 interface TodoState {
   todos: { id: number; text: string; done: boolean }[];
   nextId: number;
@@ -41,14 +39,10 @@ function todoReducer(state: TodoState, action: TodoAction): TodoState {
     case "toggle":
       return {
         ...state,
-        todos: state.todos.map((t) =>
-          t.id === action.id ? { ...t, done: !t.done } : t
-        ),
+        todos: state.todos.map((t) => (t.id === action.id ? { ...t, done: !t.done } : t)),
       };
     case "delete":
       return { ...state, todos: state.todos.filter((t) => t.id !== action.id) };
-    default:
-      return state;
   }
 }
 
@@ -56,163 +50,31 @@ function TodoApp() {
   const [state, dispatch] = useReducer(todoReducer, { todos: [], nextId: 1 });
 
   return (
-    <div>
-      <h2>Todos ({state.todos.filter((t) => !t.done).length} remaining)</h2>
-      <ul>
-        {state.todos.map((todo) => (
-          <li key={todo.id}>
-            <span
-              style={{ textDecoration: todo.done ? "line-through" : "none" }}
-              onClick={() => dispatch({ type: "toggle", id: todo.id })}
-            >
-              {todo.text}
-            </span>
-            <button onClick={() => dispatch({ type: "delete", id: todo.id })}>Remove</button>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <ul>
+      {state.todos.map((todo) => (
+        <li key={todo.id} onClick={() => dispatch({ type: "toggle", id: todo.id })}>
+          {todo.text}
+        </li>
+      ))}
+    </ul>
   );
 }
 ```
 
-The reducer is a pure function -- given the same state and action, it always returns the same result. This makes testing straightforward:
+The reducer itself is a pure function — same state and action in, same state out, no side effects — which is what makes it worth extracting. You can test `todoReducer({ todos: [], nextId: 1 }, { type: "add", text: "Learn React" })` directly, with no component, no rendering, and no mocking.
 
-```typescript
-// Testing reducers directly is simple -- call them with state and action:
-const initial: TodoState = { todos: [], nextId: 1 };
-const after = todoReducer(initial, { type: "add", text: "Learn React" });
-// after.todos.length === 1
-// after.nextId === 2
-```
+::code-blank{lang="tsx" href="/tracks/react/state-and-events" label="practice state and events for real"}
+---
+code: |
+  dispatch({ ___blank_start___type___blank_end___: "reset" })
+---
+::
 
-## Context API
+## Colocate state, don't centralize it
 
-Context passes data through the component tree without manually threading props at every level.
+Before reaching for Context, check whether the state can just live one level higher. Lifting state to the nearest common ancestor and passing it down as props is often the entire solution, and it keeps the data flow visible in the function signatures instead of implicit in a provider tree.
 
 ```tsx
-import { createContext, useContext, useReducer } from "react";
-
-interface AuthState {
-  user: { id: string; name: string } | null;
-  isAuthenticated: boolean;
-}
-
-type AuthAction = { type: "login"; user: AuthState["user"] } | { type: "logout" };
-
-function authReducer(state: AuthState, action: AuthAction): AuthState {
-  switch (action.type) {
-    case "login": return { user: action.user, isAuthenticated: true };
-    case "logout": return { user: null, isAuthenticated: false };
-    default: return state;
-  }
-}
-
-const AuthContext = createContext<{
-  state: AuthState;
-  dispatch: React.Dispatch<AuthAction>;
-} | null>(null);
-
-function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
-}
-
-function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(authReducer, { user: null, isAuthenticated: false });
-  return (
-    <AuthContext.Provider value={{ state, dispatch }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-```
-
-Consumers get a clean API through the custom hook:
-
-```tsx
-function UserMenu() {
-  const { state, dispatch } = useAuth();
-
-  if (!state.isAuthenticated) return <button>Log In</button>;
-
-  return (
-    <div>
-      <span>Hello, {state.user?.name}</span>
-      <button onClick={() => dispatch({ type: "logout" })}>Log Out</button>
-    </div>
-  );
-}
-
-function App() {
-  return (
-    <AuthProvider>
-      <header><UserMenu /></header>
-      <main>{/* app content */}</main>
-    </AuthProvider>
-  );
-}
-```
-
-## Splitting State and Dispatch Contexts
-
-For better performance, split state and dispatch into separate contexts. Components that only dispatch actions won't re-render when state changes:
-
-```tsx
-import { createContext, useContext, useReducer } from "react";
-
-interface ExerciseState {
-  exercises: { id: string; title: string; completed: boolean }[];
-  selectedId: string | null;
-}
-
-type ExerciseAction =
-  | { type: "select"; id: string }
-  | { type: "complete"; id: string };
-
-function exerciseReducer(state: ExerciseState, action: ExerciseAction): ExerciseState {
-  switch (action.type) {
-    case "select": return { ...state, selectedId: action.id };
-    case "complete": return {
-      ...state,
-      exercises: state.exercises.map((ex) =>
-        ex.id === action.id ? { ...ex, completed: true } : ex
-      ),
-    };
-    default: return state;
-  }
-}
-
-const initialState: ExerciseState = { exercises: [], selectedId: null };
-
-const ExerciseStateCtx = createContext<ExerciseState | null>(null);
-const ExerciseDispatchCtx = createContext<React.Dispatch<ExerciseAction> | null>(null);
-
-function ExerciseProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(exerciseReducer, initialState);
-  return (
-    <ExerciseStateCtx.Provider value={state}>
-      <ExerciseDispatchCtx.Provider value={dispatch}>
-        {children}
-      </ExerciseDispatchCtx.Provider>
-    </ExerciseStateCtx.Provider>
-  );
-}
-```
-
-## Lifting State Up
-
-Before reaching for Context, consider whether you can lift state to a common ancestor. This is often the simplest solution:
-
-```tsx
-import { useState } from "react";
-
-interface Exercise {
-  id: string;
-  title: string;
-}
-
 function ExercisePage({ exercises }: { exercises: Exercise[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -225,20 +87,79 @@ function ExercisePage({ exercises }: { exercises: Exercise[] }) {
 }
 ```
 
-Lifting state works well when only a few components share the data. When it needs to travel through many layers, Context is the better choice.
+This works cleanly for a couple of levels. It stops working cleanly when the state needs to reach five components down through three that don't use it — that's the actual signal for Context, not "two components need to share something."
 
-## When to Use External Libraries
+::code-blank{lang="tsx" href="/tracks/react/state-and-events" label="practice state and events for real"}
+---
+code: |
+  function ExerciseBrowser({ exercises }: { exercises: Exercise[] }) {
+    const [activeId, setActiveId] = useState<string | null>(null)
 
-The built-in tools handle most cases. Consider an external library when you need:
+    return <Sidebar exercises={exercises} activeId={activeId} onSelect={___blank_start___setActiveId___blank_end___} />
+  }
+---
+::
 
-- **Server state caching** -- TanStack Query, SWR
-- **Complex global state with many subscribers** -- Zustand, Jotai
-- **Time-travel debugging** -- Redux Toolkit
+## Context: for data that's read often and written rarely
 
-For most applications, `useReducer` + Context provides everything you need.
+Context solves prop drilling by letting distant descendants read a value without every component in between passing it through. It fits data that changes infrequently and gets read broadly: the authenticated user, the active theme, the current locale.
 
-## Practice
+```tsx
+interface AuthState {
+  user: { id: string; name: string } | null;
+  isAuthenticated: boolean;
+}
 
-Try building a shopping cart using `useReducer` + Context with `add_item`, `remove_item`, and `update_quantity` actions.
+type AuthAction = { type: "login"; user: AuthState["user"] } | { type: "logout" };
 
-Next up: [Advanced Patterns](/tutorials/react-advanced-patterns) for performance optimization, compound components, and code splitting.
+function authReducer(state: AuthState, action: AuthAction): AuthState {
+  switch (action.type) {
+    case "login": return { user: action.user, isAuthenticated: true };
+    case "logout": return { user: null, isAuthenticated: false };
+  }
+}
+
+const AuthContext = createContext<{ state: AuthState; dispatch: React.Dispatch<AuthAction> } | null>(null);
+
+function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
+}
+
+function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [state, dispatch] = useReducer(authReducer, { user: null, isAuthenticated: false });
+  return <AuthContext.Provider value={{ state, dispatch }}>{children}</AuthContext.Provider>;
+}
+```
+
+Every consumer of a context re-renders when its value changes, with no partial subscription — a component reading only `state.user` still re-renders when unrelated fields in the same value change. For state that's written often, split the state and the dispatch function into two separate contexts; components that only dispatch actions never need to re-render when the state they don't read changes:
+
+```tsx
+const ExerciseStateCtx = createContext<ExerciseState | null>(null);
+const ExerciseDispatchCtx = createContext<React.Dispatch<ExerciseAction> | null>(null);
+```
+
+::code-blank{lang="tsx" href="/tracks/react/state-and-events" label="practice state and events for real"}
+---
+code: |
+  function useTheme() {
+    const ctx = useContext(ThemeContext)
+    if (!ctx) throw new Error("useTheme must be used within ThemeProvider")
+    return ___blank_start___ctx___blank_end___
+  }
+---
+::
+
+## When the built-in tools stop being the answer
+
+Most of what gets labeled a "state management problem" is actually a server state problem wearing client state's clothes: data that lives on a server, that multiple components need, that can go stale, and that might be requested twice at once. `useReducer` and Context can hold that data, but they don't know anything about caching, deduplicating in-flight requests, retrying, or revalidating on refocus — you'd write all of that by hand, badly, on top of a `useEffect`. That's the actual argument for TanStack Query or SWR: not that Context "doesn't scale," but that server state and client state are different problems with different correct solutions.
+
+For state that's genuinely client-side — UI state read and written from many unrelated places, with no natural common ancestor — Zustand or Jotai remove the provider-tree ceremony and the re-render-everything default that plain Context has. Reach for Redux Toolkit specifically when you need time-travel debugging or a large team needs the enforced structure; for most applications, `useReducer` plus Context, applied at the right scope, is the whole answer.
+
+## Where this bites
+
+- **Reaching for Context the moment two components need to share something.** Lifting state to their common ancestor and passing props down is usually simpler and keeps the data flow explicit. Context earns its place when the data needs to skip several layers that don't use it, not to avoid two prop declarations.
+- **Putting state that changes on every keystroke or every frame into Context.** Every consumer re-renders on every change with no way to subscribe to a slice of the value. Keep hot-changing state local, or isolate it in its own context that most of the tree doesn't consume.
+- **Hand-rolling data fetching and caching with `useReducer` and an effect.** It quietly re-implements request deduplication, retry, and staleness tracking, usually incompletely. Treat data that lives on a server as a different problem and reach for a library built for it.
+- **One reducer or context that owns unrelated concerns.** Auth, theme, and exercise progress living in the same provider means an update to any one of them re-renders every consumer of the whole thing. Split by concern into separate reducers and contexts scoped to where they're actually used.

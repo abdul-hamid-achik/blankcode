@@ -1,7 +1,7 @@
 ---
 title: "Object-Oriented Python"
 slug: "python-object-oriented-python"
-description: "Learn classes, inheritance, properties, dunder methods, and dataclasses in Python."
+description: "Classes, inheritance, properties, and dunder methods, including the shared-state bug that class attributes create and dataclasses only half-fix."
 track: "python"
 order: 3
 difficulty: "intermediate"
@@ -11,11 +11,18 @@ practice:
   label: "Object-oriented Python"
 ---
 
-Object-oriented programming (OOP) lets you model real-world concepts as classes and objects. Python's OOP support is flexible and pragmatic, giving you powerful tools without forcing rigid patterns.
+A class bundles data and behavior, and Python's version of it is pragmatic
+rather than dogmatic — there's no `private` keyword, no interface keyword,
+and no requirement that every object come from a class hierarchy at all.
+What it does have is a specific set of rules for how attributes are looked
+up and shared, and getting those rules wrong produces bugs that look like
+they couldn't possibly be about classes.
 
-## Classes and `__init__`
+## Classes and Shared State
 
-A class bundles data (attributes) and behavior (methods) together. The `__init__` method is the constructor, called automatically when you create an instance.
+`__init__` is the constructor, called automatically when you create an
+instance. Every instance method takes `self` first, referring to the
+specific instance the method was called on.
 
 ```python
 class BankAccount:
@@ -25,63 +32,95 @@ class BankAccount:
 
     def deposit(self, amount):
         if amount <= 0:
-            raise ValueError("Deposit amount must be positive")
+            raise ValueError("deposit must be positive")
         self.balance += amount
-
-    def withdraw(self, amount):
-        if amount > self.balance:
-            raise ValueError("Insufficient funds")
-        self.balance -= amount
 
     def __str__(self):
         return f"BankAccount({self.owner}, balance={self.balance})"
 
-
 account = BankAccount("Alice", 100)
 account.deposit(50)
-account.withdraw(30)
-print(account)  # BankAccount(Alice, balance=120)
+print(account)   # BankAccount(Alice, balance=150)
 ```
 
-Every instance method takes `self` as its first parameter, which refers to the specific instance the method is called on.
+Here is the class-level version of a bug most people already know from
+function defaults. An attribute assigned directly in the class body, not
+inside `__init__`, is created **once**, when the class is defined — and
+every instance that doesn't set its own copy shares that one object.
 
-## Instance Methods, Class Methods, and Static Methods
+```python
+class Player:
+    inventory = []          # one list, owned by the class
 
-Python provides three kinds of methods on a class.
+    def __init__(self, name):
+        self.name = name
+
+p1, p2 = Player("Aya"), Player("Bo")
+p1.inventory.append("sword")
+print(p2.inventory)   # ['sword'] — p2 never touched it
+```
+
+`p1.inventory` and `p2.inventory` both resolve to the class attribute
+because neither instance has its own `inventory` in `self.__dict__` yet —
+attribute lookup checks the instance first, then falls back to the class.
+The fix is the same shape as the mutable-default fix: build the mutable
+value inside `__init__`.
+
+```python
+class Player:
+    def __init__(self, name):
+        self.name = name
+        self.inventory = []   # now every instance owns its own list
+```
+
+## Methods and Properties
+
+Python gives you three kinds of methods on a class.
 
 ```python
 class Temperature:
     def __init__(self, celsius):
         self.celsius = celsius
 
-    # instance method: operates on a specific instance
-    def to_fahrenheit(self):
+    def to_fahrenheit(self):                      # operates on this instance
         return self.celsius * 9 / 5 + 32
 
-    # class method: operates on the class itself, often used as alternative constructors
     @classmethod
-    def from_fahrenheit(cls, fahrenheit):
+    def from_fahrenheit(cls, fahrenheit):          # alternative constructor
         return cls((fahrenheit - 32) * 5 / 9)
 
-    # static method: utility that belongs to the class namespace
     @staticmethod
-    def is_boiling(celsius):
+    def is_boiling(celsius):                       # doesn't need self or cls
         return celsius >= 100
 
-
 t = Temperature.from_fahrenheit(212)
-print(t.celsius)           # 100.0
-print(t.to_fahrenheit())   # 212.0
-print(Temperature.is_boiling(100))  # True
+print(t.celsius, t.to_fahrenheit())   # 100.0 212.0
 ```
 
-## Properties
+`@classmethod` is how you write a second constructor without repeating the
+class name — `cls` is whichever class the method was actually called on,
+which matters once subclasses exist. `@staticmethod` is a plain function
+that happens to live in the class's namespace for organization; reach for
+it when the logic belongs conceptually to the class but doesn't touch any
+instance or class state.
 
-Properties let you control attribute access with getter, setter, and deleter methods while keeping a clean interface for callers.
+::code-blank{lang="python" href="/tracks/python/object-oriented-python" label="practice object-oriented python for real"}
+---
+code: |
+  class Temperature:
+      def __init__(self, celsius):
+          self.celsius = celsius
+
+      @___blank_start___classmethod___blank_end___
+      def from_fahrenheit(cls, fahrenheit):
+          return cls((fahrenheit - 32) * 5 / 9)
+---
+::
+
+A property lets an attribute look like a plain attribute from the outside
+while running code on access.
 
 ```python
-import math
-
 class Circle:
     def __init__(self, radius):
         self._radius = radius
@@ -93,25 +132,35 @@ class Circle:
     @radius.setter
     def radius(self, value):
         if value < 0:
-            raise ValueError("Radius cannot be negative")
+            raise ValueError("radius cannot be negative")
         self._radius = value
 
-    @property
-    def area(self):
-        return math.pi * self._radius ** 2
-
-
 c = Circle(5)
-print(c.radius)    # 5
-print(f"{c.area:.2f}")  # 78.54
-
-c.radius = 10
-print(f"{c.area:.2f}")  # 314.16
+c.radius = 10   # runs the setter's validation, not a plain assignment
 ```
 
-## Inheritance and `super()`
+Start every attribute as a plain one. Add a property only when you need to
+validate on write or compute on read — converting later doesn't break
+callers, because `c.radius = 10` reads the same either way.
 
-Inheritance lets a child class reuse and extend parent behavior. Use `super()` to call the parent's methods.
+::code-blank{lang="python" href="/tracks/python/object-oriented-python" label="practice object-oriented python for real"}
+---
+code: |
+  class Circle:
+      def __init__(self, radius):
+          self._radius = radius
+
+      @property
+      def radius(self):
+          return self._radius
+
+      @radius.___blank_start___setter___blank_end___
+      def radius(self, value):
+          self._radius = value
+---
+::
+
+## Inheritance and `super()`
 
 ```python
 class Animal:
@@ -122,47 +171,33 @@ class Animal:
     def speak(self):
         return f"{self.name} says {self.sound}!"
 
-
 class Dog(Animal):
     def __init__(self, name, breed):
         super().__init__(name, sound="Woof")
         self.breed = breed
 
-    def fetch(self, item):
-        return f"{self.name} fetches the {item}!"
-
-
-class Cat(Animal):
-    def __init__(self, name):
-        super().__init__(name, sound="Meow")
-
-    def purr(self):
-        return f"{self.name} purrs softly."
-
-
 dog = Dog("Rex", "Labrador")
-cat = Cat("Whiskers")
-
-print(dog.speak())        # Rex says Woof!
-print(dog.fetch("ball"))  # Rex fetches the ball!
-print(cat.purr())         # Whiskers purrs softly.
+print(dog.speak())   # Rex says Woof!
 ```
+
+`super()` doesn't mean "my parent class" — it means "the next class in the
+method resolution order," which is the same thing in single inheritance and
+a genuinely different thing once a class inherits from more than one base.
+For single inheritance, which covers most Python code, read it as "call the
+parent's version of this method" and move on.
 
 ## Dunder Methods
 
-Dunder (double underscore) methods let you define how your objects interact with built-in operations like printing, comparison, and arithmetic.
+Dunder methods define how instances respond to built-in operations —
+printing, equality, arithmetic.
 
 ```python
 class Vector:
     def __init__(self, x, y):
-        self.x = x
-        self.y = y
+        self.x, self.y = x, y
 
     def __repr__(self):
         return f"Vector({self.x}, {self.y})"
-
-    def __str__(self):
-        return f"({self.x}, {self.y})"
 
     def __eq__(self, other):
         if not isinstance(other, Vector):
@@ -170,40 +205,44 @@ class Vector:
         return self.x == other.x and self.y == other.y
 
     def __add__(self, other):
-        if not isinstance(other, Vector):
-            return NotImplemented
         return Vector(self.x + other.x, self.y + other.y)
 
-    def __abs__(self):
-        return (self.x ** 2 + self.y ** 2) ** 0.5
-
-    def __bool__(self):
-        return self.x != 0 or self.y != 0
-
-
-v1 = Vector(3, 4)
-v2 = Vector(1, 2)
-
-print(repr(v1))        # Vector(3, 4)
-print(v1 + v2)         # (4, 6)
-print(abs(v1))         # 5.0
-print(v1 == Vector(3, 4))  # True
-print(bool(Vector(0, 0)))  # False
+v1, v2 = Vector(3, 4), Vector(1, 2)
+print(v1 + v2)              # Vector(4, 6)
+print(v1 == Vector(3, 4))   # True
 ```
 
-Note: defining `__eq__` makes the class unhashable by default. If you need to use instances as dictionary keys or in sets, you must also define `__hash__`. A common approach is to hash a tuple of the fields used in `__eq__`:
+Defining `__eq__` makes the class unhashable by default — Python won't let
+you put it in a set or use it as a dict key, because it can no longer
+guarantee that equal objects hash the same way unless you tell it how. If
+you need both, hash the same fields you compare:
 
 ```python
 def __hash__(self):
     return hash((self.x, self.y))
 ```
 
+::code-blank{lang="python" href="/tracks/python/object-oriented-python" label="practice object-oriented python for real"}
+---
+code: |
+  class Vector:
+      def __init__(self, x, y):
+          self.x, self.y = x, y
+
+      def __eq__(self, other):
+          return isinstance(other, Vector) and self.x == other.x and self.y == other.y
+
+      def _____blank_start___hash___blank_end___(self):
+          return hash((self.x, self.y))
+---
+::
+
 ## Dataclasses
 
-The `dataclasses` module, introduced in Python 3.7, eliminates boilerplate for classes that are primarily data containers. It auto-generates `__init__`, `__repr__`, `__eq__`, and more.
+`@dataclass` generates `__init__`, `__repr__`, and `__eq__` for classes that
+are primarily data.
 
 ```python
-from __future__ import annotations
 from dataclasses import dataclass, field
 
 @dataclass
@@ -211,31 +250,28 @@ class Product:
     name: str
     price: float
     tags: list[str] = field(default_factory=list)
-    in_stock: bool = True
 
     @property
     def display_price(self):
         return f"${self.price:.2f}"
 
-
-apple = Product("Apple", 1.50, tags=["fruit", "organic"])
-banana = Product("Banana", 0.75)
-
-print(apple)
-# Product(name='Apple', price=1.5, tags=['fruit', 'organic'], in_stock=True)
-print(apple.display_price)  # $1.50
-print(apple == Product("Apple", 1.50, tags=["fruit", "organic"]))  # True
+apple = Product("Apple", 1.50, tags=["fruit"])
+print(apple)   # Product(name='Apple', price=1.5, tags=['fruit'])
 ```
 
-Note: the `list[str]` syntax in annotations requires Python 3.9+. The `from __future__ import annotations` import at the top makes it work on Python 3.7+ by deferring annotation evaluation.
-
-Use `field(default_factory=list)` for mutable defaults. Without it, all instances would share the same list object.
-
-You can also use `@dataclass(frozen=True)` to make instances immutable, which is useful for value objects and dictionary keys.
+`field(default_factory=list)` exists for exactly the shared-mutable-state
+problem from the first section — `tags: list[str] = []` doesn't just risk
+the bug, `@dataclass` refuses to compile it and raises `ValueError` at class
+definition time rather than let it happen silently later. `default_factory`
+gives each instance a fresh call to `list()` instead of one shared object.
+Add `@dataclass(frozen=True)` when you want the instances themselves to be
+immutable, which is useful for value objects and dict keys.
 
 ## Abstract Base Classes
 
-Abstract base classes (ABCs) define an interface that subclasses must implement. Any class inheriting from an ABC without implementing all abstract methods raises `TypeError` at instantiation.
+An ABC defines methods subclasses are required to implement; instantiating
+a subclass that skips one raises `TypeError` immediately, rather than an
+`AttributeError` the first time something calls the missing method.
 
 ```python
 from abc import ABC, abstractmethod
@@ -244,27 +280,41 @@ class Shape(ABC):
     @abstractmethod
     def area(self) -> float: ...
 
-    @abstractmethod
-    def perimeter(self) -> float: ...
-
 class Rectangle(Shape):
     def __init__(self, width, height):
-        self.width = width
-        self.height = height
+        self.width, self.height = width, height
 
     def area(self):
         return self.width * self.height
 
-    def perimeter(self):
-        return 2 * (self.width + self.height)
-
 rect = Rectangle(5, 3)
-print(rect.area())       # 15
-print(rect.perimeter())  # 16
+print(rect.area())   # 15
 ```
 
-## What's Next?
+Reach for an ABC when you're defining a family of classes you control and
+want the interface enforced at instantiation. When you only care that an
+object *behaves* like it has a method — no shared base class required — use
+`typing.Protocol` instead; it checks structurally and doesn't force
+unrelated classes into an inheritance relationship they don't need.
 
-Now that you understand classes, inheritance, and Python's data model, you are ready to tackle decorators, generators, and type hints in the advanced tutorial. Practice building classes on [the Python track](/tracks/python).
+## Where This Bites
 
-Next up: [Advanced Python](/tutorials/python-advanced)
+**A mutable class attribute is one object, shared by every instance that
+hasn't shadowed it.** It reads exactly like a per-instance default and
+behaves nothing like one. Initialize mutable state inside `__init__`, not
+as a bare assignment in the class body.
+
+**Defining `__eq__` without `__hash__` makes instances silently
+unhashable.** The class still works fine until the first time someone puts
+an instance in a set or uses it as a dict key, and then it fails with
+`TypeError: unhashable type` far from wherever `__eq__` was written.
+
+**A subclass `__init__` that forgets `super().__init__()` never initializes
+the parent's attributes.** The object builds without error and fails later,
+at first use, with an `AttributeError` that points at the wrong class
+entirely.
+
+**`tags: list[str] = []` in a dataclass field is not a default, it's a
+`ValueError` at class definition.** `@dataclass` catches the
+mutable-default case explicitly rather than let it become a runtime bug —
+use `field(default_factory=list)`.

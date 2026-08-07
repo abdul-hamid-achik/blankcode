@@ -1,7 +1,7 @@
 ---
 title: "Hooks in Depth"
 slug: "react-hooks-in-depth"
-description: "Master React hooks including useState, useEffect, useRef, useContext, and custom hooks."
+description: "useState batches more aggressively than people expect, most useEffect calls solve a problem render could handle directly, and useContext re-renders every consumer on every change."
 track: "react"
 order: 2
 difficulty: "intermediate"
@@ -11,105 +11,100 @@ practice:
   label: "Advanced hooks"
 ---
 
-Hooks let you use state and other React features in functional components. This tutorial covers the most important built-in hooks and shows you how to write your own.
+Hooks let function components hold state and reach into React's internals without becoming classes. The call signatures are the easy part; what's worth a full tutorial is the behavior underneath — when React batches your updates, when an effect is actually the right tool, and why the convenient parts of `useContext` have a re-render cost nobody mentions in the two-line example.
 
-## useState
+## useState: batching and the updater function
 
-`useState` declares a state variable. When state changes, React re-renders the component.
+`useState` returns the current value and a setter; calling the setter schedules a re-render with the new value. What trips people up is batching: React groups multiple state updates that happen inside the same event handler — and since React 18, inside promises, timeouts, and native event handlers too — into a single re-render, and within that batch, every setter call sees the same snapshot of state, not the value from the previous call in the same batch.
 
 ```tsx
-import { useState } from "react";
-
 function Counter() {
   const [count, setCount] = useState(0);
 
-  return (
-    <div>
-      <p>Count: {count}</p>
-      <button onClick={() => setCount(prev => prev + 1)}>Increment</button>
-      <button onClick={() => setCount(0)}>Reset</button>
-    </div>
-  );
+  function handleDoubleIncrement() {
+    setCount(count + 1);
+    setCount(count + 1);
+  }
+
+  return <button onClick={handleDoubleIncrement}>Count: {count}</button>;
 }
 ```
 
-When the next state depends on the previous state, use the updater function form. For objects and arrays, always create new references instead of mutating:
+Click that button once and `count` goes up by one, not two — both calls close over the same `count` from the render that created `handleDoubleIncrement`. The updater function form fixes it, because each call receives the pending state rather than the state from the render:
 
 ```tsx
-function ProfileForm() {
-  const [form, setForm] = useState({ name: "", email: "" });
-
-  return (
-    <form>
-      <input
-        value={form.name}
-        onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-      />
-      <input
-        value={form.email}
-        onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-      />
-    </form>
-  );
+function handleDoubleIncrement() {
+  setCount((prev) => prev + 1);
+  setCount((prev) => prev + 1);
 }
 ```
 
-## useEffect
+Default to the updater form whenever the next state depends on the current one. It costs nothing when there's only one call, and it's the difference between correct and wrong when there's more than one.
 
-`useEffect` runs side effects after render. The dependency array controls when it re-runs: `[]` for once, `[a, b]` when values change, or no array for every render.
+::code-blank{lang="tsx" href="/tracks/react/advanced-hooks" label="practice advanced hooks for real"}
+---
+code: |
+  function handleBonus() {
+    setScore((___blank_start___prev___blank_end___) => prev + 10)
+  }
+---
+::
 
-**Important:** The callback passed to `useEffect` cannot be `async`. If you need to use `await`, define an async function inside the effect and call it.
+## useEffect: what actually deserves one
+
+`useEffect` synchronizes a component with something outside React — a subscription, a DOM measurement, a timer, a WebSocket connection. That's a narrower job than most codebases use it for. If you can compute a value directly from props or state while rendering, do that instead of pushing it through an effect and a second state variable; the effect version costs an extra render — state starts stale, then the effect fires and updates it — for no benefit.
 
 ```tsx
-import { useState, useEffect } from "react";
+// Unnecessary: an effect just to derive a value that's already available
+function Bad({ items }: { items: string[] }) {
+  const [count, setCount] = useState(0);
+  useEffect(() => setCount(items.length), [items]);
+  return <p>{count} items</p>;
+}
 
+// Direct: no effect, no extra render, no stale frame
+function Good({ items }: { items: string[] }) {
+  return <p>{items.length} items</p>;
+}
+```
+
+When an effect is the right call — fetching on mount, subscribing to something external — the dependency array controls when it re-runs, and the cleanup function, the value the callback returns, runs before the next execution and on unmount:
+
+```tsx
 function ExerciseLoader({ trackId }: { trackId: string }) {
   const [exercises, setExercises] = useState<{ id: number; title: string }[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
     fetch(`/api/tracks/${trackId}/exercises`, { signal: controller.signal })
       .then((res) => res.json())
-      .then((data) => { setExercises(data); setLoading(false); })
-      .catch((err) => { if (err.name !== 'AbortError') setError(err); });
+      .then(setExercises)
+      .catch((err) => { if (err.name !== "AbortError") throw err; });
     return () => controller.abort();
   }, [trackId]);
 
-  if (loading) return <p>Loading exercises...</p>;
-  return (
-    <ul>
-      {exercises.map((ex) => <li key={ex.id}>{ex.title}</li>)}
-    </ul>
-  );
+  return <ul>{exercises.map((ex) => <li key={ex.id}>{ex.title}</li>)}</ul>;
 }
 ```
 
-Return a cleanup function to prevent memory leaks with listeners, timers, and subscriptions:
+The callback itself can't be `async` — an async function returns a promise, and React expects either nothing or a cleanup function back, not a promise it doesn't know how to await. Define the async logic inside the effect and call it, as the `fetch().then()` chain above does, or write a nested async function and invoke it immediately.
 
-```tsx
-function WindowSize() {
-  const [width, setWidth] = useState(window.innerWidth);
-
+::code-blank{lang="tsx" href="/tracks/react/advanced-hooks" label="practice advanced hooks for real"}
+---
+code: |
   useEffect(() => {
-    const handleResize = () => setWidth(window.innerWidth);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+    const handleResize = () => setWidth(window.innerWidth)
+    window.addEventListener("resize", handleResize)
+    ___blank_start___return___blank_end___ () => window.removeEventListener("resize", handleResize)
+  }, [])
+---
+::
 
-  return <p>Window width: {width}px</p>;
-}
-```
+## useRef: the escape hatch from re-renders
 
-## useRef
-
-`useRef` holds a mutable value that persists across renders without causing re-renders. Common uses include accessing DOM elements and storing timer IDs:
+`useRef` holds a mutable value across renders without triggering one when it changes. Two genuinely different use cases share the API: holding a reference to a DOM node, and holding an instance variable — a timer ID, a previous value, a flag — that the component needs to remember but never needs to display.
 
 ```tsx
-import { useRef, useState, useEffect } from "react";
-
 function Stopwatch() {
   const [seconds, setSeconds] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -126,8 +121,6 @@ function Stopwatch() {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
   }
 
-  useEffect(() => () => stop(), []);
-
   return (
     <div>
       <input ref={inputRef} placeholder="Label" />
@@ -139,60 +132,47 @@ function Stopwatch() {
 }
 ```
 
-## useContext
+Reading or writing `.current` during render is unsafe — React doesn't know it happened, so nothing re-renders when it changes, and under concurrent rendering a render can be thrown away and retried, leaving a ref mutated for a render that never committed. Refs are for event handlers and effects, not the render body itself.
 
-`useContext` reads a value from a React context, sharing data across the tree without prop drilling:
+## useContext: convenient, and re-renders everything
+
+`useContext` reads a value from the nearest matching `Provider` above it, which is how you avoid threading a prop through five layers that don't use it.
 
 ```tsx
-import { createContext, useContext } from "react";
-
-interface Theme { primary: string; background: string }
-
 const ThemeContext = createContext<Theme>({ primary: "#3b82f6", background: "#fff" });
 
 function ThemedButton() {
   const theme = useContext(ThemeContext);
-  return (
-    <button style={{ backgroundColor: theme.primary, color: "#fff" }}>
-      Click Me
-    </button>
-  );
-}
-
-function App() {
-  const dark: Theme = { primary: "#8b5cf6", background: "#1a1a2e" };
-  return (
-    <ThemeContext.Provider value={dark}>
-      <ThemedButton />
-    </ThemeContext.Provider>
-  );
+  return <button style={{ backgroundColor: theme.primary }}>Click Me</button>;
 }
 ```
 
-## Rules of Hooks
+::code-blank{lang="tsx" href="/tracks/react/advanced-hooks" label="practice advanced hooks for real"}
+---
+code: |
+  function LocaleLabel() {
+    const locale = ___blank_start___useContext___blank_end___(LocaleContext)
+    return <span>{locale}</span>
+  }
+---
+::
 
-Two rules that must always be followed:
-
-1. **Only call hooks at the top level.** Never inside loops, conditions, or nested functions.
-2. **Only call hooks from React functions.** Use them in components or custom hooks, not regular functions.
+The part that surprises people once an app has grown: every component that calls `useContext` on a given context re-renders whenever that context's value changes, in full — there's no built-in way to subscribe to just the field you read. Pass a new object literal as the `value` prop and every consumer re-renders on every parent render, whether or not the fields they actually use changed:
 
 ```tsx
-// Wrong: conditional hook
-function Bad({ show }: { show: boolean }) {
-  if (show) { const [v, setV] = useState(""); } // breaks rules
-  return <div />;
-}
+// New object every render — every consumer re-renders every time App does
+<ThemeContext.Provider value={{ primary, background }}>
 
-// Correct: always call, conditionally render
-function Good({ show }: { show: boolean }) {
-  const [v, setV] = useState("");
-  return <div>{show && <p>{v}</p>}</div>;
-}
+// Stable reference unless primary or background actually changed
+const value = useMemo(() => ({ primary, background }), [primary, background]);
+<ThemeContext.Provider value={value}>
 ```
 
-## Writing Custom Hooks
+For state that changes often and is read by many components, split it into two contexts — one for the value, one for the setter or dispatch — so components that only dispatch actions don't re-render when the value does.
 
-Custom hooks extract reusable stateful logic. A custom hook is any function starting with `use`:
+## Writing custom hooks
+
+A custom hook is a function whose name starts with `use` and that calls other hooks. That naming convention isn't cosmetic — it tells the linter, and the next person reading the code, that the two rules of hooks apply: call hooks only at the top level, never inside a condition, loop, or nested function, and call them only from components or other hooks. React tracks hook state by the order calls happen in during a render, not by name, so a hook call that sometimes runs and sometimes doesn't shifts every hook after it to the wrong slot.
 
 ```tsx
 function useLocalStorage<T>(key: string, initialValue: T) {
@@ -213,32 +193,11 @@ function useLocalStorage<T>(key: string, initialValue: T) {
 }
 ```
 
-Here's a debounce hook that waits for the user to stop typing:
+A good custom hook earns its name by hiding something genuinely reusable — a debounce timer, a subscription lifecycle, a piece of derived logic used in three places — not by wrapping a single `useState` call for the sake of having a hook.
 
-```tsx
-function useDebounce<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
+## Where this bites
 
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-
-  return debounced;
-}
-
-function SearchExercises() {
-  const [query, setQuery] = useState("");
-  const debouncedQuery = useDebounce(query, 300);
-
-  useEffect(() => {
-    if (debouncedQuery) console.log(`Searching: ${debouncedQuery}`);
-  }, [debouncedQuery]);
-
-  return <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search..." />;
-}
-```
-
-## Practice
-
-You now have a solid grasp of the core React hooks. Next up: [State Management](/tutorials/react-state-management) patterns with `useReducer` and Context.
+- **An effect with an incomplete dependency array.** Omitting a value the effect reads doesn't make the effect stop needing it — it makes the effect read a stale closure of it instead. Include every reactive value the effect uses; if that triggers a loop, the loop is telling you the effect is structured wrong, not that the array is.
+- **Deriving state from props with an effect plus a second `useState`.** It costs an extra render where the UI shows stale data, and the value was already computable without either. Compute it as a plain expression during render, or `useMemo` it if the computation is expensive.
+- **A fresh object literal passed as a context `value`.** Every consumer re-renders on every parent render regardless of whether the fields they read changed, because there's no partial subscription to a context. Memoize the value, or split frequently-changing state into its own context.
+- **A hook called after an early return or inside an `if`.** React matches hook state to hook calls by position, so a conditional hook shifts every later hook to the wrong slot on renders where the condition differs. Always call hooks unconditionally at the top; move the condition inside the hook body instead.

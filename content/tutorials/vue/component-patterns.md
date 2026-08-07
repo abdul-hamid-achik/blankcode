@@ -1,7 +1,7 @@
 ---
 title: "Vue Component Patterns"
 slug: "vue-component-patterns"
-description: "Learn how to build reusable Vue components with props, events, slots, provide/inject, and more."
+description: "Props, emits, v-model, and slots as the real contract between a Vue component and everything that calls it — plus why defineProps and defineEmits are not functions you can pass around."
 track: "vue"
 order: 1
 difficulty: "beginner"
@@ -11,132 +11,59 @@ practice:
   label: "Components"
 ---
 
-Components are the building blocks of any Vue application. This tutorial covers the essential patterns for defining, composing, and communicating between components using Vue 3's `<script setup>` syntax.
+A Vue component is a boundary. Everything inside `<script setup>` is private until you say otherwise — props come in, events go out, and slots are the only place markup crosses that boundary in the other direction. The patterns below are what actually enforces the boundary, not just the syntax for writing it.
 
-## Defining Components with Script Setup
+## Props: a one-way, read-only contract
 
-The `<script setup>` syntax is the recommended way to write components in Vue 3. It reduces boilerplate and gives you full TypeScript support out of the box.
-
-```vue
-<script setup lang="ts">
-import { ref } from 'vue';
-
-const message = ref('Hello from my component!');
-</script>
-
-<template>
-  <p>{{ message }}</p>
-</template>
-```
-
-Everything declared at the top level of `<script setup>` is automatically available in the template. No need to return anything from a setup function or register components manually.
-
-## Props with defineProps
-
-Props are how parent components pass data down to children. Use `defineProps` to declare them with full type safety.
-
-### Basic Props
-
-```vue
-<script setup lang="ts">
-const props = defineProps<{
-  title: string;
-  count: number;
-  isActive?: boolean;
-}>();
-</script>
-
-<template>
-  <div :class="{ active: isActive }">
-    <h2>{{ title }}</h2>
-    <span>Count: {{ count }}</span>
-  </div>
-</template>
-```
-
-### Props with Defaults
-
-Use `withDefaults` to provide default values:
+`defineProps` declares what a component accepts, with full type inference and no runtime import — because it isn't one. `defineProps`, `defineEmits`, `defineModel`, and `defineExpose` are compiler macros: the compiler reads the literal source of the call and erases it before anything runs. That is why you cannot write `import { defineProps } from 'vue'`, cannot assign the call to a variable and invoke it later, and cannot put it inside an `if`. It has to appear once, directly, at the top level of `<script setup>`.
 
 ```vue
 <script setup lang="ts">
 interface Props {
-  label: string;
-  size?: 'sm' | 'md' | 'lg';
-  disabled?: boolean;
+  label: string
+  size?: 'sm' | 'md' | 'lg'
 }
 
 const props = withDefaults(defineProps<Props>(), {
   size: 'md',
-  disabled: false,
-});
+})
 </script>
 
 <template>
-  <button :class="`btn-${size}`" :disabled="disabled">
-    {{ label }}
-  </button>
+  <button :class="`btn-${props.size}`">{{ props.label }}</button>
 </template>
 ```
 
-The parent uses the component like this:
+Props are read-only from inside the component. Assigning to `props.label` does not throw — Vue logs a warning, and the value snaps back on the parent's next render, because the parent's data is still the single source of truth. If a prop needs to change locally, copy it into a `ref` on setup and treat the prop as an initial value only.
 
-```vue
-<template>
-  <MyButton label="Click me" size="lg" />
-  <MyButton label="Disabled" disabled />
-</template>
-```
+::code-blank{lang="typescript" href="/tracks/vue/components" label="practice components for real"}
+---
+code: |
+  // A component that accepts a required title and an optional count
+  const props = ___blank_start___defineProps___blank_end___<{ title: string; count?: number }>()
+---
+::
 
-## Emits with defineEmits
+## Emitting events, and what v-model actually desugars to
 
-Events are how child components communicate back up to parents. Use `defineEmits` with the modern object/tuple syntax (Vue 3.3+):
+`defineEmits` declares outbound events the same way `defineProps` declares inbound data — as a type, not a runtime schema:
 
-```vue
-<script setup lang="ts">
+```typescript
 const emit = defineEmits<{
-  update: [value: string]
-  delete: []
-}>();
+  save: [value: string]
+  close: []
+}>()
 
-function handleSave() {
-  emit('update', 'new value');
+function handleSave(value: string) {
+  emit('save', value)
 }
-
-function handleDelete() {
-  emit('delete');
-}
-</script>
-
-<template>
-  <div>
-    <button @click="handleSave">Save</button>
-    <button @click="handleDelete">Delete</button>
-  </div>
-</template>
 ```
 
-The parent listens with `@`:
+`v-model` on a component is built entirely from a prop and an event — `defineModel` is sugar over both directions at once. `defineModel<string>()` desugars to a `modelValue` prop plus an `update:modelValue` emit; write `defineModel<string>('email')` and it desugars to `email` / `update:email` instead. The macro hands back a real, writable `ref`: assigning to it updates the local value immediately and emits the update event in the same step, so the binding stays purely prop-and-event underneath, exactly like it did before Vue 3.4 introduced the macro.
 
 ```vue
-<template>
-  <MyEditor
-    @update="(val) => console.log('Updated:', val)"
-    @delete="handleDelete"
-  />
-</template>
-```
-
-Each key in the type argument is an event name, and the tuple describes its payload. An empty tuple `[]` means the event carries no data.
-
-## v-model on Components
-
-`v-model` creates two-way binding between parent and child. Vue 3.4+ provides `defineModel` which handles all the wiring automatically.
-
-```vue
-<!-- SearchInput.vue -->
 <script setup lang="ts">
-const model = defineModel<string>();
+const model = defineModel<string>()
 </script>
 
 <template>
@@ -144,287 +71,75 @@ const model = defineModel<string>();
 </template>
 ```
 
-The `defineModel` macro returns a ref that is automatically synced with the parent's `v-model`. You use it directly with `v-model` on native elements — no manual `:value`/`@input` wiring needed.
+::code-blank{lang="typescript" href="/tracks/vue/components" label="practice components for real"}
+---
+code: |
+  // Two-way bound search box, wired entirely through v-model
+  const model = ___blank_start___defineModel___blank_end___<string>()
+---
+::
 
-The parent uses it cleanly:
+## Slots: handing back markup, not a value
 
-```vue
-<script setup lang="ts">
-import { ref } from 'vue';
-import SearchInput from './SearchInput.vue';
-
-const query = ref('');
-</script>
-
-<template>
-  <SearchInput v-model="query" />
-  <p>Searching for: {{ query }}</p>
-</template>
-```
-
-You can also use multiple `v-model` bindings with named models:
-
-```vue
-<script setup lang="ts">
-const firstName = defineModel<string>('firstName');
-const lastName = defineModel<string>('lastName');
-</script>
-```
-
-## Slots
-
-Slots let parent components inject content into a child component's template. They are the key to building flexible, reusable layouts.
-
-### Default Slot
-
-```vue
-<!-- Card.vue -->
-<template>
-  <div class="card">
-    <slot />
-  </div>
-</template>
-```
-
-```vue
-<!-- Parent -->
-<Card>
-  <p>This content goes inside the card.</p>
-</Card>
-```
-
-### Named Slots
-
-Use named slots when a component has multiple content areas:
+A slot is not `innerHTML`. Default and named slots let a parent drop markup into designated spots in a child's template:
 
 ```vue
 <!-- PageLayout.vue -->
 <template>
-  <div class="page">
-    <header><slot name="header" /></header>
-    <main><slot /></main>
-    <footer><slot name="footer" /></footer>
-  </div>
+  <header><slot name="header" /></header>
+  <main><slot /></main>
 </template>
 ```
 
-```vue
-<!-- Parent -->
-<PageLayout>
-  <template #header>
-    <h1>My Page</h1>
-  </template>
-
-  <p>Main content goes here.</p>
-
-  <template #footer>
-    <small>Copyright 2026</small>
-  </template>
-</PageLayout>
-```
-
-### Scoped Slots
-
-Scoped slots let the child pass data back to the parent's slot content:
+A scoped slot goes further — the child hands data back to the slot content, so the parent decides how to render it:
 
 ```vue
 <!-- ItemList.vue -->
-<script setup lang="ts">
-defineProps<{ items: string[] }>();
-</script>
-
 <template>
-  <ul>
-    <li v-for="(item, index) in items" :key="index">
-      <slot :item="item" :index="index" />
-    </li>
-  </ul>
+  <li v-for="item in items" :key="item.id">
+    <slot :item="item" />
+  </li>
 </template>
 ```
 
 ```vue
 <!-- Parent -->
-<ItemList :items="['Apple', 'Banana', 'Cherry']">
-  <template #default="{ item, index }">
-    <strong>{{ index + 1 }}.</strong> {{ item }}
+<ItemList :items="products">
+  <template #default="{ item }">
+    <strong>{{ item.name }}</strong>
   </template>
 </ItemList>
 ```
 
-## Provide / Inject
+The mental model that actually matches the implementation: slot content is a render function, defined in the parent's file and invoked by the child during the child's own render, with the child's bound data (`item`) passed as its argument. That is why the parent's `{{ item.name }}` still has full access to the parent's own reactive scope — the closure travels with the function — while also receiving whatever the child chose to pass in. It behaves like a function call across the boundary, not like copying HTML through it.
 
-For deeply nested components, passing props through every level gets tedious. `provide` and `inject` let an ancestor share data with any descendant.
+## provide/inject is a tree tool, not a state manager
 
-### Basic Usage
-
-```vue
-<!-- App.vue -->
-<script setup lang="ts">
-import { provide, ref } from 'vue';
-
-const theme = ref<'light' | 'dark'>('light');
-
-provide('theme', theme);
-</script>
-```
-
-```vue
-<!-- DeepChild.vue (any level of nesting) -->
-<script setup lang="ts">
-import { inject, type Ref } from 'vue';
-
-// Without a default, inject may return undefined
-const theme = inject<Ref<'light' | 'dark'>>('theme');
-// theme is Ref<'light' | 'dark'> | undefined
-</script>
-
-<template>
-  <div :class="`theme-${theme}`">
-    Current theme: {{ theme }}
-  </div>
-</template>
-```
-
-### Type-safe Injection Keys
-
-Use `InjectionKey<T>` from Vue to get full type safety and avoid the `| undefined` ambiguity:
+`provide` and `inject` solve one problem: passing data to a descendant at an unknown depth without threading it through every prop in between. Reach for it when the data is genuinely about position in the tree — a theme, a form's validation context, a modal's controlling instance.
 
 ```typescript
 // keys.ts
-import type { InjectionKey, Ref } from 'vue';
+import type { InjectionKey, Ref } from 'vue'
 
-export const ThemeKey: InjectionKey<Ref<'light' | 'dark'>> = Symbol('theme');
+export const ThemeKey: InjectionKey<Ref<'light' | 'dark'>> = Symbol('theme')
 ```
 
-```vue
-<!-- App.vue -->
-<script setup lang="ts">
-import { provide, ref } from 'vue';
-import { ThemeKey } from './keys';
+Anything several unrelated parts of the app need to read and write — a signed-in user, a shopping cart, feature flags — belongs in a Pinia store, not a provided ref. provide/inject has no devtools panel, no defined cleanup lifecycle, and silently returns `undefined` if a descendant renders outside the provider; a store is explicit and always reachable.
 
-const theme = ref<'light' | 'dark'>('light');
-provide(ThemeKey, theme);
-</script>
-```
+::code-blank{lang="typescript" href="/tracks/vue/components" label="practice components for real"}
+---
+code: |
+  // Shares the current theme with every descendant, however deep
+  ___blank_start___provide___blank_end___('theme', theme)
+---
+::
 
-```vue
-<!-- DeepChild.vue -->
-<script setup lang="ts">
-import { inject } from 'vue';
-import { ThemeKey } from './keys';
+## Where this bites
 
-// Fully typed as Ref<'light' | 'dark'> | undefined
-const theme = inject(ThemeKey);
+**Mutating a prop directly.** `props.count++` doesn't throw, so the bug hides until something else causes the parent to re-render — then the value snaps back and the mutation looks like it randomly reverted. Copy the prop into a local `ref` on setup, or emit an event and let the parent own the change.
 
-// Or provide a default to eliminate undefined:
-// const theme = inject(ThemeKey, ref('light'));
-</script>
-```
+**An object or array default without a factory.** `withDefaults(defineProps<Props>(), { tags: [] })` looks reasonable and Vue accepts it, but every instance of the component then shares that exact array reference — one instance pushing to it mutates it for all of them. Use `default: () => []` so each instance gets its own copy.
 
-Use injection keys with `Symbol()` in real applications to avoid naming collisions. Keep provide/inject for truly shared application state like themes, locale, or auth context.
+**Destructuring props for convenience.** `const { title } = defineProps<Props>()` reads `title` once and hands you a plain string, not a tracked reference — pass that variable into a composable or a `watch` and it never updates again even though the prop keeps changing on screen. Keep `props.title` at the read site, or wrap it with `toRef(props, 'title')` before it leaves the component.
 
-## defineExpose
-
-By default, `<script setup>` components do not expose any of their bindings to the parent via template refs. Use `defineExpose` to explicitly expose properties and methods:
-
-```vue
-<!-- Counter.vue -->
-<script setup lang="ts">
-import { ref } from 'vue';
-
-const count = ref(0);
-
-function increment() {
-  count.value++;
-}
-
-function reset() {
-  count.value = 0;
-}
-
-// Only these will be accessible via template ref
-defineExpose({ count, reset });
-</script>
-
-<template>
-  <div>
-    <span>{{ count }}</span>
-    <button @click="increment">+1</button>
-  </div>
-</template>
-```
-
-The parent accesses the exposed API through a template ref:
-
-```vue
-<script setup lang="ts">
-import { ref } from 'vue';
-import Counter from './Counter.vue';
-
-const counterRef = ref<InstanceType<typeof Counter>>();
-
-function resetFromParent() {
-  counterRef.value?.reset();
-  console.log(counterRef.value?.count); // accessible
-}
-</script>
-
-<template>
-  <Counter ref="counterRef" />
-  <button @click="resetFromParent">Reset from parent</button>
-</template>
-```
-
-`defineExpose` is useful for imperative APIs like form validation (`.validate()`), modal controls (`.open()`, `.close()`), or programmatic scrolling.
-
-## Dynamic Components
-
-Use `<component :is>` to dynamically switch between components at runtime:
-
-```vue
-<script setup lang="ts">
-import { ref, shallowRef } from 'vue';
-import TabHome from './TabHome.vue';
-import TabSettings from './TabSettings.vue';
-import TabProfile from './TabProfile.vue';
-
-const tabs = {
-  home: TabHome,
-  settings: TabSettings,
-  profile: TabProfile,
-} as const;
-
-type TabName = keyof typeof tabs;
-
-const currentTab = ref<TabName>('home');
-</script>
-
-<template>
-  <div class="tabs">
-    <button
-      v-for="(_, name) in tabs"
-      :key="name"
-      :class="{ active: currentTab === name }"
-      @click="currentTab = name"
-    >
-      {{ name }}
-    </button>
-  </div>
-
-  <component :is="tabs[currentTab]" />
-</template>
-```
-
-Wrap with `<KeepAlive>` if you want to preserve component state when switching:
-
-```vue
-<KeepAlive>
-  <component :is="tabs[currentTab]" />
-</KeepAlive>
-```
-
-## Practice
-
-Try the [Vue component exercises](/tracks/vue) to build components with props, events, and slots in interactive code challenges.
-
-Next up: [Reactivity Deep Dive](/tutorials/vue-reactivity-deep-dive)
+**Assuming a parent can reach into a child through a template ref.** `<script setup>` components are closed by default — nothing is visible to `counterRef.value` until the child calls `defineExpose({ ... })` naming exactly what it wants to share. Without it, every property reads as `undefined`, which looks like a timing bug but is a visibility one.

@@ -1,7 +1,7 @@
 ---
 title: "Advanced Python"
 slug: "python-advanced"
-description: "Explore decorators, generators, context managers, type hints, and modern Python features."
+description: "Decorators, generators, context managers, and pattern matching, plus the two features that quietly leak memory and hide bugs until you least expect it."
 track: "python"
 order: 4
 difficulty: "advanced"
@@ -11,28 +11,30 @@ practice:
   label: "Advanced patterns"
 ---
 
-> **Requires Python 3.10+** — this tutorial uses structural pattern matching (`match`/`case`) and the `X | Y` union type syntax, both introduced in Python 3.10.
+> Requires Python 3.10+ for `match`/`case` and the `X | Y` union syntax used
+> below.
 
-This tutorial covers Python features that help you write cleaner, more expressive, and more robust code. Each topic builds on your existing knowledge of functions and classes.
+These are the features that separate code that works from code that reads
+as deliberate: decorators that add behavior without touching a function's
+body, generators that never build the thing they're describing, and an
+async model that makes I/O-bound code fast without threads. Each one also
+has a specific, well-known way to misuse it — this tutorial covers both
+halves.
 
 ## Decorators
 
-A decorator is a function that takes another function as input and returns a modified version of it. Decorators let you add behavior to functions without changing their source code.
-
-### Function Decorators
+A decorator takes a function and returns a replacement for it — usually a
+wrapper that does something extra and then calls the original.
 
 ```python
-import functools
-import time
+import functools, time
 
 def timer(func):
-    """Log how long a function takes to run."""
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         start = time.perf_counter()
         result = func(*args, **kwargs)
-        elapsed = time.perf_counter() - start
-        print(f"{func.__name__} took {elapsed:.4f}s")
+        print(f"{func.__name__} took {time.perf_counter() - start:.4f}s")
         return result
     return wrapper
 
@@ -40,78 +42,85 @@ def timer(func):
 def slow_sum(n):
     return sum(range(n))
 
-slow_sum(1_000_000)  # slow_sum took 0.0312s
+slow_sum(1_000_000)   # slow_sum took 0.0312s
 ```
 
-`@functools.wraps(func)` preserves the original function's name and docstring. Always include it when writing decorators.
+`@functools.wraps(func)` copies the original function's `__name__` and
+`__doc__` onto the wrapper. Skip it and every decorated function's identity
+becomes `wrapper` — which breaks introspection, confuses debuggers, and
+silently corrupts any other decorator stacked on top that reads `__name__`.
 
-### Decorators with Arguments
-
-To create a decorator that accepts arguments, add an extra layer of nesting.
+To accept arguments, add a layer of nesting — a function that returns the
+actual decorator:
 
 ```python
-import functools
-
 def retry(max_attempts=3):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
-            last_error = None
             for attempt in range(1, max_attempts + 1):
                 try:
                     return func(*args, **kwargs)
                 except Exception as e:
                     last_error = e
-                    print(f"Attempt {attempt} failed: {e}")
             raise last_error
         return wrapper
     return decorator
 
 @retry(max_attempts=5)
-def unreliable_fetch(url):
-    import random
-    if random.random() < 0.7:
-        raise ConnectionError("Network timeout")
-    return "data"
+def unreliable_fetch(url): ...
 ```
 
-### Caching with `functools.lru_cache`
-
-`functools.lru_cache` is a built-in decorator that memoizes function results. It is especially useful for recursive or expensive computations.
+`functools.lru_cache` is a decorator that memoizes results, which makes it
+tempting to slap on any slow method. On a **bound method** it is a real
+memory leak: the cache stores `self` as part of the key, so every instance
+that ever called the cached method stays alive for as long as the cache
+does, even after nothing else references it.
 
 ```python
-import functools
-
-@functools.lru_cache(maxsize=128)
-def fibonacci(n):
-    if n < 2:
-        return n
-    return fibonacci(n - 1) + fibonacci(n - 2)
-
-print(fibonacci(50))  # 12586269025 (instant, without cache this would be very slow)
-print(fibonacci.cache_info())
-# CacheInfo(hits=48, misses=51, maxsize=128, currsize=51)
+class Model:
+    @functools.lru_cache(maxsize=None)
+    def predict(self, x):   # self is part of the cache key — instances never get collected
+        ...
 ```
+
+Cache a free function instead, or store the cache on the instance so it
+dies with it.
+
+::code-blank{lang="python" href="/tracks/python/advanced-python-patterns" label="practice advanced patterns for real"}
+---
+code: |
+  def timer(func):
+      @functools.___blank_start___wraps___blank_end___(func)
+      def wrapper(*args, **kwargs):
+          return func(*args, **kwargs)
+      return wrapper
+---
+::
 
 ## Generators and `yield`
 
-Generators produce values lazily, one at a time, instead of building an entire list in memory. They are perfect for processing large datasets or infinite sequences.
+A generator function's body doesn't run when you call it — calling it
+builds a generator object and executes nothing. The first line only runs on
+the first `next()`.
 
 ```python
 def fibonacci():
-    """Infinite Fibonacci sequence."""
+    print("starting")
     a, b = 0, 1
     while True:
         yield a
         a, b = b, a + b
 
-# take the first 10 values
-fib = fibonacci()
-first_ten = [next(fib) for _ in range(10)]
-print(first_ten)  # [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+fib = fibonacci()   # nothing printed yet
+first = next(fib)   # NOW "starting" prints, then 0 is yielded
 ```
 
-Generator expressions use parentheses instead of brackets and produce values lazily. You can also chain generators into pipelines and use `yield from` to delegate to sub-generators.
+This is why a bug inside a generator function can survive code review and a
+test that only calls the function without iterating it — "it didn't crash"
+tells you nothing until you consume it. `yield from` delegates to a
+sub-generator, which is how you flatten recursive structures without
+manually re-yielding each value:
 
 ```python
 def flatten(nested):
@@ -121,14 +130,26 @@ def flatten(nested):
         else:
             yield item
 
-print(list(flatten([1, [2, [3, 4]], 5])))  # [1, 2, 3, 4, 5]
+print(list(flatten([1, [2, [3, 4]], 5])))   # [1, 2, 3, 4, 5]
 ```
+
+::code-blank{lang="python" href="/tracks/python/advanced-python-patterns" label="practice advanced patterns for real"}
+---
+code: |
+  def flatten(nested):
+      for item in nested:
+          if isinstance(item, list):
+              ___blank_start___yield___blank_end___ from flatten(item)
+          else:
+              yield item
+---
+::
 
 ## Context Managers
 
-Context managers handle setup and cleanup through the `with` statement. The most common example is file handling, but you can create custom context managers for any resource.
-
-### Using `contextlib`
+The `with` statement guarantees cleanup runs, even when the block raises.
+`contextlib.contextmanager` turns a generator into one with a single
+decorator:
 
 ```python
 from contextlib import contextmanager
@@ -140,89 +161,47 @@ def time_block(label):
     try:
         yield
     finally:
-        elapsed = time.perf_counter() - start
-        print(f"{label}: {elapsed:.4f}s")
+        print(f"{label}: {time.perf_counter() - start:.4f}s")
 
 with time_block("processing"):
     total = sum(range(1_000_000))
-# processing: 0.0298s
 ```
 
-For full control, you can also write class-based context managers by implementing `__enter__` (setup, returns the resource) and `__exit__` (cleanup, receives exception info). Return `False` from `__exit__` to let exceptions propagate, or `True` to suppress them.
+Everything before `yield` is setup, everything after (in the `finally`) is
+teardown, and the `try`/`finally` is what makes teardown run on an
+exception too. For full control — separate setup and teardown, state that
+outlives one `with` block — write a class implementing `__enter__` and
+`__exit__` instead; return `True` from `__exit__` to suppress the exception
+that triggered it, `False` (or nothing) to let it propagate.
 
-## Type Hints and the `typing` Module
+## Type Hints
 
-Type hints make your code self-documenting and enable static analysis with tools like `mypy`. They have no runtime effect by default.
+Type hints are checked by tools like `mypy`, not by the interpreter — they
+have zero runtime effect by default.
 
 ```python
 def find_user(user_id: int, active_only: bool = True) -> dict | None:
-    """Look up a user by ID. Returns None if not found."""
-    users = {1: {"name": "Alice", "active": True}}
-    user = users.get(user_id)
-    if user and (not active_only or user["active"]):
-        return user
-    return None
-```
-
-### Common Type Patterns
-
-```python
-from typing import TypeAlias
-
-# type aliases for readability
-JsonValue: TypeAlias = str | int | float | bool | None | list | dict
-Headers: TypeAlias = dict[str, str]
-
-def fetch(url: str, headers: Headers | None = None) -> bytes:
     ...
 
-# callable types
 from collections.abc import Callable
-
 def apply_twice(func: Callable[[int], int], value: int) -> int:
     return func(func(value))
 
-result = apply_twice(lambda x: x * 2, 3)  # 12
-
-# generics (Python 3.12+ PEP 695 syntax)
-def first[T](items: list[T]) -> T | None:
+def first[T](items: list[T]) -> T | None:   # PEP 695 generic syntax, 3.12+
     return items[0] if items else None
 ```
 
-Note: the `def first[T]` syntax requires Python 3.12+. For Python 3.10-3.11, use `TypeVar` instead:
-
-```python
-from typing import TypeVar
-
-T = TypeVar("T")
-
-def first(items: list[T]) -> T | None:
-    return items[0] if items else None
-```
-
-## The Walrus Operator
-
-The walrus operator `:=` (introduced in Python 3.8) assigns a value to a variable as part of an expression. It reduces duplication in common patterns.
-
-```python
-# assign inside an expression to avoid repeating yourself
-while (line := input("Enter command: ")) != "quit":
-    print(f"Processing: {line}")
-
-# useful in comprehensions with expensive computations
-import math
-values = [7, 15, 23, 42, 100]
-results = [
-    (v, root)
-    for v in values
-    if (root := math.sqrt(v)) > 4
-]
-print(results)  # [(23, 4.795...), (42, 6.480...), (100, 10.0)]
-```
+For 3.10 and 3.11, write generics with `TypeVar` instead of the `[T]`
+syntax: `T = TypeVar("T")`, then `def first(items: list[T]) -> T | None:`.
+Annotations having no runtime effect is also why they can reference a class
+that doesn't exist yet — `from __future__ import annotations` (or just
+writing the type as a plain string) defers evaluation so a forward
+reference doesn't need to resolve at definition time.
 
 ## Structural Pattern Matching
 
-Pattern matching (introduced in Python 3.10) provides a powerful way to destructure and match data. It goes beyond simple value comparison to handle sequences, mappings, and objects.
+`match`/`case` destructures data instead of just comparing values against
+it — it matches shape, not equality.
 
 ```python
 def handle_command(command):
@@ -233,58 +212,75 @@ def handle_command(command):
             return f"Hello, {name}!"
         case ["move", direction, distance]:
             return f"Moving {direction} by {distance}"
-        case ["add", *items]:
-            return f"Adding items: {', '.join(items)}"
         case _:
             return f"Unknown command: {command}"
 
-print(handle_command("greet Alice"))      # Hello, Alice!
-print(handle_command("move north 10"))    # Moving north by 10
-print(handle_command("add a b c"))        # Adding items: a, b, c
+print(handle_command("greet Alice"))   # Hello, Alice!
 ```
 
-Pattern matching also works with dictionaries and guard clauses (`if` conditions after the pattern), making it a versatile tool for dispatching on structured data.
+Patterns can include guard clauses (`case [x, y] if x > y:`) and dictionary
+shapes, which makes `match` a real alternative to a chain of `isinstance`
+checks when you're dispatching on structured data rather than just a type.
 
-## Async / Await Basics
+::code-blank{lang="python" href="/tracks/python/advanced-python-patterns" label="practice advanced patterns for real"}
+---
+code: |
+  match command.split():
+      case ["quit"]:
+          return "Exiting..."
+      ___blank_start___case___blank_end___ ["greet", name]:
+          return f"Hello, {name}!"
+      case _:
+          return f"Unknown command: {command}"
+---
+::
 
-Python's `asyncio` module lets you write concurrent code using `async`/`await`. This is especially useful for I/O-bound tasks like network requests, file operations, or database queries.
+## Async / Await
+
+`asyncio` gives you concurrency for I/O-bound work — network calls,
+database queries — without threads. `await` pauses the current coroutine
+and lets other coroutines run while it waits.
 
 ```python
 import asyncio
 
-async def fetch_data(url, delay):
-    """Simulate a network request with a delay."""
-    print(f"Fetching {url}...")
+async def fetch(url, delay):
     await asyncio.sleep(delay)
-    return f"Data from {url}"
+    return f"data from {url}"
 
 async def main():
-    # run tasks concurrently with gather
     results = await asyncio.gather(
-        fetch_data("/api/users", 2),
-        fetch_data("/api/posts", 1),
-        fetch_data("/api/comments", 1.5),
+        fetch("/users", 2),
+        fetch("/posts", 1),
     )
-    for result in results:
-        print(result)
+    print(results)
 
 asyncio.run(main())
-# Fetching /api/users...
-# Fetching /api/posts...
-# Fetching /api/comments...
-# Data from /api/users
-# Data from /api/posts
-# Data from /api/comments
 ```
 
-Key points:
-- `async def` defines a coroutine function
-- `await` pauses the coroutine until the awaited task completes, allowing other tasks to run
-- `asyncio.gather()` runs multiple coroutines concurrently
-- `asyncio.run()` is the entry point that starts the event loop
+`asyncio.gather()` fails fast by default: the first exception raised by any
+coroutine propagates immediately and cancels the rest, so you lose whatever
+the other coroutines would have returned. Pass `return_exceptions=True`
+when partial results are useful — exceptions come back in the results list
+instead of being raised, and you check for them yourself.
 
-## Practice
+## Where This Bites
 
-Try building a small pipeline using generators and decorators. For example, use `@functools.lru_cache` to memoize an expensive computation, create a generator that reads and filters log lines, and type-annotate the entire pipeline. These patterns come up constantly in real Python projects.
+**`@functools.lru_cache` on a bound method keeps every instance that ever
+called it alive**, because the cache holds `self` as part of its key.
+Decorate a free function instead, or cache on the instance so the cache
+dies with it.
 
-Explore more advanced exercises on [the Python track](/tracks/python).
+**A missing `@functools.wraps` breaks anything that reads the wrapped
+function's identity** — debuggers, doc generators, and other decorators
+that inspect `__name__`. Always wrap, even in a five-line decorator you're
+sure you'll never stack.
+
+**A generator function runs none of its body until the first `next()`.**
+Calling it just builds the generator object, so "the call didn't raise"
+proves nothing about whether the code inside is correct — iterate it, in
+tests and in review, before trusting it.
+
+**`asyncio.gather()` cancels the group on the first exception by default.**
+If you want the other coroutines' results even when one fails, pass
+`return_exceptions=True` and check each result for an exception yourself.

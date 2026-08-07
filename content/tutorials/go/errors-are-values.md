@@ -11,320 +11,208 @@ practice:
   label: "Error handling"
 ---
 
-"Errors are values" is usually presented as a statement about syntax: Go returns
-them instead of throwing them. The more useful reading is about API design.
+"Errors are values" is usually read as a statement about syntax: Go returns them instead of throwing them. The more useful reading is about API design. If an error is a value your function returns, the errors you return are part of your signature. Once a caller writes `errors.Is(err, ErrNotFound)`, you cannot change that error without breaking their code — exactly as if you had changed a parameter's type. Most of what follows falls out of taking that seriously.
 
-If an error is a value your function returns, then **the errors you return are
-part of your signature**. Callers will branch on them. Once someone writes
-`if errors.Is(err, ErrNotFound)`, you cannot change that error without breaking
-their code, exactly as if you had changed a parameter type. Most of the patterns
-below fall out of taking that seriously.
+## What the caller can do decides the shape
 
-## Start from what the caller can do
+Before designing an error, ask what a caller could actually do with it. There are three answers, and each maps to a different construct.
 
-Before designing an error, ask what a caller could possibly do with it. There
-are only three answers, and each maps to a different construct.
+Nothing but report it — the large majority of cases. Return a wrapped error and move on. Branch on which kind it is — the caller needs to tell "not found" from "everything else." That's a **sentinel error**. Extract data from it — a field name, a status code, a retry duration. That's a **typed error**.
 
-**Nothing but report it.** The vast majority. Return a plain error with context
-and move on.
+Design an error any other way — a typed error nobody inspects, a sentinel for something that needs to carry data — and you've built API surface you have to keep stable that nobody actually uses.
 
-```go
-if err != nil {
-    return fmt.Errorf("read config %s: %w", path, err)
-}
-```
+## Wrapping: what to add, what to keep private
 
-**Branch on which kind it is.** The caller needs to distinguish "not found" from
-"everything else". This is a **sentinel error**.
-
-**Extract information from it.** The caller needs the field name that failed
-validation, the HTTP status, the retry-after duration. This is a **typed error**.
-
-Designing errors any other way — a typed error for something nobody inspects, a
-sentinel for something that needs to carry data — produces API surface you have
-to keep and nobody uses.
-
-## Wrapping: what to add, and what not to
-
-`%w` in `fmt.Errorf` wraps: the new error carries a message and keeps the
-original reachable.
+`%w` in `fmt.Errorf` adds context while keeping the original reachable:
 
 ```go
 func (s *Store) LoadUser(ctx context.Context, id string) (*User, error) {
-    var u User
-    err := s.db.QueryRowContext(ctx, userQuery, id).Scan(&u.ID, &u.Name)
-    if err != nil {
-        return nil, fmt.Errorf("load user %s: %w", id, err)
-    }
-    return &u, nil
+	var u User
+	err := s.db.QueryRowContext(ctx, userQuery, id).Scan(&u.ID, &u.Name)
+	if err != nil {
+		return nil, fmt.Errorf("load user %s: %w", id, err)
+	}
+	return &u, nil
 }
 ```
 
-Add the context the caller does not have. The database layer knows the SQL
-failed; it does not know it was doing this for user `u_1839`. Each layer adds
-its own fact, and the final message reads as a path:
+Add what the caller doesn't already have — the database layer knows the query failed, not that it was doing it for user `u_1839`. Each layer adds one fact, and the final message reads as a path: `handle GET /users/u_1839: load user u_1839: query row: connection refused`. Two conventions keep that readable: lower-case the start, no trailing punctuation, and skip "failed to" — every string in the chain is already a failure, so the phrase adds length without information.
 
-```
-handle GET /users/u_1839: load user u_1839: query row: connection refused
-```
-
-Two conventions make that message readable. Error strings start lower case and
-do not end in punctuation, because they get embedded in other messages. And they
-do not begin with "failed to" — every string in that chain is a failure, so the
-words add length and no information.
-
-### When not to wrap
-
-`%w` publishes the wrapped error. Anything a caller can reach with `errors.Is`
-or `errors.As` is a promise you have made, whether you meant to or not.
+`%w` is also a publication decision. Anything a caller can reach with `errors.Is` or `errors.As` is a promise, whether you meant to make it or not:
 
 ```go
-// This makes sql.ErrNoRows part of your package's API. Callers will match on
-// it, and you can never switch to a different database driver.
+// Makes sql.ErrNoRows part of your API. Callers will match on it, and you can
+// never switch database drivers without breaking them.
 return fmt.Errorf("load user: %w", err)
 
-// This does not. The detail survives in the message; the type does not escape.
+// Does not. The text survives; the type does not escape.
 return fmt.Errorf("load user: %v", err)
 ```
 
-At a package boundary, the useful default is to translate rather than to pass
-through: catch the implementation's error, and return your own.
+At a package boundary, translate rather than pass through — catch the implementation's error, return your own:
 
 ```go
 var ErrUserNotFound = errors.New("user not found")
 
 if errors.Is(err, sql.ErrNoRows) {
-    return nil, fmt.Errorf("load user %s: %w", id, ErrUserNotFound)
+	return nil, fmt.Errorf("load user %s: %w", id, ErrUserNotFound)
 }
 ```
 
-Callers now match on `ErrUserNotFound`, which is yours to keep stable, and the
-storage layer stays replaceable.
+Callers now match on `ErrUserNotFound`, which is yours to keep stable, and the storage layer stays swappable underneath it.
 
-## Sentinel errors
+## Sentinel errors as API surface
 
-A sentinel is a package-level value that identifies a condition.
+A sentinel is a package-level value identifying one condition.
 
 ```go
 package store
 
 var (
-    ErrNotFound  = errors.New("not found")
-    ErrConflict  = errors.New("conflict")
-    ErrClosed    = errors.New("store is closed")
+	ErrNotFound = errors.New("not found")
+	ErrConflict = errors.New("conflict")
 )
 ```
 
-Match with `errors.Is`, which walks the wrap chain rather than comparing
-directly:
+Match with `errors.Is`, which walks the chain instead of comparing directly:
 
 ```go
-user, err := store.LoadUser(ctx, id)
 switch {
 case errors.Is(err, store.ErrNotFound):
-    http.Error(w, "no such user", http.StatusNotFound)
-    return
+	http.Error(w, "no such user", http.StatusNotFound)
 case err != nil:
-    http.Error(w, "internal error", http.StatusInternalServerError)
-    return
+	http.Error(w, "internal error", http.StatusInternalServerError)
 }
 ```
 
-`err == store.ErrNotFound` would fail here, because the error has been wrapped
-at least once on the way up. Comparing errors with `==` is only correct when you
-know nothing between you and the source wrapped it, and you rarely know that.
+`err == store.ErrNotFound` fails the moment anything wraps the error on the way up, which is most of the time. Keep the set small — every sentinel is a permanent part of your API, and a package with fifteen of them is exposing implementation detail that callers will start depending on whether you intended it or not.
 
-Keep the set small. Every sentinel is a permanent part of your API, and a
-package with fifteen of them is describing implementation details that callers
-will start depending on.
+::code-blank{lang="go" href="/tracks/go/error-handling" label="practice error handling for real"}
+---
+code: |
+  ___blank_start___var___blank_end___ ErrNotFound = errors.New("not found")
+---
+::
 
-## Typed errors
+## Typed errors and the Unwrap contract
 
-When the caller needs data, define a type.
+When the caller needs data, define a type instead:
 
 ```go
 type ValidationError struct {
-    Field  string
-    Reason string
+	Field, Reason string
 }
 
 func (e *ValidationError) Error() string {
-    return fmt.Sprintf("field %s: %s", e.Field, e.Reason)
+	return fmt.Sprintf("field %s: %s", e.Field, e.Reason)
 }
 ```
 
-Extract with `errors.As`, which also walks the chain and assigns into a target:
+Extract with `errors.As`, which walks the chain and assigns into a target:
 
 ```go
 var ve *ValidationError
 if errors.As(err, &ve) {
-    respondBadRequest(w, ve.Field, ve.Reason)
-    return
+	respondBadRequest(w, ve.Field, ve.Reason)
 }
 ```
 
-Two details cost people time here:
+The target is a pointer to the error type. `Error()` is defined on `*ValidationError`, so the value sitting in the chain is a `*ValidationError`, which makes the target a `**ValidationError` — exactly what `&ve` is when `ve` is declared `var ve *ValidationError`. Pass anything else and `errors.As` panics rather than returning `false`, deliberately, because that shape mismatch is a programming mistake, not a runtime condition.
 
-**The target is a pointer to the error type.** `Error()` is defined on
-`*ValidationError`, so the error value is a `*ValidationError`, so the target is
-`**ValidationError` — which is what `&ve` is when `ve` is declared as
-`var ve *ValidationError`. Passing anything else panics rather than returning
-false, deliberately, because it is a programming error rather than a runtime
-condition.
-
-**Implement `Error()` on the pointer receiver and stay consistent.** If some
-methods take a value receiver and some take a pointer, callers cannot predict
-whether to look for `ValidationError` or `*ValidationError`, and `errors.As`
-will quietly fail to match the one they did not choose.
-
-### Wrapping inside a typed error
-
-A typed error that contains another error should expose it, or the chain stops
-there:
+A typed error that wraps another error has to expose it, or the chain stops there:
 
 ```go
 type QueryError struct {
-    Query string
-    Err   error
+	Query string
+	Err   error
 }
 
-func (e *QueryError) Error() string {
-    return fmt.Sprintf("query %s: %v", e.Query, e.Err)
-}
-
-func (e *QueryError) Unwrap() error {
-    return e.Err
-}
+func (e *QueryError) Error() string { return fmt.Sprintf("query %s: %v", e.Query, e.Err) }
+func (e *QueryError) Unwrap() error { return e.Err }
 ```
 
-Without `Unwrap`, `errors.Is(err, sql.ErrNoRows)` returns false even though the
-information is right there in the struct. `Unwrap` is what `errors.Is` and
-`errors.As` walk.
+Without `Unwrap`, `errors.Is(err, sql.ErrNoRows)` returns false even though the information is sitting right there in the struct — `Unwrap` is what `errors.Is` and `errors.As` actually walk.
 
-## Custom matching with an `Is` method
+::code-blank{lang="go" href="/tracks/go/error-handling" label="practice error handling for real"}
+---
+code: |
+  func (e *QueryError) ___blank_start___Unwrap___blank_end___() error {
+      return e.Err
+  }
+---
+::
 
-Sometimes identity is not what you want to match on. An error carrying an HTTP
-status should compare equal to any error with the same status:
+## Matching on behavior instead of type
 
-```go
-type HTTPError struct {
-    Code int
-}
-
-func (e *HTTPError) Error() string {
-    return fmt.Sprintf("http %d", e.Code)
-}
-
-func (e *HTTPError) Is(target error) bool {
-    other, ok := target.(*HTTPError)
-    return ok && other.Code == e.Code
-}
-```
-
-```go
-if errors.Is(err, &HTTPError{Code: http.StatusTooManyRequests}) {
-    backOff()
-}
-```
-
-`errors.Is` calls the `Is` method on each error in the chain, so this works
-through wrapping. Use it sparingly — an `Is` method that is cleverer than
-equality is a thing every future reader has to discover.
-
-## Matching on behaviour instead of type
-
-The most decoupled option is to match on what an error *can do*, not what it is.
-`errors.As` accepts a pointer to an interface, so you can ask whether anything
-in the chain implements a method.
+The most decoupled option skips both sentinels and types and matches on what an error can *do*:
 
 ```go
 type temporary interface {
-    Temporary() bool
+	Temporary() bool
 }
 
 func isTemporary(err error) bool {
-    var t temporary
-    return errors.As(err, &t) && t.Temporary()
+	var t temporary
+	return errors.As(err, &t) && t.Temporary()
 }
 ```
 
-This is how a retry loop can work across packages that have never heard of each
-other. The interface is defined by the consumer, which is the usual Go move, and
-no import relationship is created in either direction.
+`errors.As` accepts a pointer to an interface, not just a concrete type, so this asks "does anything in the chain implement this method" instead of "is anything in the chain this exact type." It's how a retry loop can work across packages that have never imported each other — the interface is defined by the consumer, which is the usual Go move, and no dependency is created in either direction.
 
-## Collecting several errors
+The same escape hatch exists for identity itself. An error can implement its own `Is(target error) bool`, which `errors.Is` calls on every error in the chain instead of falling back to `==`:
 
-`errors.Join` (Go 1.20+) builds one error from many, and `errors.Is` and
-`errors.As` search all of them.
+```go
+func (e *HTTPError) Is(target error) bool {
+	other, ok := target.(*HTTPError)
+	return ok && other.Code == e.Code
+}
+```
+
+Use it sparingly. An `Is` method that redefines what "equal" means is something every future reader has to discover before `errors.Is` behaves the way they expect from it.
+
+## Collecting errors, and not logging what you're about to return
+
+`errors.Join` (Go 1.20+) builds one error out of many, and `errors.Is`/`errors.As` search all of them:
 
 ```go
 func Validate(u User) error {
-    var errs []error
-    if u.Name == "" {
-        errs = append(errs, &ValidationError{Field: "name", Reason: "required"})
-    }
-    if u.Age < 0 {
-        errs = append(errs, &ValidationError{Field: "age", Reason: "must not be negative"})
-    }
-    return errors.Join(errs...)
+	var errs []error
+	if u.Name == "" {
+		errs = append(errs, &ValidationError{Field: "name", Reason: "required"})
+	}
+	if u.Age < 0 {
+		errs = append(errs, &ValidationError{Field: "age", Reason: "must not be negative"})
+	}
+	return errors.Join(errs...)
 }
 ```
 
-`errors.Join` returns `nil` when every argument is nil, so the empty case needs
-no special handling. The joined error's message is each error on its own line.
+`errors.Join` returns `nil` when every argument is nil, so the all-valid case needs no extra branch. This is the right shape for validation, where reporting every problem at once beats a user fixing one field per round trip.
 
-This is the right shape for validation, where reporting the first problem and
-stopping makes a user fix one field per round trip.
+::code-blank{lang="go" href="/tracks/go/error-handling" label="practice error handling for real"}
+---
+code: |
+  return errors.___blank_start___Join___blank_end___(errs...)
+---
+::
 
-## Do not log and return
+One habit undoes a lot of the design above: logging an error and then also returning it.
 
 ```go
 if err != nil {
-    log.Printf("load user: %v", err)   // logged here
-    return err                          // and logged again by the caller
+	log.Printf("load user: %v", err) // logged here
+	return err                        // and logged again by the caller
 }
 ```
 
-Every layer that does this multiplies the output, and the resulting log has the
-same failure five times with slightly different wording. Pick one: either handle
-the error here — which includes logging it and not returning it — or add context
-and return it. The layer that decides what happens is the layer that logs.
+Every layer that does this multiplies the output into the same failure repeated five times with slightly different wording. Pick one: handle the error here, which includes logging it and not returning it, or add context and return it. Whichever layer decides what happens is the layer that logs.
 
-## Test the identity, not the message
+## Where this bites
 
-Error messages are prose and they change. What you actually care about is that
-the right error came back.
+**Returning a typed nil as your `error` result breaks the contract you just designed.** `var err *MyError; return err` produces a non-nil `error` interface even when `err` is nil, and every caller doing `if err != nil` gets the wrong answer. Return `nil` literally whenever the declared return type is the `error` interface, never a concrete-typed local that happens to be nil.
 
-```go
-// Brittle — a wrapper anywhere in the chain breaks this
-if err.Error() != "user not found" {
-    t.Fatalf("unexpected error: %v", err)
-}
+**Wrapping an error you don't own publishes its type as part of your API.** `fmt.Errorf("load user: %w", err)` around `sql.ErrNoRows` means callers can now write `errors.Is(err, sql.ErrNoRows)` against your function, whether you meant to promise that or not. Translate at the boundary into a sentinel you control instead of forwarding someone else's.
 
-// Stable — asserts the thing the caller will branch on
-if !errors.Is(err, store.ErrUserNotFound) {
-    t.Fatalf("got %v, want ErrUserNotFound", err)
-}
+**Sentinel-error sprawl turns implementation detail into a permanent commitment.** A package with fifteen exported `ErrX` values, most never checked by a real caller, has to keep all fifteen stable forever. Add one only when you can point to the `errors.Is` call site that needs it.
 
-var ve *ValidationError
-if !errors.As(err, &ve) {
-    t.Fatalf("got %v, want *ValidationError", err)
-} else if ve.Field != "name" {
-    t.Errorf("got field %q, want name", ve.Field)
-}
-```
-
-A test that asserts on the message string is testing your wording. A test that
-asserts on `errors.Is` is testing your API — and if the assertion is awkward to
-write, the API is awkward to use, which is worth learning before your callers do.
-
-## Practice
-
-The mechanics behind all of this — the `error` interface, `fmt.Errorf`,
-`errors.Is`, `errors.As`, `errors.Join`, and `defer`/`panic`/`recover` — are
-covered in [Error Handling Patterns](/tutorials/go-error-handling-patterns).
-
-Work through the error handling exercises on the [Go track](/tracks/go) to
-practise the design decisions: which errors your package should expose, when to
-wrap and when to translate, and how a caller is meant to tell one failure from
-another.
+**Testing against `err.Error()` text instead of `errors.Is` or `errors.As`.** Message text is prose, and prose changes; a wrapper added anywhere in the chain breaks a string-equality test that never should have depended on wording. Assert on the thing the caller actually branches on — the sentinel, or the type — and let the message be free to improve.

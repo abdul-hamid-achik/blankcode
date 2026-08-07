@@ -1,7 +1,7 @@
 ---
 title: "State Management with Pinia"
 slug: "vue-state-with-pinia"
-description: "Master Pinia for managing application state with stores, getters, actions, and plugins."
+description: "What actually belongs in a Pinia store instead of component state, why setup stores are the better default, and the reactivity trap that storeToRefs exists specifically to avoid."
 track: "vue"
 order: 3
 difficulty: "intermediate"
@@ -11,270 +11,116 @@ practice:
   label: "Pinia"
 ---
 
-Pinia is Vue's official state management library. It replaces Vuex with a simpler, fully typed API that works seamlessly with the Composition API. This tutorial covers everything from creating your first store to advanced patterns like store composition and persistence.
+Pinia stores are reactive objects that live for the lifetime of the app rather than the lifetime of one component. That single fact is the whole design question this tutorial is about: deciding what belongs in one, and handling it correctly once it's there.
 
-## Why Pinia?
+## What belongs in a store
 
-As your application grows, passing props through many component layers becomes unwieldy. Pinia gives you centralized stores that any component can read and write to, with full reactivity and devtools support.
+A component's own `ref` is the default, not the exception. State moves into a store only when at least one of these is true: two or more unrelated components need to read or write it, it has to survive the component that created it being unmounted, or a route change shouldn't reset it. A single form's draft input, a dropdown's open/closed flag, a modal's local step counter — none of that qualifies. Putting it in a store anyway doesn't just add indirection; it means that state now lives for the app's entire session unless someone remembers to reset it, a cost paid by whoever debugs the stale value months later.
 
-Key advantages over alternatives:
-- Full TypeScript support with type inference
-- No mutations — just state, getters, and actions
-- Works with both Options API and Composition API
-- Modular by design — each store is independent
-- Devtools integration with time-travel debugging
+## Setup stores as the default
 
-## Creating a Store
-
-Pinia offers two syntax styles for defining stores. Both are equally capable.
-
-### Option Store
-
-The option store syntax is familiar if you have used Vuex:
+Pinia offers two syntaxes. The option store — `state`/`getters`/`actions` as a plain object — mirrors Vuex and is fine for a simple, static shape. The setup store mirrors `<script setup>` itself: `ref` for state, `computed` for getters, plain functions for actions. It's the better default the moment a store needs anything beyond a flat object — composing another store, calling a composable, an early return during setup, or a piece of state that genuinely needs a `Map` or `Set` rather than a plain property.
 
 ```typescript
-import { defineStore } from 'pinia';
-
-export const useCounterStore = defineStore('counter', {
-  state: () => ({
-    count: 0,
-    lastChanged: null as Date | null,
-  }),
-
-  getters: {
-    doubled: (state) => state.count * 2,
-    isPositive: (state) => state.count > 0,
-  },
-
-  actions: {
-    increment() {
-      this.count++;
-      this.lastChanged = new Date();
-    },
-    decrement() {
-      this.count--;
-      this.lastChanged = new Date();
-    },
-    async fetchCount() {
-      const res = await fetch('/api/count');
-      const data = await res.json();
-      this.count = data.count;
-    },
-  },
-});
-```
-
-### Setup Store
-
-The setup store syntax mirrors `<script setup>` and gives you maximum flexibility:
-
-```typescript
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-
-export const useCounterStore = defineStore('counter', () => {
-  const count = ref(0);
-  const lastChanged = ref<Date | null>(null);
-
-  const doubled = computed(() => count.value * 2);
-  const isPositive = computed(() => count.value > 0);
-
-  function increment() {
-    count.value++;
-    lastChanged.value = new Date();
-  }
-
-  function decrement() {
-    count.value--;
-    lastChanged.value = new Date();
-  }
-
-  async function fetchCount() {
-    const res = await fetch('/api/count');
-    const data = await res.json();
-    count.value = data.count;
-  }
-
-  return { count, lastChanged, doubled, isPositive, increment, decrement, fetchCount };
-});
-```
-
-Setup stores are recommended for complex logic because you can use any composable inside them.
-
-## Using Stores in Components
-
-Call the store function inside `<script setup>` to get a reactive store instance:
-
-```vue
-<script setup lang="ts">
-import { useCounterStore } from '@/stores/counter';
-
-const counter = useCounterStore();
-</script>
-
-<template>
-  <div>
-    <p>Count: {{ counter.count }}</p>
-    <p>Doubled: {{ counter.doubled }}</p>
-    <button @click="counter.increment()">+1</button>
-    <button @click="counter.decrement()">-1</button>
-  </div>
-</template>
-```
-
-If you need to destructure, use `storeToRefs` to keep reactivity on state and getters:
-
-```typescript
-import { storeToRefs } from 'pinia';
-
-const counter = useCounterStore();
-const { count, doubled } = storeToRefs(counter);
-// Actions can be destructured directly
-const { increment, decrement } = counter;
-```
-
-## Subscribing to Changes
-
-Pinia lets you watch for state changes with `$subscribe`:
-
-```typescript
-const counter = useCounterStore();
-
-counter.$subscribe((mutation, state) => {
-  console.log('State changed:', mutation.type);
-  console.log('New count:', state.count);
-
-  // Save to localStorage on every change using the store's ID
-  localStorage.setItem(counter.$id, JSON.stringify(state));
-});
-```
-
-You can also watch specific actions with `$onAction`:
-
-```typescript
-counter.$onAction(({ name, args, after, onError }) => {
-  const start = Date.now();
-
-  after((result) => {
-    console.log(`${name} completed in ${Date.now() - start}ms`);
-  });
-
-  onError((error) => {
-    console.error(`${name} failed:`, error);
-  });
-});
-```
-
-## Composing Stores
-
-Stores can use other stores. This is the recommended way to share logic between stores:
-
-```typescript
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import { useAuthStore } from './auth';
-
 export const useCartStore = defineStore('cart', () => {
-  const auth = useAuthStore();
-  const items = ref<Array<{ id: string; name: string; price: number }>>([]);
+  const items = ref<CartItem[]>([])
 
   const total = computed(() =>
     items.value.reduce((sum, item) => sum + item.price, 0),
-  );
+  )
 
-  const discountedTotal = computed(() => {
-    if (auth.user?.isPremium) {
-      return total.value * 0.9;
-    }
-    return total.value;
-  });
-
-  function addItem(item: { id: string; name: string; price: number }) {
-    items.value.push(item);
+  function addItem(item: CartItem) {
+    items.value.push(item)
   }
 
-  function removeItem(id: string) {
-    items.value = items.value.filter(item => item.id !== id);
-  }
-
-  function clear() {
-    items.value = [];
-  }
-
-  return { items, total, discountedTotal, addItem, removeItem, clear };
-});
+  return { items, total, addItem }
+})
 ```
 
-## Persisting State
+::code-blank{lang="typescript" href="/tracks/vue/pinia" label="practice pinia for real"}
+---
+code: |
+  // Setup store — state as ref, getters as computed, actions as functions
+  const items = ___blank_start___ref___blank_end___<CartItem[]>([])
+---
+::
 
-A common need is persisting store state across page reloads. You can build this with a Pinia plugin:
+## storeToRefs: why destructuring a store needs it
+
+A store instance is itself a reactive object under the hood — calling `useCartStore()` hands you something built the same way `reactive()` builds its proxy. Destructuring state or getters straight off it hits the same wall as destructuring any other `reactive()` object: `const { total } = useCartStore()` reads `total` once and gives you a frozen number, not a tracked value, and the template using it stops updating the moment the store changes.
 
 ```typescript
-import { type PiniaPluginContext } from 'pinia';
+import { storeToRefs } from 'pinia'
 
-function piniaLocalStorage({ store }: PiniaPluginContext) {
-  const saved = localStorage.getItem(store.$id);
-  if (saved) {
-    try {
-      store.$patch(JSON.parse(saved));
-    } catch (e) {
-      console.error(`Failed to parse stored state for "${store.$id}":`, e);
-      localStorage.removeItem(store.$id);
-    }
-  }
-
-  store.$subscribe((_, state) => {
-    localStorage.setItem(store.$id, JSON.stringify(state));
-  });
-}
-
-// Register the plugin when creating Pinia
-import { createPinia } from 'pinia';
-
-const pinia = createPinia();
-pinia.use(piniaLocalStorage);
+const cart = useCartStore()
+const { items, total } = storeToRefs(cart) // refs — stay connected
+const { addItem } = cart // plain function — safe to destructure directly
 ```
 
-Now every store's state automatically saves to and restores from `localStorage`.
+`storeToRefs` walks the store and wraps every piece of state and every getter in its own ref, and deliberately skips anything that's a function. Actions don't need that treatment — a function reference doesn't go stale the way a snapshotted value does, so destructuring `addItem` directly works fine while destructuring `total` directly does not.
 
-For production applications, consider using [`pinia-plugin-persistedstate`](https://prazdevs.github.io/pinia-plugin-persistedstate/) — the standard community plugin for persistence. It handles edge cases like SSR, custom serialization, and selective persistence out of the box:
+::code-blank{lang="typescript" href="/tracks/vue/pinia" label="practice pinia for real"}
+---
+code: |
+  // Keeps state and getters reactive after destructuring a store
+  const { items, total } = ___blank_start___storeToRefs___blank_end___(cart)
+---
+::
+
+## Composing stores
+
+Stores can call other stores from inside their own setup function — this is the supported way to share logic between them, not a workaround:
 
 ```typescript
-import { createPinia } from 'pinia';
-import piniaPluginPersistedstate from 'pinia-plugin-persistedstate';
+export const useCartStore = defineStore('cart', () => {
+  const auth = useAuthStore()
+  const items = ref<CartItem[]>([])
 
-const pinia = createPinia();
-pinia.use(piniaPluginPersistedstate);
+  const total = computed(() =>
+    auth.user?.isPremium
+      ? items.value.reduce((s, i) => s + i.price, 0) * 0.9
+      : items.value.reduce((s, i) => s + i.price, 0),
+  )
 
-// Then in your store:
+  return { items, total }
+})
+```
+
+That call has to happen inside `useCartStore`'s own setup function, not at module scope when the file loads — Pinia's active-instance context isn't established at import time, the same synchronous-call rule that governs lifecycle hooks elsewhere in the Composition API.
+
+## Subscribing to changes and persistence
+
+`$subscribe` runs after every state mutation and is the low-level hook persistence is built on:
+
+```typescript
+cart.$subscribe((mutation, state) => {
+  localStorage.setItem(cart.$id, JSON.stringify(state))
+})
+```
+
+For production, reach for [`pinia-plugin-persistedstate`](https://prazdevs.github.io/pinia-plugin-persistedstate/) instead of hand-rolling this — it already handles SSR, selective persistence, and custom serialization:
+
+```typescript
 export const useSettingsStore = defineStore('settings', {
-  state: () => ({ theme: 'light', locale: 'en' }),
-  persist: true, // that's it
-});
+  state: () => ({ theme: 'light' }),
+  persist: true,
+})
 ```
 
-## Resetting State
+::code-blank{lang="typescript" href="/tracks/vue/pinia" label="practice pinia for real"}
+---
+code: |
+  // Runs after every mutation — the hook persistence plugins build on
+  cart.___blank_start___$subscribe___blank_end___((mutation, state) => saveState(state))
+---
+::
 
-Option stores get a built-in `$reset()` method. For setup stores, define your own:
+## Where this bites
 
-```typescript
-export const useFormStore = defineStore('form', () => {
-  const name = ref('');
-  const email = ref('');
+**Destructuring state or a getter straight off a store.** `const { total } = useCartStore()` compiles and returns the right value once, then never updates again, while the store itself keeps changing correctly in devtools. Always route state and getters through `storeToRefs`; destructure actions directly.
 
-  function $reset() {
-    name.value = '';
-    email.value = '';
-  }
+**Defaulting every piece of component state into a store.** A store outlives the component that touched it, so a scratch value nobody explicitly resets — a search draft, a wizard step — quietly carries over the next time the user visits that page. If only one component tree needs it, keep it a local `ref`.
 
-  return { name, email, $reset };
-});
-```
+**Expecting `$reset()` on a setup store.** Option stores get a free `$reset()` that restores the initial `state()` object; setup stores don't, because Pinia has no way to know which of your refs count as "state" to reset. Define your own `$reset` function and return it if the store needs one.
 
-This is useful for clearing forms, resetting filters, or logging out users.
-
-## What's Next?
-
-Try the [Vue exercises](/tracks/vue) to practice building stores and connecting them to components in interactive challenges.
-
-Next up: [Composables Guide](/tutorials/vue-composables-guide)
+**Calling another store at module scope instead of inside `defineStore`'s setup function.** `const auth = useAuthStore()` written at the top of a file, outside any store definition, runs before Pinia's app context exists and throws or returns a broken instance. Call it inside the setup function body — the same rule that governs lifecycle hooks anywhere else in the Composition API.

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ArticleProgress from '~/components/content/ArticleProgress.vue'
+import { useCodeCopy } from '~/composables/useCodeCopy'
 import { usePageSeo } from '~/composables/usePageSeo'
 import { readingMinutes, sortPostsNewestFirst } from '~/utils/blog'
 
@@ -107,6 +109,9 @@ useHead({
   ],
 })
 
+const articleRef = ref<HTMLElement | null>(null)
+useCodeCopy(articleRef)
+
 function formatDate(date: string): string {
   return new Date(date).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -118,6 +123,7 @@ function formatDate(date: string): string {
 
 <template>
   <article v-if="post" class="container py-12 md:py-16">
+    <ArticleProgress />
     <!-- 42rem ≈ 65ch at the article's 17px body size: the reading measure. -->
     <div class="mx-auto max-w-[42rem]">
       <nav aria-label="Breadcrumb" class="mb-8">
@@ -160,7 +166,7 @@ function formatDate(date: string): string {
         </ol>
       </nav>
 
-      <div class="article-body">
+      <div ref="articleRef" class="article-body">
         <ContentRenderer :value="post" />
       </div>
 

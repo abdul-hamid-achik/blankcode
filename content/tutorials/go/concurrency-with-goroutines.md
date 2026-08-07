@@ -1,7 +1,7 @@
 ---
 title: "Concurrency with Goroutines"
 slug: "go-concurrency-with-goroutines"
-description: "Learn Go's concurrency model with goroutines, channels, and synchronization primitives."
+description: "Goroutines, channels, and select as Go's concurrency primitives — when to reach for a WaitGroup versus a channel, and the loop-variable rule that changed in Go 1.22."
 track: "go"
 order: 3
 difficulty: "advanced"
@@ -11,388 +11,193 @@ practice:
   label: "Concurrency"
 ---
 
-Concurrency is one of Go's defining features. While other languages bolt concurrency on through libraries, Go bakes it into the language with goroutines and channels. This makes concurrent programs easier to write, read, and reason about.
+Other languages bolt concurrency on as a library. Go bakes it into the language: `go` starts a goroutine, channels move data between them, and `select` waits on several at once. The primitives are small. Using them correctly is a different skill from knowing their syntax, and that is what this tutorial is actually about.
 
-## Goroutines
+## Goroutines are cheap, not disposable
 
-A goroutine is a lightweight thread managed by the Go runtime. You start one with the `go` keyword before a function call.
+`go f()` starts a goroutine — a function running concurrently, scheduled by the Go runtime rather than the OS. Each one starts with a stack of a few kilobytes that grows as needed, so running thousands is routine and running hundreds of thousands is still fine.
 
 ```go
-package main
-
-import (
-    "fmt"
-    "time"
-)
-
 func printNumbers(label string) {
-    for i := 1; i <= 5; i++ {
-        fmt.Printf("%s: %d\n", label, i)
-        time.Sleep(100 * time.Millisecond)
-    }
+	for i := 1; i <= 3; i++ {
+		fmt.Printf("%s: %d\n", label, i)
+	}
 }
 
 func main() {
-    go printNumbers("goroutine")
-    printNumbers("main")
+	go printNumbers("background")
+	printNumbers("main")
+	// main can return before "background" finishes printing —
+	// the program exits the instant main() returns, goroutines or not.
 }
 ```
 
-Goroutines are extremely cheap — you can run thousands or even millions of them. Each starts with a small stack (a few kilobytes) that grows and shrinks as needed. However, the program exits when `main` returns, regardless of whether other goroutines are still running. That is why we need synchronization.
+`main` returning ends the program regardless of what other goroutines are doing; there is no implicit wait. Never use `time.Sleep` to paper over that — it is a race with a delay attached, not a guarantee. Channels and `sync.WaitGroup`, below, are the real synchronization tools.
 
-> **Important:** Do NOT rely on `time.Sleep` for synchronization in real code. Use channels or sync primitives (like `WaitGroup`) instead. `time.Sleep` is used here only to illustrate interleaving — it provides no guarantee about goroutine completion.
+## Channels: typed, blocking communication
 
-## Channels
-
-Channels are typed conduits that let goroutines communicate and synchronize. You send values into a channel and receive them on the other side.
+A channel is a typed pipe between goroutines. An unbuffered channel blocks the sender until a receiver is ready, and blocks the receiver until a sender shows up — that blocking is the synchronization.
 
 ```go
-package main
-
-import "fmt"
-
-func sum(numbers []int, ch chan int) {
-    total := 0
-    for _, n := range numbers {
-        total += n
-    }
-    ch <- total // send result to channel
+func sum(nums []int, ch chan int) {
+	total := 0
+	for _, n := range nums {
+		total += n
+	}
+	ch <- total
 }
 
 func main() {
-    numbers := []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-    ch := make(chan int)
+	nums := []int{1, 2, 3, 4, 5, 6}
+	ch := make(chan int)
 
-    // Split work across two goroutines
-    mid := len(numbers) / 2
-    go sum(numbers[:mid], ch)
-    go sum(numbers[mid:], ch)
+	go sum(nums[:3], ch)
+	go sum(nums[3:], ch)
 
-    // Receive both results
-    a, b := <-ch, <-ch
-    fmt.Println("Total:", a+b) // 55
+	a, b := <-ch, <-ch
+	fmt.Println(a + b) // 21
 }
 ```
 
-Unbuffered channels block the sender until a receiver is ready, and vice versa. This blocking behavior is what makes channels useful for synchronization.
+::code-blank{lang="go" href="/tracks/go/concurrency" label="practice concurrency for real"}
+---
+code: |
+  ch := make(___blank_start___chan___blank_end___ int)
+---
+::
 
-## Buffered Channels
+## Buffered channels, select, and timeouts
 
-Buffered channels hold a fixed number of values without a corresponding receiver. Sends block only when the buffer is full. Receives block only when the buffer is empty.
+A buffered channel holds values without a receiver present — sends block only once the buffer is full. `select` waits on several channel operations and runs whichever is ready first; if several are ready at once, it picks one at random.
 
 ```go
-package main
+ch1 := make(chan string, 1)
+ch2 := make(chan string, 1)
 
-import "fmt"
+go func() { ch1 <- "from A" }()
+go func() { ch2 <- "from B" }()
 
-func main() {
-    ch := make(chan string, 3) // buffer size of 3
-
-    ch <- "first"
-    ch <- "second"
-    ch <- "third"
-    // ch <- "fourth" would block here (buffer full)
-
-    fmt.Println(<-ch) // first
-    fmt.Println(<-ch) // second
-    fmt.Println(<-ch) // third
+select {
+case msg := <-ch1:
+	fmt.Println(msg)
+case msg := <-ch2:
+	fmt.Println(msg)
+case <-time.After(time.Second):
+	fmt.Println("timeout")
 }
 ```
 
-Use buffered channels when you know how many values will be sent, or when you want to decouple the speed of producers and consumers.
+The buffer of size 1 matters here: whichever goroutine loses the `select` still has somewhere to put its value, so it can finish and exit. With unbuffered channels the losing goroutine would block on its send forever — a goroutine leak with no error and no crash, just a process that slowly accumulates stuck goroutines. `time.After` gives you the timeout case for free; a `select` with no ready case and no timeout blocks indefinitely, so production code almost always has one.
 
-## The Select Statement
+::code-blank{lang="go" href="/tracks/go/concurrency" label="practice concurrency for real"}
+---
+code: |
+  ___blank_start___select___blank_end___ {
+  case msg := <-ch1:
+      fmt.Println(msg)
+  case <-time.After(time.Second):
+      fmt.Println("timeout")
+  }
+---
+::
 
-`select` lets a goroutine wait on multiple channel operations. It picks whichever case is ready first. If multiple are ready, it chooses one at random.
+## sync.WaitGroup and sync.Mutex
+
+A `WaitGroup` counts outstanding goroutines and blocks until the count returns to zero — simpler than a channel when you don't need to pass data back. A `Mutex` protects shared state that multiple goroutines touch.
 
 ```go
-package main
+type Counter struct {
+	mu sync.Mutex
+	n  int
+}
 
-import (
-    "fmt"
-    "time"
-)
+func (c *Counter) Inc() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.n++
+}
 
 func main() {
-    ch1 := make(chan string, 1)
-    ch2 := make(chan string, 1)
+	var wg sync.WaitGroup
+	c := &Counter{}
 
-    go func() {
-        time.Sleep(200 * time.Millisecond)
-        ch1 <- "result from service A"
-    }()
-
-    go func() {
-        time.Sleep(100 * time.Millisecond)
-        ch2 <- "result from service B"
-    }()
-
-    // Wait for the first response
-    select {
-    case msg := <-ch1:
-        fmt.Println(msg)
-    case msg := <-ch2:
-        fmt.Println(msg) // prints first (faster)
-    case <-time.After(1 * time.Second):
-        fmt.Println("timeout")
-    }
+	for i := 0; i < 1000; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c.Inc()
+		}()
+	}
+	wg.Wait()
+	fmt.Println(c.n) // 1000
 }
 ```
 
-The channels are buffered with size 1 so the slower goroutine can complete its send and exit even after `select` has picked the faster result. With unbuffered channels, the goroutine that loses the `select` race would block on its send forever, causing a goroutine leak.
+Call `wg.Add` before starting the goroutine, never from inside it — otherwise `Wait` can race past a count that has not been incremented yet. Run anything touching shared state under `go run -race` at least once during development; the race detector catches exactly this class of bug, reliably, not "usually."
 
-The `time.After` case acts as a timeout — if no channel is ready within the duration, the timeout fires. This pattern is essential for building resilient networked services.
+::code-blank{lang="go" href="/tracks/go/concurrency" label="practice concurrency for real"}
+---
+code: |
+  c.mu.Lock()
+  ___blank_start___defer___blank_end___ c.mu.Unlock()
+---
+::
 
-## sync.WaitGroup
+## context.Context for cancellation
 
-A `WaitGroup` waits for a collection of goroutines to finish. It is simpler than using channels when you do not need to pass data back.
+`context.Context` propagates cancellation, timeouts, and deadlines across goroutines. Pass it as the first parameter of any function that might block or do I/O.
 
 ```go
-package main
-
-import (
-    "fmt"
-    "sync"
-)
-
-func worker(id int, wg *sync.WaitGroup) {
-    defer wg.Done()
-    fmt.Printf("Worker %d starting\n", id)
-    // simulate work
-    fmt.Printf("Worker %d done\n", id)
+func fetch(ctx context.Context, id int) (string, error) {
+	select {
+	case <-time.After(500 * time.Millisecond):
+		return fmt.Sprintf("data-%d", id), nil
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
 }
 
-func main() {
-    var wg sync.WaitGroup
+ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+defer cancel()
 
-    for i := 1; i <= 5; i++ {
-        wg.Add(1)
-        go worker(i, &wg)
-    }
-
-    wg.Wait() // blocks until all workers call Done()
-    fmt.Println("All workers finished")
+if _, err := fetch(ctx, 42); err != nil {
+	fmt.Println(err) // context deadline exceeded
 }
 ```
 
-Always call `wg.Add` before launching the goroutine, and always pass the `WaitGroup` by pointer. Calling `defer wg.Done()` at the start of the goroutine function ensures it runs even if the function returns early.
+Call the returned `cancel` immediately after creating the context, even though the timeout will fire on its own — deferring it right away is the pattern, and skipping it leaks the internal timer until the deadline arrives regardless of whether you still need the result.
 
-## sync.Mutex and sync.RWMutex
+## The loop variable Go 1.22 fixed
 
-When multiple goroutines access shared data, you need a mutex to prevent race conditions. Use `sync.RWMutex` when reads are frequent and writes are rare — it allows multiple concurrent readers.
+Before Go 1.22, a `for` loop reused one variable across every iteration. A goroutine closing over that variable captured the variable itself, not the value at the moment `go` was called — and by the time the goroutine ran, the loop had usually moved on.
 
 ```go
-package main
-
-import (
-    "fmt"
-    "sync"
-)
-
-type SafeCounter struct {
-    mu sync.RWMutex
-    v  map[string]int
-}
-
-func (c *SafeCounter) Inc(key string) {
-    c.mu.Lock()
-    defer c.mu.Unlock()
-    c.v[key]++
-}
-
-func (c *SafeCounter) Value(key string) int {
-    c.mu.RLock()
-    defer c.mu.RUnlock()
-    return c.v[key]
-}
-
-func main() {
-    counter := SafeCounter{v: make(map[string]int)}
-
-    var wg sync.WaitGroup
-    for i := 0; i < 1000; i++ {
-        wg.Add(1)
-        go func() {
-            defer wg.Done()
-            counter.Inc("key")
-        }()
-    }
-
-    wg.Wait()
-    fmt.Println("Final count:", counter.Value("key")) // 1000
+for _, id := range []int{1, 2, 3} {
+	go func() {
+		fmt.Println(id) // pre-1.22: usually prints 3, 3, 3
+	}()
 }
 ```
 
-The `Value` method uses `RLock`/`RUnlock` because it only reads — multiple goroutines can hold a read lock simultaneously. The `Inc` method uses `Lock`/`Unlock` because it writes — it needs exclusive access. Always use `defer mu.Unlock()` right after locking to guarantee the lock is released.
-
-## context.Context
-
-The `context` package provides cancellation, timeouts, and deadline propagation across goroutines. It is essential for controlling the lifecycle of concurrent operations, especially in servers and pipelines.
+Go 1.22 changed the language semantics: every iteration now gets its own copy of the loop variable, so this same code reliably prints `1`, `2`, `3` in some order on current Go. The old workaround still shows up in codebases written before the change, and it is harmless to leave in place:
 
 ```go
-package main
-
-import (
-    "context"
-    "fmt"
-    "time"
-)
-
-func fetchData(ctx context.Context, id int) (string, error) {
-    select {
-    case <-time.After(500 * time.Millisecond):
-        return fmt.Sprintf("data-%d", id), nil
-    case <-ctx.Done():
-        return "", ctx.Err()
-    }
-}
-
-func main() {
-    // Create a context that cancels after 200ms
-    ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
-    defer cancel()
-
-    result, err := fetchData(ctx, 42)
-    if err != nil {
-        fmt.Println("Failed:", err) // Failed: context deadline exceeded
-        return
-    }
-    fmt.Println("Got:", result)
+for _, id := range []int{1, 2, 3} {
+	id := id // pre-1.22 idiom — shadow to get a fresh variable per iteration
+	go func() {
+		fmt.Println(id)
+	}()
 }
 ```
 
-Always pass `context.Context` as the first parameter of functions that may block or perform I/O. Call `defer cancel()` immediately after creating a cancellable context to prevent resource leaks. Check `ctx.Done()` in select statements to respond promptly to cancellation.
+What decides which behavior you get is not your Go toolchain version but the `go` line in that module's `go.mod`. A module that declares `go 1.21` or earlier keeps the old capture semantics even when compiled with a current toolchain — this is a per-module language version, not a global one, so it's worth checking before assuming.
 
-## Concurrency Patterns
+## Where this bites
 
-### Fan-Out, Fan-In
+**`main` does not wait for goroutines it did not join.** The program exits the moment `main` returns, mid-flight goroutines and all. Block on a `WaitGroup` or a channel receive for anything that has to finish first.
 
-Fan-out means starting multiple goroutines to handle work from a single source. Fan-in means combining results from multiple goroutines into a single channel. Multiple goroutines reading from the same channel compete for values — each value goes to exactly one reader.
+**A goroutine that loses a `select` on an unbuffered channel blocks forever.** No error, no crash — it just sits there, and the count of stuck goroutines grows every time the pattern repeats. Size the channel for the sends that might lose the race, or give the sender its own `select` with a way out.
 
-```go
-package main
+**Per-iteration loop variables are not guaranteed just because you're on a recent toolchain.** The semantics are gated by the `go` directive in `go.mod`, not the compiler you happen to be running. A vendored or older module can still exhibit pre-1.22 capture even in a build done today.
 
-import (
-    "fmt"
-    "sync"
-)
-
-func generate(nums ...int) <-chan int {
-    out := make(chan int)
-    go func() {
-        for _, n := range nums {
-            out <- n
-        }
-        close(out)
-    }()
-    return out
-}
-
-func square(in <-chan int) <-chan int {
-    out := make(chan int)
-    go func() {
-        for n := range in {
-            out <- n * n
-        }
-        close(out)
-    }()
-    return out
-}
-
-func merge(channels ...<-chan int) <-chan int {
-    out := make(chan int)
-    var wg sync.WaitGroup
-
-    for _, ch := range channels {
-        wg.Add(1)
-        go func(c <-chan int) {
-            defer wg.Done()
-            for val := range c {
-                out <- val
-            }
-        }(ch)
-    }
-
-    go func() {
-        wg.Wait()
-        close(out)
-    }()
-
-    return out
-}
-
-func main() {
-    in := generate(1, 2, 3, 4, 5)
-
-    // Fan out to two workers
-    c1 := square(in)
-    c2 := square(in)
-
-    // Fan in the results
-    for val := range merge(c1, c2) {
-        fmt.Println(val)
-    }
-}
-```
-
-### Worker Pool
-
-A worker pool limits the number of concurrent goroutines processing jobs from a shared channel.
-
-```go
-package main
-
-import (
-    "fmt"
-    "sync"
-)
-
-func workerPool(id int, jobs <-chan int, results chan<- int, wg *sync.WaitGroup) {
-    defer wg.Done()
-    for job := range jobs {
-        result := job * 2
-        fmt.Printf("Worker %d processed job %d -> %d\n", id, job, result)
-        results <- result
-    }
-}
-
-func main() {
-    const numWorkers = 3
-    const numJobs = 10
-
-    jobs := make(chan int, numJobs)
-    results := make(chan int, numJobs)
-
-    var wg sync.WaitGroup
-    for w := 1; w <= numWorkers; w++ {
-        wg.Add(1)
-        go workerPool(w, jobs, results, &wg)
-    }
-
-    for j := 1; j <= numJobs; j++ {
-        jobs <- j
-    }
-    close(jobs)
-
-    go func() {
-        wg.Wait()
-        close(results)
-    }()
-
-    total := 0
-    for result := range results {
-        total += result
-    }
-    fmt.Println("All jobs processed, total:", total)
-}
-```
-
-Worker pools are the bread and butter of Go services. They control resource usage by limiting how many tasks run simultaneously.
-
-## Practice
-
-Head over to the [Go track](/tracks/go) to practice concurrency with interactive exercises. Start with simple goroutines and channels, then build up to patterns like fan-out/fan-in and worker pools.
-
-## What's Next?
-
-With concurrency under your belt, move on to [Error Handling Patterns](/tutorials/go-error-handling-patterns) to learn Go's distinctive approach to error management using values instead of exceptions.
+**Holding a mutex across a blocking call stalls every other goroutine waiting on it.** A channel receive or a network call done while a lock is held turns one slow operation into a queue. Keep the locked section to the minimum touching shared state, and do I/O before or after, never during.

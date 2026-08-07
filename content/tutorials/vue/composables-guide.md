@@ -1,7 +1,7 @@
 ---
 title: "Building Composables"
 slug: "vue-composables-guide"
-description: "Write reusable composables to extract and share logic across Vue components."
+description: "When a function actually earns the use prefix, the MaybeRefOrGetter/toValue contract that makes one reusable, and why calling a composable after an await silently breaks its lifecycle hooks."
 track: "vue"
 order: 4
 difficulty: "advanced"
@@ -11,317 +11,121 @@ practice:
   label: "Composition API"
 ---
 
-Composables are the primary pattern for reusing stateful logic in Vue 3. A composable is a function that uses the Composition API to encapsulate reactive state, computed properties, watchers, and lifecycle hooks into a reusable unit.
+A composable is a function that uses `ref`, `watch`, or a lifecycle hook to encapsulate reactive behavior — not just any function whose name starts with `use`. The distinction matters because it decides where the code should live and how it gets tested.
 
-## What Makes a Composable?
+## What earns a composable, and what's just a function
 
-A composable is simply a function whose name starts with `use`. It returns reactive state and functions that components can consume. The key difference from a plain utility function is that composables leverage Vue's reactivity system and can hook into the component lifecycle.
-
-```typescript
-import { ref, onMounted, onUnmounted } from 'vue';
-
-// A plain utility — no reactivity, no lifecycle
-function formatCurrency(amount: number): string {
-  return `$${amount.toFixed(2)}`;
-}
-
-// A composable — reactive state, lifecycle awareness
-function useWindowSize() {
-  const width = ref(typeof window !== 'undefined' ? window.innerWidth : 0);
-  const height = ref(typeof window !== 'undefined' ? window.innerHeight : 0);
-
-  function update() {
-    width.value = window.innerWidth;
-    height.value = window.innerHeight;
-  }
-
-  onMounted(() => window.addEventListener('resize', update));
-  onUnmounted(() => window.removeEventListener('resize', update));
-
-  return { width, height };
-}
-```
-
-The `typeof window !== 'undefined'` check ensures the composable works in SSR environments where `window` does not exist. Without this guard, the composable would crash during server-side rendering. The initial values fall back to `0`, and `onMounted` only runs in the browser, so the event listener is safe.
-
-## Writing Your First Composable
-
-Let's build a `useMouse` composable that tracks the cursor position:
+`formatCurrency(amount)` doesn't touch reactivity or the component lifecycle — it's a pure utility, and wrapping it in a composable adds nothing but an unnecessary import path and a misleading name. A composable earns the name when it holds reactive state across calls, registers a lifecycle hook, or coordinates enough moving parts — loading/error/data, cleanup, retries — that pulling it out of the component makes the component's own logic easier to read.
 
 ```typescript
-import { ref, onMounted, onUnmounted } from 'vue';
+// A composable — owns reactive state and a lifecycle hook
+function useMouse() {
+  const x = ref(0)
+  const y = ref(0)
 
-export function useMouse() {
-  const x = ref(0);
-  const y = ref(0);
-
-  function update(event: MouseEvent) {
-    x.value = event.pageX;
-    y.value = event.pageY;
+  function update(e: MouseEvent) {
+    x.value = e.pageX
+    y.value = e.pageY
   }
 
-  onMounted(() => window.addEventListener('mousemove', update));
-  onUnmounted(() => window.removeEventListener('mousemove', update));
+  onMounted(() => window.addEventListener('mousemove', update))
+  onUnmounted(() => window.removeEventListener('mousemove', update))
 
-  return { x, y };
+  return { x, y }
 }
 ```
 
-Using it in a component is straightforward:
+Every call to `useMouse()` gets its own `x` and `y` — the lifecycle hooks bind to whichever component instance happens to be active when the function runs, and that detail is what the rest of this tutorial is about.
 
-```vue
-<script setup lang="ts">
-import { useMouse } from '@/composables/useMouse';
+::code-blank{lang="typescript" href="/tracks/vue/composition-api" label="practice composition api for real"}
+---
+code: |
+  // Owns independent x/y state and lifecycle hooks per call
+  function useMouse() {
+    const x = ___blank_start___ref___blank_end___(0)
+    const y = ref(0)
+    return { x, y }
+  }
+---
+::
 
-const { x, y } = useMouse();
-</script>
+## Why "call it synchronously" is a real rule, not a style guideline
 
-<template>
-  <p>Mouse position: {{ x }}, {{ y }}</p>
-</template>
-```
-
-Each component that calls `useMouse()` gets its own independent reactive state. The lifecycle hooks bind to the component that calls the composable.
-
-## Async Composable: useAsync
-
-Fetching data is one of the most common tasks. Here is a composable that wraps any async operation with loading, error, and data state:
+Vue tracks which component is currently being set up with a single module-level pointer, set right before your `setup()` (or `<script setup>`) body runs and cleared right after it finishes. `onMounted`, `onUnmounted`, and every other lifecycle hook just read that pointer and attach themselves to whatever it currently points at. Call a composable — and therefore its lifecycle hooks — while that pointer is set, and everything binds correctly. Call it one microtask later, after an `await`, inside a `setTimeout`, or inside an event handler, and the pointer has already been cleared; the hook call becomes a no-op, with a warning in development and nothing at all in production.
 
 ```typescript
-import { ref, type Ref } from 'vue';
-
-interface UseAsyncReturn<T> {
-  data: Ref<T | null>;
-  error: Ref<string | null>;
-  loading: Ref<boolean>;
-  execute: () => Promise<void>;
-}
-
-export function useAsync<T>(fn: () => Promise<T>): UseAsyncReturn<T> {
-  const data = ref<T | null>(null) as Ref<T | null>;
-  const error = ref<string | null>(null);
-  const loading = ref(false);
-
-  async function execute() {
-    loading.value = true;
-    error.value = null;
-    try {
-      data.value = await fn();
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Unknown error';
-    } finally {
-      loading.value = false;
-    }
-  }
-
-  return { data, error, loading, execute };
+async function setup() {
+  await loadConfig()
+  useMouse() // BROKEN — setup's synchronous window has already closed
 }
 ```
 
-**A note on `as Ref<T | null>`:** Vue's `ref<T | null>(null)` infers the type as `Ref<T | null>`, but TypeScript sometimes narrows it to `Ref<null>` when the initial value is `null`. The cast ensures the type stays `Ref<T | null>` so that assigning a `T` value later compiles correctly. This is a known Vue typing quirk.
+The fix is never to make the composable smarter — it's to call it before the first `await`, and let it start its own async work internally if it needs to.
 
-Usage:
+## State ownership: one instance per call, or one shared instance
 
-```vue
-<script setup lang="ts">
-import { useAsync } from '@/composables/useAsync';
-import { onMounted } from 'vue';
-
-interface User {
-  id: number;
-  name: string;
-}
-
-const { data: users, loading, error, execute } = useAsync<User[]>(
-  () => fetch('/api/users').then(r => r.json()),
-);
-
-onMounted(execute);
-</script>
-
-<template>
-  <div v-if="loading">Loading users...</div>
-  <div v-else-if="error">Error: {{ error }}</div>
-  <ul v-else-if="users">
-    <li v-for="user in users" :key="user.id">{{ user.name }}</li>
-  </ul>
-</template>
-```
-
-## Pagination Composable: usePagination
-
-When working with lists, pagination logic is often repeated. Extract it into a composable that follows its own guidelines — accepting `MaybeRefOrGetter` inputs and using `toValue()`:
+By default a composable's state is private to each call — every component invoking `useMouse()` gets independent `x`/`y` refs. Move the `ref` declarations outside the function, to module scope, and every caller shares the same state instead:
 
 ```typescript
-import { ref, computed, type MaybeRefOrGetter, toValue } from 'vue';
-
-export function usePagination(
-  totalItems: MaybeRefOrGetter<number>,
-  pageSize: MaybeRefOrGetter<number> = 10,
-) {
-  const currentPage = ref(1);
-
-  const totalPages = computed(() =>
-    Math.max(1, Math.ceil(toValue(totalItems) / toValue(pageSize))),
-  );
-
-  const offset = computed(() => (currentPage.value - 1) * toValue(pageSize));
-
-  const hasNext = computed(() => currentPage.value < totalPages.value);
-  const hasPrev = computed(() => currentPage.value > 1);
-
-  function next() {
-    if (hasNext.value) currentPage.value++;
-  }
-
-  function prev() {
-    if (hasPrev.value) currentPage.value--;
-  }
-
-  function goTo(page: number) {
-    currentPage.value = Math.max(1, Math.min(page, totalPages.value));
-  }
-
-  return { currentPage, totalPages, offset, hasNext, hasPrev, next, prev, goTo };
-}
-```
-
-By accepting `MaybeRefOrGetter<number>`, this composable works with plain numbers, refs, or getter functions. `toValue()` unwraps any of these to a plain value inside computeds, so the pagination stays reactive regardless of how the caller passes data.
-
-This composable is stateless with respect to data — it only manages page numbers. The component decides how to fetch or slice the data using `offset` and `pageSize`.
-
-## Local Storage Composable: useLocalStorage
-
-Persisting reactive state to `localStorage` is a common need:
-
-```typescript
-import { ref, watch, type Ref } from 'vue';
-
-export function useLocalStorage<T>(key: string, defaultValue: T): Ref<T> {
-  let initial = defaultValue;
-
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem(key);
-    if (stored !== null) {
-      try {
-        initial = JSON.parse(stored);
-      } catch {
-        // Stored value is corrupted, fall back to default
-        localStorage.removeItem(key);
-      }
-    }
-  }
-
-  const data = ref<T>(initial) as Ref<T>;
-
-  if (typeof window !== 'undefined') {
-    watch(
-      data,
-      (newValue) => {
-        localStorage.setItem(key, JSON.stringify(newValue));
-      },
-      { deep: true },
-    );
-  }
-
-  return data;
-}
-```
-
-The `typeof window !== 'undefined'` checks ensure this composable works during SSR. In a server environment, it simply returns a ref with the default value and skips localStorage operations.
-
-Usage:
-
-```vue
-<script setup lang="ts">
-import { useLocalStorage } from '@/composables/useLocalStorage';
-
-const preferences = useLocalStorage('user-prefs', {
-  theme: 'light',
-  fontSize: 14,
-});
-
-// Changes persist automatically
-preferences.value.theme = 'dark';
-</script>
-```
-
-## Sharing State Between Components
-
-By default, each call to a composable creates independent state. If you want shared (singleton) state, move the reactive declarations outside the function:
-
-```typescript
-import { ref, readonly } from 'vue';
-
-const notifications = ref<Array<{ id: number; message: string }>>([]);
-let nextId = 0;
+const notifications = ref<Notification[]>([])
+let nextId = 0
 
 export function useNotifications() {
   function add(message: string) {
-    notifications.value.push({ id: nextId++, message });
+    notifications.value.push({ id: nextId++, message })
   }
-
-  function dismiss(id: number) {
-    notifications.value = notifications.value.filter(n => n.id !== id);
-  }
-
-  return {
-    notifications: readonly(notifications),
-    add,
-    dismiss,
-  };
+  return { notifications: readonly(notifications), add }
 }
 ```
 
-Every component that calls `useNotifications()` shares the same `notifications` array. Use `readonly` to prevent direct mutation from consumers — they must go through the provided functions.
+Reach for the shared-singleton shape only for things that are genuinely one thing app-wide — a toast queue, a websocket connection. The moment several unrelated parts of the app need to both read and write that state, and it needs to survive far outside where it was created, it has outgrown a composable and belongs in a Pinia store instead, which gives it a name, a devtools panel, and an explicit reset.
 
-## Lifecycle Hooks Inside Composables
+## The MaybeRefOrGetter contract
 
-Composables can register lifecycle hooks that bind to the calling component. Always pair setup with teardown:
+A composable that only accepts plain numbers forces every caller to unwrap their own refs first. Accepting `MaybeRefOrGetter<T>` and reading through `toValue()` removes that tax — the composable works identically whether the caller passes a number, a `ref`, or a getter function, because `toValue()` normalizes all three to a plain value at the point of use.
 
 ```typescript
-import { onMounted, onUnmounted } from 'vue';
-
-export function useInterval(callback: () => void, ms: number) {
-  let id: ReturnType<typeof setInterval>;
-  onMounted(() => { id = setInterval(callback, ms); });
-  onUnmounted(() => { clearInterval(id); });
+function usePagination(
+  total: MaybeRefOrGetter<number>,
+  pageSize: MaybeRefOrGetter<number> = 10,
+) {
+  const page = ref(1)
+  const totalPages = computed(() =>
+    Math.ceil(toValue(total) / toValue(pageSize)),
+  )
+  return { page, totalPages }
 }
 ```
 
-Composables must be called synchronously during setup. Calling one inside an async callback or `setTimeout` will not bind lifecycle hooks correctly.
+::code-blank{lang="typescript" href="/tracks/vue/composition-api" label="practice composition api for real"}
+---
+code: |
+  // Normalizes a number, a ref, or a getter to a plain value at read time
+  const pages = computed(() => Math.ceil(___blank_start___toValue___blank_end___(total) / pageSize))
+---
+::
 
-## Testing Composables
+## Testing without mounting a component
 
-Test composables using `effectScope` to provide a reactive context:
+A composable with no lifecycle hooks can be tested inside an `effectScope`, which gives `ref`/`computed`/`watch` a reactive context to run in without a real component:
 
 ```typescript
-import { effectScope } from 'vue';
-import { usePagination } from '@/composables/usePagination';
-
-test('usePagination computes pages correctly', () => {
-  const scope = effectScope();
-  scope.run(() => {
-    const { totalPages, currentPage, next } = usePagination(25, 10);
-    expect(totalPages.value).toBe(3);
-    next();
-    expect(currentPage.value).toBe(2);
-  });
-  scope.stop();
-});
+const scope = effectScope()
+scope.run(() => {
+  const { page, totalPages } = usePagination(25, 10)
+  expect(totalPages.value).toBe(3)
+})
+scope.stop()
 ```
 
-For composables that use lifecycle hooks, mount a temporary wrapper component with `@vue/test-utils` instead.
+A composable that registers `onMounted`/`onUnmounted` needs an actual component instance for those hooks to bind to — mount a throwaway wrapper with `@vue/test-utils` instead of trying to force it through `effectScope`.
 
-## Guidelines for Writing Good Composables
+## Where this bites
 
-1. **Name with `use` prefix** — `useAuth`, `useFetch`, `useDebounce`. This convention signals reactivity and lifecycle awareness.
-2. **Return refs, not raw values** — consumers should get reactive references they can use in templates.
-3. **Accept `MaybeRefOrGetter` as input** — use `toValue()` to handle refs, getters, and plain values uniformly. This makes your composable flexible for all callers.
-4. **Clean up side effects** — always pair `onMounted` with `onUnmounted` for event listeners, timers, and subscriptions.
-5. **Keep composables focused** — one composable should do one thing well. Compose multiple composables together for complex behavior.
-6. **Handle SSR** — guard `window`, `document`, and other browser APIs with `typeof window !== 'undefined'` or move them inside `onMounted`.
+**Calling a composable after an `await` or inside a callback.** Its lifecycle hooks silently become no-ops because the active-instance pointer they read has already been cleared — the composable "works" in that nothing throws, it just never cleans up. Call every composable synchronously, unconditionally, at the top of setup.
 
-## Practice
+**Wrapping a pure function in a composable for consistency.** A function with no `ref`, `watch`, or lifecycle hook doesn't need Vue's reactivity system at all, and giving it a `use` prefix implies guarantees — SSR safety, cleanup, reactive returns — it doesn't actually provide. Put pure logic in `utils/` and reserve `use*` for functions that touch reactivity.
 
-Try the [Vue Composition API exercises](/tracks/vue) to build your own composables in interactive code challenges.
+**Returning a raw `reactive()` object instead of refs.** Callers naturally destructure a composable's return value, and destructuring a `reactive()` object throws away tracking at exactly the boundary the composable was supposed to make safe. Return individual refs, or return a plain object of refs and computeds — never a `reactive()` object meant to be destructured.
+
+**Using module-scope singleton state for something that isn't shared.** Every caller of that composable now mutates the same underlying ref, so two unrelated components using what looks like "their own" paginator end up stepping on each other's page number. Keep state declarations inside the function body unless sharing it is the explicit point.

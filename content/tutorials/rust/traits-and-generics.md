@@ -1,7 +1,7 @@
 ---
 title: "Traits and Generics"
 slug: "rust-traits-and-generics"
-description: "Write flexible, reusable Rust code with traits, generics, and trait bounds."
+description: "Shared behavior without inheritance and reusable code without runtime cost: traits, generics, monomorphization, and when dynamic dispatch is worth paying for."
 track: "rust"
 order: 3
 difficulty: "intermediate"
@@ -11,21 +11,15 @@ practice:
   label: "Traits and generics"
 ---
 
-Traits define shared behavior across types. Generics let you write code that works with many types. Together, they are the foundation of Rust's approach to polymorphism and code reuse.
+A trait describes what a type can do. A generic function describes an algorithm that does not care which type it operates on, as long as that type does what a trait promises. Together they are how Rust gets polymorphism without inheritance, and without paying for it at runtime unless you explicitly ask for that tradeoff.
 
-## Defining Traits
+## Traits: shared behavior, not shared data
 
-A trait is a collection of methods that types can implement. Think of it as an interface that describes what a type can do.
+A trait is a set of method signatures a type commits to implementing. There is no data in a trait itself, only behavior — the core difference from inheritance in an object-oriented language. A trait cannot be instantiated on its own, and a type can implement any number of unrelated traits without an inheritance hierarchy forcing them into one tree.
 
 ```rust
 trait Summary {
     fn summarize(&self) -> String;
-}
-
-struct Article {
-    title: String,
-    author: String,
-    content: String,
 }
 
 struct Tweet {
@@ -33,89 +27,33 @@ struct Tweet {
     text: String,
 }
 
-impl Summary for Article {
-    fn summarize(&self) -> String {
-        // Safe string slicing: use char_indices to handle multi-byte
-        // UTF-8 characters and short strings without panicking.
-        let end = self.content.char_indices()
-            .nth(20)
-            .map(|(i, _)| i)
-            .unwrap_or(self.content.len());
-        format!("{} by {} - {}...", self.title, self.author, &self.content[..end])
-    }
-}
-
 impl Summary for Tweet {
     fn summarize(&self) -> String {
         format!("@{}: {}", self.username, self.text)
     }
 }
-
-fn main() {
-    let article = Article {
-        title: String::from("Rust 2026"),
-        author: String::from("The Rust Team"),
-        content: String::from("This year brings exciting new features to the language..."),
-    };
-    let tweet = Tweet {
-        username: String::from("rustlang"),
-        text: String::from("Rust is awesome!"),
-    };
-
-    println!("{}", article.summarize());
-    println!("{}", tweet.summarize());
-}
 ```
 
-## Default Implementations
-
-Traits can provide default method bodies. Types can override them or use the default.
+A trait method can carry a default body; implementors override only what differs.
 
 ```rust
 trait Greet {
     fn name(&self) -> &str;
 
     fn greeting(&self) -> String {
-        format!("Hello, {}!", self.name())
+        format!("Hello, {}", self.name())
     }
-
-    fn farewell(&self) -> String {
-        format!("Goodbye, {}!", self.name())
-    }
-}
-
-struct User {
-    username: String,
-}
-
-impl Greet for User {
-    fn name(&self) -> &str {
-        &self.username
-    }
-
-    // Override just the greeting
-    fn greeting(&self) -> String {
-        format!("Welcome back, {}!", self.name())
-    }
-
-    // farewell() uses the default implementation
-}
-
-fn main() {
-    let user = User { username: String::from("alice") };
-    println!("{}", user.greeting());  // "Welcome back, alice!"
-    println!("{}", user.farewell());  // "Goodbye, alice!"
 }
 ```
 
-## Generic Functions
+Default methods are how the standard library ships behavior like `Iterator::map` or `Iterator::filter` on top of a single method you implement — more on that below.
 
-Generics let you write a single function that works with multiple types. The compiler generates specialized code for each concrete type (monomorphization), so there is no runtime cost.
+## Generic functions and monomorphization
+
+A generic function is written once against a type parameter and compiled once per concrete type it is actually called with — a process called monomorphization. `largest::<i32>` and `largest::<char>` are, after compilation, two entirely separate functions. There is no vtable, no runtime type check, no cost beyond what a hand-written version for each type would have had.
 
 ```rust
 fn largest<T: PartialOrd>(list: &[T]) -> &T {
-    // Note: this panics on an empty slice. A more robust version
-    // would return Option<&T> and handle the empty case.
     let mut largest = &list[0];
     for item in &list[1..] {
         if item > largest {
@@ -124,273 +62,117 @@ fn largest<T: PartialOrd>(list: &[T]) -> &T {
     }
     largest
 }
-
-fn main() {
-    let numbers = vec![34, 50, 25, 100, 65];
-    println!("Largest number: {}", largest(&numbers));
-
-    let chars = vec!['y', 'm', 'a', 'q'];
-    println!("Largest char: {}", largest(&chars));
-}
 ```
 
-The `T: PartialOrd` part is a **trait bound** -- it says "T can be any type, as long as it implements `PartialOrd`."
-
-## Generic Structs and Enums
-
-You can define structs and enums that are generic over one or more types.
+`T: PartialOrd` is a trait bound: `T` can be any type, as long as it implements `PartialOrd`. Without it, `item > largest` would not compile, because the compiler has no idea whether an arbitrary `T` supports `>` at all. When bounds pile up, a `where` clause keeps the signature readable:
 
 ```rust
-#[derive(Debug)]
-struct Pair<T, U> {
-    first: T,
-    second: U,
-}
-
-impl<T, U> Pair<T, U> {
-    fn new(first: T, second: U) -> Self {
-        Pair { first, second }
-    }
-
-    fn swap(self) -> Pair<U, T> {
-        Pair {
-            first: self.second,
-            second: self.first,
-        }
-    }
-}
-
-// You can add methods only for specific type combinations
-impl<T: std::fmt::Display, U: std::fmt::Display> Pair<T, U> {
-    fn show(&self) {
-        println!("({}, {})", self.first, self.second);
-    }
-}
-
-fn main() {
-    let pair = Pair::new("hello", 42);
-    pair.show();
-
-    let swapped = pair.swap();
-    swapped.show();
-}
-```
-
-## Trait Bounds and `where` Clauses
-
-When trait bounds get complex, `where` clauses make them more readable.
-
-```rust
-use std::fmt::{Display, Debug};
-
-// This is hard to read with inline bounds
-// fn process<T: Display + Clone + Debug, U: Clone + Debug>(t: T, u: U) -> String {
-
-// where clause is cleaner
 fn process<T, U>(t: T, u: U) -> String
 where
-    T: Display + Clone + Debug,
-    U: Clone + Debug,
+    T: std::fmt::Display + Clone,
+    U: std::fmt::Debug,
 {
-    let t_clone = t.clone();
-    println!("Debug t: {:?}, u: {:?}", t_clone, u.clone());
-    format!("Display t: {}", t)
-}
-
-fn main() {
-    let result = process("hello", vec![1, 2, 3]);
-    println!("{}", result);
+    format!("{} {:?}", t.clone(), u)
 }
 ```
 
-## `impl Trait` Syntax
+Monomorphization is also the tradeoff worth knowing: each instantiation is separately compiled code, so a generic function called with twenty different types produces twenty copies in the binary. That is the right cost to pay for hot-path code. It is the wrong one for something like a plugin registry with dozens of implementors, which is where dynamic dispatch below becomes the better choice, not merely an alternative style.
 
-`impl Trait` provides a concise way to work with traits in function signatures.
+::code-blank{lang="rust" href="/tracks/rust/traits-and-generics" label="practice traits and generics for real"}
+---
+code: |
+  fn process<T, U>(t: T, u: U) -> String
+  ___blank_start___where___blank_end___
+      T: std::fmt::Display,
+  {
+      format!("{}", t)
+  }
+---
+::
 
-```rust
-// As a parameter: accepts any type implementing Display
-fn print_it(item: &impl std::fmt::Display) {
-    println!("{}", item);
-}
+## Static vs dynamic dispatch
 
-// As a return type: returns some type implementing the trait
-fn create_message() -> impl std::fmt::Display {
-    String::from("This is a message")
-}
-
-// Useful for returning closures
-fn make_adder(x: i32) -> impl Fn(i32) -> i32 {
-    move |y| x + y
-}
-
-fn main() {
-    print_it(&"hello");
-    print_it(&create_message());
-
-    let add_five = make_adder(5);
-    println!("5 + 3 = {}", add_five(3));
-}
-```
-
-## Trait Objects and Dynamic Dispatch
-
-Sometimes you need a collection of different types that all implement the same trait. Since each type has a different size, you cannot store them directly in a `Vec<T>`. Instead, use `Box<dyn Trait>` for dynamic dispatch.
+Generics give you static dispatch: the compiler knows the concrete type at every call site and can inline through it. Sometimes you need the opposite — a single `Vec` holding several different types that all implement the same trait, decided at runtime, like a list of event handlers registered from different modules. Rust cannot store values of different sizes directly in a `Vec<T>`, so you box them and drop down to a trait object, `Box<dyn Trait>`.
 
 ```rust
 trait Animal {
     fn speak(&self) -> &str;
-    fn name(&self) -> &str;
 }
 
-struct Dog { name: String }
-struct Cat { name: String }
+struct Dog;
+struct Cat;
 
 impl Animal for Dog {
-    fn speak(&self) -> &str { "Woof!" }
-    fn name(&self) -> &str { &self.name }
+    fn speak(&self) -> &str { "Woof" }
 }
-
 impl Animal for Cat {
-    fn speak(&self) -> &str { "Meow!" }
-    fn name(&self) -> &str { &self.name }
+    fn speak(&self) -> &str { "Meow" }
 }
 
 fn main() {
-    // Box<dyn Animal> stores any type implementing Animal on the heap.
-    // Method calls go through a vtable (virtual dispatch) at runtime.
-    let animals: Vec<Box<dyn Animal>> = vec![
-        Box::new(Dog { name: String::from("Rex") }),
-        Box::new(Cat { name: String::from("Whiskers") }),
-        Box::new(Dog { name: String::from("Buddy") }),
-    ];
-
-    for animal in &animals {
-        println!("{} says {}", animal.name(), animal.speak());
+    let animals: Vec<Box<dyn Animal>> = vec![Box::new(Dog), Box::new(Cat)];
+    for a in &animals {
+        println!("{}", a.speak());
     }
 }
 ```
 
-Use generics (static dispatch) when you know the concrete type at compile time -- it is faster because the compiler inlines the calls. Use `dyn Trait` (dynamic dispatch) when you need to store or work with mixed types at runtime.
+Each call through `dyn Animal` goes through a vtable lookup instead of being inlined — real cost, usually negligible. Default to generics; reach for `dyn Trait` when the set of concrete types is not known until runtime, not as a habitual way to avoid writing `<T: Trait>`. `impl Trait` in a parameter position is sugar for a generic with one bound and is still static dispatch; in return position it is how you return a closure or an unnameable type like an iterator-adaptor chain without spelling out its type.
 
-## Common Standard Library Traits
-
-Rust's standard library defines many traits that you will implement and use regularly.
-
-```rust
-use std::fmt;
-
-#[derive(Debug, Clone, PartialEq)]
-struct Color {
-    r: u8,
-    g: u8,
-    b: u8,
-}
-
-// Display: user-facing string representation
-impl fmt::Display for Color {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "#{:02x}{:02x}{:02x}", self.r, self.g, self.b)
-    }
-}
-
-fn main() {
-    let red = Color { r: 255, g: 0, b: 0 };
-    let also_red = red.clone(); // Clone trait
-
-    println!("Debug: {:?}", red);   // Debug trait
-    println!("Display: {}", red);   // Display trait
-    println!("Equal: {}", red == also_red); // PartialEq trait
-}
-```
-
-## `From` and `Into` Conversions
-
-The `From` and `Into` traits are used for type conversions. Implementing `From` automatically gives you `Into` for free.
-
-```rust
-struct Celsius(f64);
-struct Fahrenheit(f64);
-
-impl From<Celsius> for Fahrenheit {
-    fn from(c: Celsius) -> Self {
-        Fahrenheit(c.0 * 9.0 / 5.0 + 32.0)
-    }
-}
-
-impl From<Fahrenheit> for Celsius {
-    fn from(f: Fahrenheit) -> Self {
-        Celsius((f.0 - 32.0) * 5.0 / 9.0)
-    }
-}
-
-fn main() {
-    let boiling = Celsius(100.0);
-    let boiling_f: Fahrenheit = boiling.into(); // uses Into (from From)
-    println!("100C = {}F", boiling_f.0);
-
-    let body_temp = Fahrenheit(98.6);
-    let body_temp_c = Celsius::from(body_temp); // uses From directly
-    println!("98.6F = {:.1}C", body_temp_c.0);
-
-    // From<&str> for String is why this works:
-    let s: String = String::from("hello");
-    let s2: String = "world".into();
-    println!("{} {}", s, s2);
-}
-```
+::code-blank{lang="rust" href="/tracks/rust/traits-and-generics" label="practice traits and generics for real"}
+---
+code: |
+  let animals: Vec<Box<___blank_start___dyn___blank_end___ Animal>> = vec![Box::new(Dog)];
+---
+::
 
 ## Implementing `Iterator`
 
-The `Iterator` trait is one of the most powerful traits in Rust. Implementing it gives you access to dozens of adaptor methods for free.
+`Iterator` is a trait worth knowing well because implementing a single required method — `next`, returning `Option<Self::Item>` — earns you dozens of default methods for free: `map`, `filter`, `sum`, `take`, `zip`, and more, all built on repeated calls to `next`. This is the same default-method mechanism from the `Greet` example above, used at a much larger scale by the standard library itself.
 
 ```rust
-struct Countdown {
-    value: u32,
-}
-
-impl Countdown {
-    fn new(start: u32) -> Self {
-        Countdown { value: start }
-    }
-}
+struct Countdown { value: u32 }
 
 impl Iterator for Countdown {
-    type Item = u32; // Associated type
+    type Item = u32;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.value == 0 {
             None
         } else {
-            let current = self.value;
             self.value -= 1;
-            Some(current)
+            Some(self.value + 1)
         }
     }
 }
 
 fn main() {
-    // All these methods come free from implementing next()
-    let countdown = Countdown::new(5);
-    let doubled: Vec<u32> = countdown.map(|n| n * 2).collect();
-    println!("Doubled: {:?}", doubled);
-
-    let sum: u32 = Countdown::new(10).sum();
-    println!("Sum 1..10: {}", sum);
-
-    let evens: Vec<u32> = Countdown::new(10).filter(|n| n % 2 == 0).collect();
-    println!("Evens: {:?}", evens);
+    let doubled: Vec<u32> = Countdown { value: 5 }.map(|n| n * 2).collect();
+    println!("{:?}", doubled);
 }
 ```
 
-## Practice
+`type Item = u32;` is an associated type: a type chosen once per implementation, rather than a generic parameter chosen per call. The difference matters — a type can implement `Iterator` for exactly one `Item`, but it can implement `From<T>` for many different `T`s, because `From` uses a generic parameter instead of an associated type. Reach for an associated type when an implementation has exactly one sensible choice; reach for a generic parameter when it has several.
 
-1. Define a `Shape` trait with an `area(&self) -> f64` method. Implement it for `Circle` and `Rectangle` structs.
-2. Write a generic function `print_all<T: Display>(items: &[T])` that prints each item on a new line.
-3. Implement `From<(f64, f64)>` for a `Point` struct.
-4. Create a `Vec<Box<dyn Shape>>` with mixed shapes and print all their areas.
+::code-blank{lang="rust" href="/tracks/rust/traits-and-generics" label="practice traits and generics for real"}
+---
+code: |
+  impl Iterator for Countdown {
+      type ___blank_start___Item___blank_end___ = u32;
 
-Try these and more at [Rust exercises](/tracks/rust).
+      fn next(&mut self) -> Option<Self::Item> {
+          None
+      }
+  }
+---
+::
 
-## What's Next?
+## Where this bites
 
-With traits and generics in your toolkit, you can write highly reusable and type-safe code. Next up: [Fearless Concurrency](/tutorials/rust-fearless-concurrency), where you will learn how Rust's type system prevents data races at compile time.
+**Reaching for `dyn Trait` by default.** It is the right call when concrete types genuinely are not known until runtime; used as a habit, it trades away monomorphization's inlining and adds a vtable indirection for no reason. Start with a generic and switch to `dyn` only once you actually need to mix types in one collection.
+
+**Fighting the orphan rule.** You can implement a trait for a type only if you own the trait or the type — `impl Display for Vec<T>` from your own crate will not compile, because neither `Display` nor `Vec` is yours. Wrap the foreign type in a local tuple struct, the newtype pattern, and implement the trait for the wrapper instead.
+
+**Confusing a `Clone` bound with a cheap operation.** A generic function with a `T: Clone` bound compiles for any `T`, including a type whose clone is a deep copy of a ten-megabyte buffer. A bound tells you the operation is possible, not that it is free — check what `Clone` actually costs for the type you are calling it on before assuming a generic function is cheap.
+
+**Expecting `impl Trait` in return position to allow different types across branches.** `if cond { A } else { B }` does not compile even when both implement the same trait, because `impl Trait` commits the function to one concrete, compiler-chosen type. Use `Box<dyn Trait>` when a function genuinely needs to return different concrete types depending on a runtime condition.

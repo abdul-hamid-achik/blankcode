@@ -1,7 +1,7 @@
 ---
 title: "Go Fundamentals"
 slug: "go-fundamentals"
-description: "Learn the building blocks of Go — packages, variables, functions, and control flow."
+description: "The parts of Go you touch in every file: packages, typed variables, slice and map internals, and functions that return an error alongside their result."
 track: "go"
 order: 1
 difficulty: "beginner"
@@ -11,312 +11,122 @@ practice:
   label: "Structs and interfaces"
 ---
 
-Go is a statically typed, compiled language designed for simplicity and performance. Created at Google, it powers tools like Docker, Kubernetes, and Terraform. Its straightforward syntax and built-in concurrency make it an excellent choice for backend services, CLI tools, and systems programming.
+Go has a small surface on purpose: one way to loop, one keyword for declaring almost anything, and a handful of built-in types that get you through most programs without reaching for a framework. This tutorial is that surface — packages, variables, slices, maps, and functions — the vocabulary the rest of the Go track assumes you already have.
 
-## Running Go Code
+## Packages and the module boundary
 
-To get started, initialize a module and run your code:
-
-```bash
-go mod init myproject
-go run main.go
-```
-
-Every Go project needs a `go.mod` file created by `go mod init`. You can use `go run` to compile and execute in one step, or `go build` to produce a binary.
-
-## Packages and Imports
-
-Every Go file belongs to a package. The `main` package is special — it defines an executable program, and the `main` function is the entry point.
+Every Go file declares which package it belongs to. `package main` is the one exception that matters early: it marks an executable, and `main.main` is where the program starts. Everything else is a library package, imported by its path.
 
 ```go
 package main
 
 import (
-    "fmt"
-    "strings"
+	"fmt"
+	"strings"
 )
 
 func main() {
-    greeting := "hello, world"
-    fmt.Println(strings.ToUpper(greeting))
+	greeting := "hello, world"
+	fmt.Println(strings.ToUpper(greeting))
 }
 ```
 
-The `import` statement brings in other packages. Go enforces that every import must be used — unused imports cause a compilation error. You can group imports with parentheses as shown above.
+`go mod init myproject` creates the `go.mod` that names your module; `go run main.go` compiles and runs in one step. The compiler is strict about imports in both directions — an unused import is a build error, not a warning, and so is an unused local variable. Nothing lingers by accident.
 
-## Variables and Types
+## Variables, and why zero values matter
 
-Go has several ways to declare variables. The `:=` short declaration is the most common inside functions.
+`var name string = "Alice"` and `name := "Alice"` do the same thing; `:=` infers the type and is the one you will write inside functions. `var` is for package-level declarations, or when you want the zero value on purpose.
 
 ```go
-package main
+var count int         // 0
+var label string      // ""
+var ok bool            // false
+var prices []float64  // nil, but usable — see below
+```
 
-import "fmt"
+Every type in Go has a zero value, and the zero value is a real, working value, not an "uninitialized" marker you have to check for before using it. A zero-value `sync.Mutex` is already unlocked. A zero-value `bytes.Buffer` is already empty and ready to write to. Design your own types the same way when you can — a struct whose zero value behaves sensibly needs no constructor.
 
-func main() {
-    // Explicit type declaration
-    var name string = "Alice"
-    var age int = 30
+::code-blank{lang="go" href="/tracks/go/structs-and-interfaces" label="practice structs and interfaces for real"}
+---
+code: |
+  ___blank_start___var___blank_end___ count int
+  fmt.Println(count) // 0
+---
+::
 
-    // Type inference with :=
-    score := 95.5       // float64
-    active := true      // bool
+## Slices are a header, not an array
 
-    // Multiple declarations
-    var x, y int = 10, 20
+A slice is three numbers — a pointer into a backing array, a length, and a capacity — not the array itself. `append` grows the slice, but only allocates a new backing array once the existing one runs out of capacity. Until then it writes in place.
 
-    // Zero values (defaults when no value is assigned)
-    var count int       // 0
-    var label string    // ""
-    var flag bool       // false
+```go
+base := make([]int, 3, 5)  // len 3, cap 5
+a := base[:2]               // len 2, cap 5 — same backing array
+b := append(a, 99)          // fits within cap 5, no reallocation
 
-    fmt.Println(name, age, score, active)
-    fmt.Println(x, y, count, label, flag)
+fmt.Println(base) // [0 0 99] — base[2] changed, and we never touched base
+fmt.Println(b)    // [0 0 99]
+```
+
+This is the sharpest surprise in the language for anyone coming from Python or JavaScript: two slices that look independent can share memory, and appending to one can silently overwrite data in the other. It happens whenever you slice a slice and then append to the result without knowing its capacity. The fix is `copy` — allocate a slice sized exactly for what you need and copy into it — whenever a sub-slice is going to outlive the thing it was sliced from.
+
+::code-blank{lang="go" href="/tracks/go/structs-and-interfaces" label="practice structs and interfaces for real"}
+---
+code: |
+  nums := []int{1, 2, 3}
+  nums = ___blank_start___append___blank_end___(nums, 4)
+---
+::
+
+## Maps and the comma-ok idiom
+
+A map read on a missing key returns the zero value, silently — `scores["dave"]` is `0` whether or not `"dave"` is a key. To tell "zero" from "absent," use the two-value form.
+
+```go
+scores := map[string]int{"alice": 95}
+val, ok := scores["dave"]
+if !ok {
+	fmt.Println("no entry for dave")
 }
 ```
 
-Go's type system includes `int`, `float64`, `string`, `bool`, and more. Every type has a zero value — numeric types default to `0`, strings to `""`, and booleans to `false`.
+A nil map reads like an empty one but panics on write — assigning into a nil `map[string]int` is a runtime panic, not a silent no-op. Initialize with `make` or a composite literal before you write to it. `clear(m)` (Go 1.21+) empties a map in place without reallocating, which is the idiomatic way to reset one you plan to reuse.
 
-## Constants and iota
+::code-blank{lang="go" href="/tracks/go/structs-and-interfaces" label="practice structs and interfaces for real"}
+---
+code: |
+  val, ___blank_start___ok___blank_end___ := scores["dave"]
+  if !ok {
+      fmt.Println("missing")
+  }
+---
+::
 
-Constants are declared with `const` and cannot be changed after assignment. The `iota` keyword generates sequential integer constants, which is useful for enum-like values.
+## Functions that return more than one value
 
-```go
-package main
-
-import "fmt"
-
-const Pi = 3.14159
-
-const (
-    StatusPending  = iota // 0
-    StatusRunning         // 1
-    StatusComplete        // 2
-    StatusFailed          // 3
-)
-
-func main() {
-    fmt.Println("Pi:", Pi)
-    fmt.Println("Pending:", StatusPending)
-    fmt.Println("Running:", StatusRunning)
-    fmt.Println("Complete:", StatusComplete)
-}
-```
-
-Each `const` block resets `iota` to 0. Within a block, `iota` increments by one for each constant. This is the idiomatic Go way to define enumerations.
-
-## Type Conversions
-
-Go requires explicit type conversions — there is no implicit casting between types, even between `int` and `float64`.
+A Go function can return several values, and the convention almost everywhere is that the last one is an `error`.
 
 ```go
-package main
-
-import "fmt"
-
-func main() {
-    myFloat := 3.7
-    myInt := int(myFloat)       // 3 (truncates, does not round)
-    fmt.Println(myInt)
-
-    count := 42
-    precise := float64(count)   // 42.0
-    fmt.Println(precise)
-
-    var small int32 = 100
-    var big int64 = int64(small) // explicit even between int sizes
-    fmt.Println(big)
-}
-```
-
-This strictness prevents subtle bugs that arise from implicit conversions in other languages. If you need to convert, state it explicitly.
-
-## Arrays vs Slices
-
-Go has both arrays and slices. Arrays have a fixed size that is part of the type — `[3]int` and `[5]int` are different types. Slices are the flexible, dynamically-sized view into arrays that you will use almost everywhere.
-
-```go
-// Array — fixed size, rarely used directly
-var arr [3]int = [3]int{1, 2, 3}
-
-// Slice — dynamic, backed by an array
-nums := []int{1, 2, 3}
-nums = append(nums, 4)
-```
-
-In practice, you will almost always use slices rather than arrays.
-
-## Slices and Maps
-
-Slices are Go's dynamic arrays. Maps are key-value stores, similar to dictionaries or hash maps in other languages.
-
-```go
-package main
-
-import "fmt"
-
-func main() {
-    // Slices
-    numbers := []int{10, 20, 30}
-    numbers = append(numbers, 40)
-    fmt.Println(numbers)        // [10 20 30 40]
-    fmt.Println(numbers[1:3])   // [20 30]
-    fmt.Println(len(numbers))   // 4
-
-    // Maps
-    scores := map[string]int{
-        "Alice": 95,
-        "Bob":   87,
-    }
-    scores["Carol"] = 92
-    fmt.Println(scores["Alice"]) // 95
-
-    // Check if a key exists
-    val, exists := scores["Dave"]
-    fmt.Println(val, exists)     // 0 false
-}
-```
-
-Slices are backed by arrays but grow automatically with `append`. Maps return a zero value for missing keys, so use the two-value form to check existence.
-
-## Functions
-
-Functions in Go can return multiple values, which is a pattern used heavily for error handling.
-
-```go
-package main
-
-import (
-    "errors"
-    "fmt"
-)
-
-// Simple function
-func add(a, b int) int {
-    return a + b
-}
-
-// Multiple return values
 func divide(a, b float64) (float64, error) {
-    if b == 0 {
-        return 0, errors.New("division by zero")
-    }
-    return a / b, nil
+	if b == 0 {
+		return 0, errors.New("division by zero")
+	}
+	return a / b, nil
 }
 
-// Named return values
-func swap(x, y string) (first, second string) {
-    first = y
-    second = x
-    return
-}
-
-func main() {
-    fmt.Println(add(3, 5))
-
-    result, err := divide(10, 3)
-    if err != nil {
-        fmt.Println("Error:", err)
-    } else {
-        fmt.Printf("Result: %.2f\n", result)
-    }
-
-    a, b := swap("hello", "world")
-    fmt.Println(a, b) // world hello
+result, err := divide(10, 3)
+if err != nil {
+	log.Fatal(err)
 }
 ```
 
-Named return values are pre-declared and can be returned with a bare `return` statement. Use them sparingly — they improve clarity for short functions but can reduce readability in longer ones.
+`for i := range 5` (Go 1.22+) ranges directly over an integer, counting `0` through `4` — a fixed number of iterations without a throwaway slice or a C-style loop header. Named return values, like `func swap(x, y string) (first, second string)`, let you write a bare `return`, which reads well for a five-line function and turns into a puzzle in a fifty-line one — reserve them for the former.
 
-## Control Flow
+## Where this bites
 
-Go keeps control flow minimal. There is no `while` keyword — `for` handles all looping. The `switch` statement does not fall through by default.
+**Appending to a sub-slice corrupts a sibling slice.** Two slices from the same backing array look independent but are not; appending to one can overwrite the other's data if there is spare capacity. Copy the data out with `copy` whenever a sub-slice needs to outlive the slice it came from.
 
-```go
-package main
+**Writing to a nil map panics; reading from one does not.** A declared-but-unassigned map is nil and safe to read — every lookup just returns the zero value. The first write panics with "assignment to entry in nil map." Initialize with `make` before anything gets assigned.
 
-import "fmt"
+**`:=` inside an `if` or `for` shadows, it does not reuse.** `if val, err := f(); err != nil` declares a new `err` scoped to that block. Code after the block that checks an outer `err` variable of the same name is checking one that was never touched, and the failure passes through silently.
 
-func main() {
-    // If-else (no parentheses needed)
-    x := 42
-    if x > 0 {
-        fmt.Println("positive")
-    } else if x < 0 {
-        fmt.Println("negative")
-    } else {
-        fmt.Println("zero")
-    }
-
-    // If with short statement
-    if val := x * 2; val > 50 {
-        fmt.Println("large:", val)
-    }
-
-    // For loop (the only loop in Go)
-    for i := 0; i < 5; i++ {
-        fmt.Println(i)
-    }
-
-    // While-style loop
-    n := 1
-    for n < 100 {
-        n *= 2
-    }
-    fmt.Println(n)
-
-    // Range over a slice
-    colors := []string{"red", "green", "blue"}
-    for index, color := range colors {
-        fmt.Printf("%d: %s\n", index, color)
-    }
-
-    // Switch (no fall-through by default)
-    day := "Tuesday"
-    switch day {
-    case "Monday", "Tuesday", "Wednesday", "Thursday", "Friday":
-        fmt.Println("Weekday")
-    case "Saturday", "Sunday":
-        fmt.Println("Weekend")
-    default:
-        fmt.Println("Unknown")
-    }
-}
-```
-
-The `if` statement can include a short variable declaration before the condition. This scopes the variable to the `if`/`else` block, keeping the surrounding scope clean.
-
-## Pointers Basics
-
-Pointers hold the memory address of a value. They let you pass references to data without copying it.
-
-```go
-package main
-
-import "fmt"
-
-func increment(val *int) {
-    *val++
-}
-
-func main() {
-    x := 10
-    fmt.Println(&x)   // memory address like 0xc0000b6010
-
-    p := &x            // p is a pointer to x
-    fmt.Println(*p)    // 10 (dereference the pointer)
-
-    increment(&x)
-    fmt.Println(x)     // 11
-}
-```
-
-The `&` operator gets the address of a variable, and `*` dereferences a pointer. Go does not have pointer arithmetic, which eliminates an entire class of bugs common in C and C++.
-
-## Practice
-
-You now have the foundation to read and write basic Go programs. Head over to the [Go track](/tracks/go) to practice with interactive exercises. Start with simple variable declarations and function definitions, then work your way up to slices, maps, and multi-return functions.
-
-## What's Next?
-
-Once you are comfortable with the fundamentals, move on to [Structs and Interfaces](/tutorials/go-structs-and-interfaces) to learn how Go approaches object-oriented design without classes.
+**Slices, maps, and functions cannot be compared with `==`.** They can only be compared to `nil`. Go catches the mistake at compile time — `invalid operation: a == b (slice can only be compared to nil)` — which is a kinder failure than a language that allows the comparison and gets it wrong at runtime, but it still surprises people who expect struct-style equality to apply everywhere.

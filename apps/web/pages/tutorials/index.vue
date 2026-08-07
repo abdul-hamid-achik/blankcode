@@ -65,9 +65,14 @@ usePageSeo({
   <div class="container max-w-3xl py-10 md:py-14">
     <p class="eyebrow mb-2">tutorials</p>
     <h1 class="display text-2xl md:text-3xl mb-3">The reading behind the practice.</h1>
-    <p class="mb-10 max-w-xl leading-relaxed text-muted-foreground">
-      Written walkthroughs of the ideas the exercises drill. Each one ends where reading should: at
-      the exercises that make it yours.
+    <p class="mb-4 max-w-xl leading-relaxed text-muted-foreground">
+      Written walkthroughs of the ideas the exercises drill — with fill-in-the-blank checkpoints
+      inline, graded as you read. Each one ends where reading should: at the exercises that make it
+      yours.
+    </p>
+    <p class="mb-10 font-mono text-xs text-muted-foreground">
+      {{ tutorials.length }} walkthroughs · {{ series.length }} tracks · checkpoints graded in-page,
+      free
     </p>
 
     <!-- Jump list: one line, all the series. -->

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ArticleProgress from '~/components/content/ArticleProgress.vue'
+import { useCodeCopy } from '~/composables/useCodeCopy'
 import { usePageSeo } from '~/composables/usePageSeo'
 import { readingMinutes } from '~/utils/blog'
 
@@ -91,6 +93,37 @@ const next = computed(() =>
 const site = useSiteUrl()
 const canonical = computed(() => `${site}${tutorialPath.value}`)
 
+/** Copy buttons on every code block in the article. */
+const articleRef = ref<HTMLElement | null>(null)
+useCodeCopy(articleRef)
+
+/*
+ * Scroll-spy for the wide-screen contents rail: the section you are inside
+ * is the one lit in signal. IntersectionObserver over the h2s the TOC
+ * already points at — no scroll math, no jank.
+ */
+const activeSection = ref<string | null>(null)
+let observer: IntersectionObserver | null = null
+
+onMounted(() => {
+  if (tocLinks.value.length < 3) return
+  observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) activeSection.value = entry.target.id
+      }
+    },
+    // A section is "current" when its heading crosses the upper third.
+    { rootMargin: '0px 0px -66% 0px' }
+  )
+  for (const link of tocLinks.value) {
+    const heading = document.getElementById(link.id)
+    if (heading) observer.observe(heading)
+  }
+})
+
+onUnmounted(() => observer?.disconnect())
+
 usePageSeo({
   title: doc.value.title,
   description: doc.value.description,
@@ -103,16 +136,56 @@ useHead({
     {
       type: 'application/ld+json',
       innerHTML: computed(() =>
-        JSON.stringify({
-          '@context': 'https://schema.org',
-          '@type': 'TechArticle',
-          headline: doc.value.title,
-          description: doc.value.description,
-          proficiencyLevel: doc.value.difficulty,
-          publisher: { '@type': 'Organization', name: 'BlankCode', url: site },
-          mainEntityOfPage: { '@type': 'WebPage', '@id': canonical.value },
-          keywords: doc.value.tags?.join(', '),
-        })
+        JSON.stringify([
+          {
+            '@context': 'https://schema.org',
+            // Both types are true: it is a technical article AND a learning
+            // resource, and the second is what education-aware surfaces key on.
+            '@type': ['TechArticle', 'LearningResource'],
+            headline: doc.value.title,
+            description: doc.value.description,
+            proficiencyLevel: doc.value.difficulty,
+            educationalLevel: doc.value.difficulty,
+            learningResourceType: 'Tutorial',
+            teaches: doc.value.tags?.join(', '),
+            timeRequired: `PT${minutes.value}M`,
+            isAccessibleForFree: true,
+            inLanguage: 'en',
+            publisher: { '@type': 'Organization', name: 'BlankCode', url: site },
+            mainEntityOfPage: { '@type': 'WebPage', '@id': canonical.value },
+            keywords: doc.value.tags?.join(', '),
+          },
+          {
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: 'Tutorials', item: `${site}/tutorials` },
+              ...(doc.value.track
+                ? [
+                    {
+                      '@type': 'ListItem',
+                      position: 2,
+                      name: doc.value.track,
+                      item: `${site}/tracks/${doc.value.track}`,
+                    },
+                    {
+                      '@type': 'ListItem',
+                      position: 3,
+                      name: doc.value.title,
+                      item: canonical.value,
+                    },
+                  ]
+                : [
+                    {
+                      '@type': 'ListItem',
+                      position: 2,
+                      name: doc.value.title,
+                      item: canonical.value,
+                    },
+                  ]),
+            ],
+          },
+        ])
       ),
     },
   ],
@@ -121,6 +194,32 @@ useHead({
 
 <template>
   <article v-if="tutorial" class="container py-12 md:py-16">
+    <ArticleProgress />
+
+    <!-- The contents as a fixed rail on wide screens, lit by scroll-spy. -->
+    <nav
+      v-if="tocLinks.length >= 3"
+      aria-label="Contents"
+      class="fixed top-28 hidden w-52 xl:block"
+      :style="{ left: 'max(1.5rem, calc(50% - 42rem))' }"
+    >
+      <p class="eyebrow mb-3">contents</p>
+      <ol class="space-y-1.5 border-l border-rule pl-4">
+        <li v-for="link in tocLinks" :key="link.id">
+          <a
+            :href="`#${link.id}`"
+            class="block font-mono text-xs leading-relaxed transition-colors"
+            :class="
+              activeSection === link.id
+                ? 'text-signal'
+                : 'text-muted-foreground hover:text-foreground'
+            "
+          >
+            {{ link.text }}
+          </a>
+        </li>
+      </ol>
+    </nav>
     <!-- Same reading measure as the blog: ~65ch at the article's body size. -->
     <div class="mx-auto max-w-[42rem]">
       <nav aria-label="Breadcrumb" class="mb-8">
@@ -157,7 +256,7 @@ useHead({
       <nav
         v-if="tocLinks.length >= 3"
         aria-label="Contents"
-        class="mb-10 border-l-2 border-rule-strong py-1 pl-5"
+        class="mb-10 border-l-2 border-rule-strong py-1 pl-5 xl:hidden"
       >
         <p class="eyebrow mb-3">contents</p>
         <ol class="space-y-1.5">
@@ -172,7 +271,7 @@ useHead({
         </ol>
       </nav>
 
-      <div class="article-body">
+      <div ref="articleRef" class="article-body">
         <ContentRenderer :value="tutorial" />
       </div>
 

@@ -1,7 +1,7 @@
 ---
 title: "Type Narrowing in TypeScript"
 slug: "typescript-type-narrowing"
-description: "Use type guards, discriminated unions, and assertion functions to narrow types safely."
+description: "How typeof, instanceof, in, discriminated unions, and assertion functions each narrow a type, and why narrowing can silently evaporate across a function call."
 track: "typescript"
 order: 4
 difficulty: "intermediate"
@@ -11,236 +11,251 @@ practice:
   label: "TypeScript basics"
 ---
 
-TypeScript's type system is structural and flow-sensitive. When you write code that checks the shape or type of a value, TypeScript narrows the type within that branch. This means you can start with a broad type like `string | number` and refine it to a specific type without any unsafe casts.
+TypeScript's type system is flow-sensitive: it re-evaluates a value's type at every line, based on what the code between the declaration and that line proves. Check a value's type with `typeof`, `instanceof`, or a property test, and everything after that check — inside the branch where it's true — gets the narrower type for free, with no cast required.
 
-## typeof Guards
-
-The `typeof` operator is the simplest way to narrow primitive types:
+## typeof guards
 
 ```typescript
 function format(value: string | number): string {
   if (typeof value === "string") {
-    // TypeScript knows value is string here
-    return value.toUpperCase();
+    return value.toUpperCase()
   }
-  // TypeScript knows value is number here
-  return value.toFixed(2);
+  return value.toFixed(2)
 }
 
 function processInput(input: string | number | boolean) {
   if (typeof input === "string") {
-    console.log("String length:", input.length);
+    console.log("String length:", input.length)
   } else if (typeof input === "number") {
-    console.log("Doubled:", input * 2);
+    console.log("Doubled:", input * 2)
   } else {
-    // TypeScript narrows to boolean
-    console.log("Negated:", !input);
+    console.log("Negated:", !input) // narrowed to boolean by elimination
   }
 }
 ```
 
-TypeScript recognizes `typeof` checks for `"string"`, `"number"`, `"boolean"`, `"symbol"`, `"bigint"`, `"undefined"`, `"object"`, and `"function"`.
+TypeScript recognizes `typeof` checks for `"string"`, `"number"`, `"boolean"`, `"symbol"`, `"bigint"`, `"undefined"`, `"object"`, and `"function"` — nothing else narrows this way, because those are the only eight strings `typeof` can ever return.
 
-## instanceof Narrowing
+::code-blank{lang="typescript" href="/tracks/typescript/basics" label="practice typescript basics for real"}
+---
+code: |
+  function format(value: string | number): string {
+    if (___blank_start___typeof___blank_end___ value === "string") {
+      return value.toUpperCase()
+    }
+    return value.toFixed(2)
+  }
+---
+::
 
-Use `instanceof` to narrow class instances:
+## instanceof and the in operator
 
 ```typescript
 class ApiError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number
-  ) {
-    super(message);
+  constructor(message: string, public statusCode: number) {
+    super(message)
   }
 }
 
 class ValidationError extends Error {
-  constructor(
-    message: string,
-    public fields: string[]
-  ) {
-    super(message);
+  constructor(message: string, public fields: string[]) {
+    super(message)
   }
 }
 
 function handleError(error: Error) {
   if (error instanceof ApiError) {
-    // TypeScript knows error has statusCode
-    console.log(`API error ${error.statusCode}: ${error.message}`);
+    console.log(`API error ${error.statusCode}: ${error.message}`)
   } else if (error instanceof ValidationError) {
-    // TypeScript knows error has fields
-    console.log(`Invalid fields: ${error.fields.join(", ")}`);
+    console.log(`Invalid fields: ${error.fields.join(", ")}`)
   } else {
-    console.log("Unknown error:", error.message);
+    console.log("Unknown error:", error.message)
   }
 }
 ```
 
-## The `in` Operator
-
-The `in` operator checks whether a property exists on an object, which TypeScript uses to narrow union types:
+`instanceof` narrows on the prototype chain, so it only works for classes — not for plain object shapes distinguished by which properties they carry. That's what the `in` operator is for:
 
 ```typescript
 interface Fish {
-  swim: () => void;
+  swim: () => void
 }
 
 interface Bird {
-  fly: () => void;
+  fly: () => void
 }
 
 function move(animal: Fish | Bird) {
   if ("swim" in animal) {
-    // TypeScript knows animal is Fish
-    animal.swim();
+    animal.swim() // narrowed to Fish
   } else {
-    // TypeScript knows animal is Bird
-    animal.fly();
+    animal.fly() // narrowed to Bird
   }
 }
 ```
 
-This works well when union members have distinct properties but don't share a common discriminant field.
+`in` narrows on whether the *type* says a property exists, not on whether the *value* actually has it at runtime. That's a safe assumption for values you constructed yourself, and a risky one for anything that crossed a real boundary — a parsed response, `localStorage`, a message from a worker — where the type is a claim nobody checked.
 
-## Custom Type Guards
-
-For complex narrowing logic, write custom type guard functions using the `is` keyword:
+## Custom type guards, and where narrowing stops following you
 
 ```typescript
 interface Car {
-  type: "car";
-  doors: number;
+  type: "car"
+  doors: number
 }
 
 interface Truck {
-  type: "truck";
-  payload: number;
+  type: "truck"
+  payload: number
 }
 
-type Vehicle = Car | Truck;
+type Vehicle = Car | Truck
 
-// Custom type guard
 function isCar(vehicle: Vehicle): vehicle is Car {
-  return vehicle.type === "car";
+  return vehicle.type === "car"
 }
 
 function describeVehicle(vehicle: Vehicle) {
   if (isCar(vehicle)) {
-    console.log(`Car with ${vehicle.doors} doors`);
+    console.log(`Car with ${vehicle.doors} doors`)
   } else {
-    console.log(`Truck with ${vehicle.payload}kg payload`);
+    console.log(`Truck with ${vehicle.payload}kg payload`)
   }
 }
 ```
 
-Type guard functions return a boolean, but the `vehicle is Car` return type tells TypeScript to narrow the type in the truthy branch. Use these when the narrowing logic is reusable or too complex for an inline check.
+The `vehicle is Car` return type is what makes this work. Without it, `isCar` would return a plain `boolean`, and the branch inside `describeVehicle` would not narrow at all.
+
+Narrowing tracks a specific expression, not a value in the abstract, and that distinction matters most with a property access instead of a local variable:
 
 ```typescript
-// Narrowing nullable types
-// Note: the loose equality (!=) is intentional here —
-// `value != null` checks for both null and undefined in one expression.
-function isNonNull<T>(value: T | null | undefined): value is T {
-  return value != null;
+function process(state: { data: string | null }) {
+  if (state.data !== null) {
+    doSomethingElse() // any function call...
+    state.data.trim() // ...and TypeScript re-widens state.data to string | null here
+  }
 }
-
-const items: (string | null)[] = ["a", null, "b", null, "c"];
-const filtered: string[] = items.filter(isNonNull);
 ```
 
-## Discriminated Unions
+TypeScript can't prove `doSomethingElse` didn't reassign `state.data` in between — it has no way to know the function's body doesn't reach back into `state` — so it discards the narrowing on `state.data` at the call and re-checks the full union afterward. A local variable doesn't have this problem, because nothing outside the current scope can reassign it:
 
-Discriminated unions are the most powerful narrowing pattern in TypeScript. Each member of the union has a common literal property (the discriminant) that TypeScript uses to determine the specific type:
+```typescript
+function process(state: { data: string | null }) {
+  const { data } = state
+  if (data !== null) {
+    doSomethingElse()
+    data.trim() // still string — a local const can't be reassigned by another function
+  }
+}
+```
+
+Destructure into a local before narrowing anything you plan to use after a function call.
+
+::code-blank{lang="typescript" href="/tracks/typescript/basics" label="practice typescript basics for real"}
+---
+code: |
+  function isCar(vehicle: Vehicle): vehicle ___blank_start___is___blank_end___ Car {
+    return vehicle.type === "car"
+  }
+---
+::
+
+## Discriminated unions and exhaustive checking
 
 ```typescript
 interface LoadingState {
-  status: "loading";
+  status: "loading"
 }
 
 interface SuccessState {
-  status: "success";
-  data: string[];
+  status: "success"
+  data: string[]
 }
 
 interface ErrorState {
-  status: "error";
-  message: string;
+  status: "error"
+  message: string
 }
 
-type RequestState = LoadingState | SuccessState | ErrorState;
+type RequestState = LoadingState | SuccessState | ErrorState
 
 function renderState(state: RequestState): string {
   switch (state.status) {
     case "loading":
-      return "Loading...";
+      return "Loading..."
     case "success":
-      // TypeScript knows state has data
-      return `Found ${state.data.length} items`;
+      return `Found ${state.data.length} items`
     case "error":
-      // TypeScript knows state has message
-      return `Error: ${state.message}`;
+      return `Error: ${state.message}`
   }
 }
 ```
 
-This pattern is especially useful for state machines, API responses, and event handling.
+The discriminant — `status` here — has to be a literal type shared by every member, not just a field with the same name. Type it as the widened `string` instead of the specific literals, and the `switch` keeps compiling but stops narrowing anything; every case body still sees the full union.
 
-## Exhaustive Checking with never
-
-The `never` type ensures you handle every case in a discriminated union. If you miss one, TypeScript raises a compile error:
+Add `never` to the mix and a missing case becomes a compile error instead of a silent gap:
 
 ```typescript
 type Shape =
   | { kind: "circle"; radius: number }
   | { kind: "rectangle"; width: number; height: number }
-  | { kind: "triangle"; base: number; height: number };
 
 function area(shape: Shape): number {
   switch (shape.kind) {
     case "circle":
-      return Math.PI * shape.radius ** 2;
+      return Math.PI * shape.radius ** 2
     case "rectangle":
-      return shape.width * shape.height;
-    case "triangle":
-      return (shape.base * shape.height) / 2;
+      return shape.width * shape.height
     default: {
-      // If you add a new shape and forget a case,
-      // TypeScript will error here
-      const _exhaustive: never = shape;
-      return _exhaustive;
+      const _exhaustive: never = shape
+      return _exhaustive
     }
   }
 }
 ```
 
-If you later add `{ kind: "pentagon"; ... }` to `Shape` but forget to handle it in the switch, `shape` won't be assignable to `never` and TypeScript will flag the problem at compile time.
+Add `{ kind: "triangle"; ... }` to `Shape` and forget to handle it, and `shape` in the `default` branch is no longer assignable to `never` — the build fails at the exact line that needs a new case, instead of eventually, at whatever line calls `.base` on a shape that doesn't have one.
 
-## Assertion Functions
+::code-blank{lang="typescript" href="/tracks/typescript/basics" label="practice typescript basics for real"}
+---
+code: |
+  function area(shape: Shape): number {
+    switch (shape.kind) {
+      case "circle":
+        return Math.PI * shape.radius ** 2
+      default: {
+        const _exhaustive: ___blank_start___never___blank_end___ = shape
+        return _exhaustive
+      }
+    }
+  }
+---
+::
 
-Assertion functions narrow types by throwing if the condition is false. They use the `asserts` keyword:
+## Assertion functions
 
 ```typescript
-function assertDefined<T>(
-  value: T | null | undefined,
-  name: string
-): asserts value is T {
+function assertDefined<T>(value: T | null | undefined, name: string): asserts value is T {
   if (value == null) {
-    throw new Error(`${name} must be defined`);
+    throw new Error(`${name} must be defined`)
   }
 }
 
 function loadUser(id: number) {
-  const user = findUserById(id);
-  assertDefined(user, "User");
-  // TypeScript knows user is not null/undefined
-  console.log(user.name);
+  const user = findUserById(id)
+  assertDefined(user, "User")
+  console.log(user.name) // narrowed to non-null for the rest of the function
 }
 ```
 
-Unlike type guard functions that return a boolean, assertion functions throw on the unhappy path. The narrowing applies to all code after the assertion call.
+An assertion function narrows differently from a type guard: instead of narrowing one branch, it narrows everything after the call, for the rest of the enclosing scope, because the only way past it is for the condition to hold — the unhappy path throws instead of returning `false`. Reach for one when a bad value means the function truly cannot continue, not as a shorter way to write an `if`.
 
-## Practice
+## Where this bites
 
-Type narrowing is one of TypeScript's most practical features. Once you're comfortable with these patterns, you'll write fewer type assertions and produce safer code. Practice these techniques with hands-on exercises in the [TypeScript track](/tracks/typescript).
+**Narrowing a property access across an intervening function call.** `if (state.data !== null)` followed by a call to anything before you use `state.data` again throws the narrowing away, because the compiler can't rule out the call reassigning it. Destructure into a local `const` first, and narrow that instead.
 
-Next up: [Utility Types](/tutorials/typescript-utility-types)
+**Trusting `in` on data that crossed a real boundary.** The operator narrows on what the type declares, not on what the value actually has, so a parsed response typed with an optional field can pass `"key" in value` while the key is genuinely `undefined`. Validate untrusted data before you narrow it, not after.
+
+**Typing a discriminant as `string` instead of a literal union.** The switch still compiles and looks identical in the editor, but nothing narrows — every case body sees the full union, and the bug shows up as a type error three functions downstream instead of here. Whatever field you switch on needs a literal type on every member, usually via `as const` if it comes from an object literal.
+
+**Reaching for `!` where you meant a check.** The non-null assertion doesn't run anything at runtime — it just tells the compiler to stop complaining — so it removes the type error without removing the possibility that the value really is `null`. Use a real narrowing check or an assertion function when you want the mistake to throw instead of crash somewhere else.

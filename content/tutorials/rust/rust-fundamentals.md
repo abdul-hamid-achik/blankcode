@@ -1,7 +1,7 @@
 ---
 title: "Rust Fundamentals"
 slug: "rust-fundamentals"
-description: "Learn the core building blocks of Rust: variables, ownership, borrowing, and basic types."
+description: "Ownership, borrowing, and the core types every Rust program is built from, explained through what the compiler is protecting rather than analogy."
 track: "rust"
 order: 1
 difficulty: "beginner"
@@ -11,283 +11,123 @@ practice:
   label: "Ownership and borrowing"
 ---
 
-Rust is a systems programming language that guarantees memory safety without a garbage collector. This tutorial covers the foundational concepts you need to start writing Rust programs confidently.
+Rust's ownership system is not an obstacle between you and the code you want to write. It is the compiler proving, once, at build time, a set of properties most languages either give up on or check at runtime with a garbage collector. This tutorial covers the vocabulary that makes the rest of Rust legible: how values move, how references borrow, and the handful of types that show up in nearly everything you write.
 
-## Running Rust Code
+## Setup
 
-To get started with Rust, install it via [rustup](https://rustup.rs/). Then create and run a new project:
+Install Rust via [rustup](https://rustup.rs/), then scaffold and run a project:
 
 ```bash
-cargo new my_project   # create a new project
+cargo new my_project
 cd my_project
-cargo run              # compile and run
+cargo run
 ```
 
-`cargo` is Rust's build tool and package manager. It handles compiling your code, downloading dependencies, and running tests with `cargo test`.
+`cargo` is the build tool, package manager, and test runner in one binary — `cargo build`, `cargo test`, and `cargo run` all read the same `Cargo.toml`. There is no separate dependency-resolution step: add a crate to `Cargo.toml` and the next cargo command fetches and compiles it.
 
-## Variables and Mutability
+## Ownership: what the compiler is protecting
 
-In Rust, variables are immutable by default. This is a deliberate design choice that encourages you to think about when and where data changes.
-
-```rust
-fn main() {
-    let x = 5;
-    // x = 6; // This won't compile! Variables are immutable by default.
-
-    let mut y = 10;
-    y = 20; // This works because `y` is declared with `mut`.
-    println!("x = {}, y = {}", x, y);
-}
-```
-
-You can also shadow a variable by reusing `let` with the same name. Shadowing lets you transform a value while keeping the variable immutable.
-
-```rust
-fn main() {
-    let x = 5;
-    let x = x + 1;     // shadows the previous x
-    let x = x * 2;     // shadows again
-    println!("x = {}", x); // prints 12
-
-    // Shadowing also lets you change the type
-    let spaces = "   ";
-    let spaces = spaces.len(); // now it's a usize
-    println!("spaces = {}", spaces);
-}
-```
-
-## Basic Types
-
-Rust is statically typed. The compiler can usually infer types, but you can always be explicit.
-
-**Scalar types** represent single values:
-
-- Integers: `i8`, `i16`, `i32`, `i64`, `i128`, `isize` (signed) and `u8` through `usize` (unsigned)
-- Floats: `f32`, `f64`
-- Boolean: `bool`
-- Character: `char` (Unicode scalar value, 4 bytes)
-
-**Compound types** group multiple values:
-
-```rust
-fn main() {
-    // Tuple: fixed-length, mixed types
-    let point: (f64, f64, f64) = (1.0, 2.5, 3.7);
-    let (x, y, z) = point; // destructuring
-    println!("x={}, y={}, z={}", x, y, z);
-    println!("first element: {}", point.0); // access by index
-
-    // Array: fixed-length, same type
-    let days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-    println!("first day: {}", days[0]);
-
-    // Array with explicit type and size
-    let zeroes: [i32; 5] = [0; 5]; // five zeros
-    println!("{:?}", zeroes);
-}
-```
-
-## Functions and Control Flow
-
-Functions in Rust use `fn` and require type annotations on parameters. The last expression in a function body is its return value (no semicolon).
-
-```rust
-fn add(a: i32, b: i32) -> i32 {
-    a + b // no semicolon = this is the return value
-}
-
-fn classify_number(n: i32) -> &'static str {
-    // &'static str means a string slice that lives for the entire program.
-    // String literals like "positive" are stored in the binary and are
-    // always valid, so they have the 'static lifetime.
-    if n > 0 {
-        "positive"
-    } else if n < 0 {
-        "negative"
-    } else {
-        "zero"
-    }
-}
-
-fn main() {
-    let sum = add(3, 7);
-    println!("3 + 7 = {}", sum);
-
-    for n in [-5, 0, 42] {
-        println!("{} is {}", n, classify_number(n));
-    }
-
-    // Loop with break returning a value
-    let mut counter = 0;
-    let result = loop {
-        counter += 1;
-        if counter == 10 {
-            break counter * 2;
-        }
-    };
-    println!("result = {}", result);
-}
-```
-
-## Ownership Rules
-
-Ownership is Rust's most distinctive feature. It enables memory safety without garbage collection. There are three rules:
-
-1. Each value in Rust has exactly one **owner**.
-2. There can only be one owner at a time.
-3. When the owner goes out of scope, the value is **dropped** (freed).
+Every value has exactly one owner, and the value is dropped the instant its owner goes out of scope. That is the whole allocator story, but the rule that makes it enforceable at compile time is the one that matters: assign a heap-allocated value to a new variable, and the old one is invalidated.
 
 ```rust
 fn main() {
     let s1 = String::from("hello");
-    let s2 = s1; // s1 is MOVED to s2; s1 is no longer valid
+    let s2 = s1; // s1 is moved into s2
 
-    // println!("{}", s1); // compile error: value used after move
-    println!("{}", s2); // works fine
-
-    // To keep both, clone explicitly
-    let s3 = s2.clone();
-    println!("s2 = {}, s3 = {}", s2, s3);
+    // println!("{}", s1); // compile error: value borrowed after move
+    println!("{}", s2);
 }
 ```
 
-Types that implement the `Copy` trait (integers, booleans, floats, chars, and tuples of `Copy` types) are copied instead of moved. That is why `let x = 5; let y = x;` works without any issues.
+This is not a stylistic nicety. Two variables both believing they own the same heap buffer is a double-free waiting to happen the moment either goes out of scope. The compiler does not track a reference count at runtime the way `Rc` does — it tracks ownership statically and refuses to compile code where two live bindings could both try to free the same memory. That is the trick behind "no garbage collector, no crashes": the check happens once, and then it costs nothing at runtime.
 
-## Borrowing
+Types cheap to duplicate bit-for-bit — integers, floats, `bool`, `char`, and tuples of those — implement `Copy` and skip this rule. `let y = x;` after `let x = 5;` copies four bytes; there is nothing to double-free, so nothing moves. Copy-versus-move is not about a type's size, it is about whether a bitwise duplicate is a fully independent, valid value. A `String` fails that test because two copies of its pointer/length/capacity triple would both claim the same heap allocation.
 
-Instead of transferring ownership, you can **borrow** a value by taking a reference. References let you use data without taking ownership.
+When you genuinely need two independent copies, say so with `.clone()`. Cloning is fine when the data is small, when a copy needs to outlive the original, or when the code is nowhere near a hot path — reach for it without guilt. It becomes a smell only when you clone inside a loop to dodge a borrow error you have not actually diagnosed; that pattern usually means the function should take a reference instead of taking ownership.
+
+::code-blank{lang="rust" href="/tracks/rust/ownership-and-borrowing" label="practice ownership and borrowing for real"}
+---
+code: |
+  let s1 = String::from("hello");
+  let s2 = s1.___blank_start___clone___blank_end___();
+  println!("{} {}", s1, s2);
+---
+::
+
+## Borrowing: aliasing and mutation, never both
+
+Instead of moving ownership, you can borrow a value by taking a reference. A `&T` lets you read; a `&mut T` lets you read and write. The compiler enforces one rule about them: at any point in the program, either one mutable reference or any number of immutable references, never both. That sounds arbitrary until you see what it rules out — mutating a `Vec` while another part of the code iterates over it, invalidating a pointer someone else is still holding, two threads writing the same memory unsynchronized. Every one of those is a real bug class in languages that let you alias and mutate freely, and Rust converts each into a compile error without running the program once.
 
 ```rust
 fn calculate_length(s: &String) -> usize {
     s.len()
-    // s goes out of scope here, but since it doesn't own
-    // the String, nothing is dropped
 }
 
-fn main() {
-    let s = String::from("hello");
-    let len = calculate_length(&s); // borrow s
-    println!("'{}' has length {}", s, len); // s is still valid
-}
-```
-
-To modify borrowed data, you need a **mutable reference**:
-
-```rust
 fn append_world(s: &mut String) {
-    s.push_str(", world!");
+    s.push_str(", world");
 }
 
 fn main() {
     let mut greeting = String::from("hello");
+    println!("length: {}", calculate_length(&greeting));
     append_world(&mut greeting);
-    println!("{}", greeting); // "hello, world!"
+    println!("{}", greeting);
 }
 ```
 
-Rust enforces two borrowing rules at compile time:
+Mutability in Rust is a property of the binding, not of the value's origin. `&mut self` in a method does not ask whether the struct was somehow born mutable — it asks whether the variable calling the method was declared with `mut`. That is why `let rect = Rectangle::new(...)` cannot call a `&mut self` method even though `Rectangle` has no immutability built into its definition: the restriction lives on `rect`, not on the type.
 
-- You can have **either** one mutable reference **or** any number of immutable references (but not both at the same time).
-- References must always be valid (no dangling references).
+::code-blank{lang="rust" href="/tracks/rust/ownership-and-borrowing" label="practice ownership and borrowing for real"}
+---
+code: |
+  fn append_world(s: &___blank_start___mut___blank_end___ String) {
+      s.push_str(", world");
+  }
+---
+::
 
-## Lifetimes Basics
+## The types you reach for daily
 
-Lifetimes tell the compiler how long references are valid. Most of the time the compiler infers lifetimes automatically, but sometimes you need to annotate them.
+Scalars are what you would expect — signed and unsigned integers (`i32`, `u8`, `usize`, and friends), `f64`, `bool`, `char` — with one Rust-specific wrinkle: integer overflow panics in debug builds and silently wraps in release builds. Do not rely on either behavior deliberately; use `checked_add`, `wrapping_add`, or `saturating_add` when overflow is a real possibility.
 
-```rust
-// This function returns a reference, so we need to tell Rust
-// how long the returned reference lives relative to the inputs.
-fn longest<'a>(x: &'a str, y: &'a str) -> &'a str {
-    if x.len() >= y.len() {
-        x
-    } else {
-        y
-    }
-}
-
-fn main() {
-    let s1 = String::from("long string");
-    let result;
-    {
-        let s2 = String::from("hi");
-        result = longest(s1.as_str(), s2.as_str());
-        println!("longest: {}", result); // OK: both s1 and s2 are alive
-    }
-    // This would NOT compile if we tried to use `result` here,
-    // because `s2` has been dropped and `result` might refer to it:
-    // println!("{}", result); // ERROR: s2 does not live long enough
-}
-```
-
-The `'a` annotation does not change how long any reference lives. It describes the relationship between the lifetimes of the parameters and the return value so the compiler can verify safety.
-
-## Strings: `String` vs `&str`
-
-Rust has two main string types:
-
-- `String` -- heap-allocated, growable, owned
-- `&str` -- an immutable reference to a string slice (borrowed)
+Text splits into two owned-versus-borrowed types. `String` is heap-allocated, growable, and owned. `&str` is a borrowed view into string data — either into a `String`'s buffer, or into the compiled binary itself, which is why a literal like `"hello"` has the `'static` lifetime. Default to `&str` for function parameters — it accepts both a `&String` and a literal — and reach for `String` only when the function needs to own or grow the text.
 
 ```rust
 fn greet(name: &str) {
-    println!("Hello, {}!", name);
+    println!("Hello, {}", name);
 }
 
 fn main() {
     let owned = String::from("Alice");
-    let slice: &str = "Bob"; // string literal is &str (with 'static lifetime)
-
-    greet(&owned); // &String auto-coerces to &str
-    greet(slice);
+    greet(&owned); // &String coerces to &str
+    greet("Bob");  // a literal is already &str
 }
 ```
 
-Prefer `&str` as a function parameter type when you only need to read the string. Use `String` when you need ownership or mutation.
-
-## Vectors: `Vec<T>`
-
-Vectors are the most commonly used collection in Rust. A `Vec<T>` is a growable, heap-allocated array.
+For collections, `Vec<T>` is the default: a growable, heap-allocated, contiguous array. Fixed-size arrays (`[T; N]`) show up when the length is known and small — a three-element color tuple, a lookup table. Indexing a `Vec` panics out of bounds; `.get()` returns `Option<&T>` for when a missing index is a real possibility rather than a bug.
 
 ```rust
 fn main() {
-    // Create vectors
-    let mut numbers: Vec<i32> = Vec::new();
-    numbers.push(1);
-    numbers.push(2);
-    numbers.push(3);
+    let mut numbers = vec![1, 2, 3];
+    numbers.push(4);
 
-    // Or use the vec! macro
-    let mut colors = vec!["red", "green", "blue"];
-
-    // Access elements
-    println!("first: {}", numbers[0]);       // panics if out of bounds
-    println!("safe: {:?}", numbers.get(10)); // returns None instead
-
-    // Iterate
-    for n in &numbers {
-        println!("{}", n);
-    }
-
-    // Mutate while iterating
     for n in &mut numbers {
         *n *= 2;
     }
-    println!("doubled: {:?}", numbers);
-
-    // Other useful methods
-    colors.push("yellow");
-    let last = colors.pop(); // returns Option<&str>
-    println!("popped: {:?}, remaining: {:?}", last, colors);
-    println!("length: {}", colors.len());
-    println!("contains green: {}", colors.contains(&"green"));
+    println!("{:?}", numbers); // [2, 4, 6, 8]
 }
 ```
 
-Vectors own their data. When a vector goes out of scope, all its elements are dropped. You can borrow a vector as a slice (`&[T]`) for read-only access or `&mut [T]` for mutable access.
+::code-blank{lang="rust" href="/tracks/rust/ownership-and-borrowing" label="practice ownership and borrowing for real"}
+---
+code: |
+  let numbers = ___blank_start___vec___blank_end___![1, 2, 3];
+---
+::
 
-## Structs and `impl` Blocks
+## Structs and behavior
 
-Structs let you group related data together. You add behavior with `impl` blocks.
+A struct groups related data; an `impl` block attaches behavior to it. Associated functions — no `self` parameter, called with `::` — are how you write constructors; there is no special `new` keyword, `new` is only a convention. Methods take `&self`, `&mut self`, or, rarely, `self` by value, and that choice is the method's contract: `&self` promises it only reads, `&mut self` says it will mutate, `self` says it consumes the value and the caller loses access afterward.
 
 ```rust
 struct Rectangle {
@@ -296,21 +136,14 @@ struct Rectangle {
 }
 
 impl Rectangle {
-    // Associated function (like a static method) -- called with ::
     fn new(width: f64, height: f64) -> Self {
         Rectangle { width, height }
     }
 
-    // Method -- takes &self, called with .
     fn area(&self) -> f64 {
         self.width * self.height
     }
 
-    fn perimeter(&self) -> f64 {
-        2.0 * (self.width + self.height)
-    }
-
-    // Method that mutates -- takes &mut self
     fn scale(&mut self, factor: f64) {
         self.width *= factor;
         self.height *= factor;
@@ -319,32 +152,19 @@ impl Rectangle {
 
 fn main() {
     let mut rect = Rectangle::new(10.0, 5.0);
-    println!("area: {}", rect.area());           // 50.0
-    println!("perimeter: {}", rect.perimeter()); // 30.0
-
     rect.scale(2.0);
-    println!("scaled area: {}", rect.area());    // 200.0
+    println!("area: {}", rect.area());
 }
 ```
 
-Key points about structs:
+`Self` inside an `impl` block always means "the type this block implements." Write `Self` instead of repeating `Rectangle`, and the method survives a rename for free.
 
-- `Self` in an `impl` block refers to the type being implemented (here, `Rectangle`).
-- Methods take `&self` (borrow), `&mut self` (mutable borrow), or `self` (take ownership).
-- Associated functions without `self` (like `new`) are called with `::` syntax.
-- Structs are stored on the stack by default. When you assign a struct to a new variable, it is moved (unless it implements `Copy`).
+## Where this bites
 
-## Practice
+**Cloning to escape the borrow checker.** A `.clone()` sprinkled in wherever the compiler complains gets code compiling, but it usually means the function signature is wrong — it is asking for ownership when a reference would do. Change the parameter to a reference first, and reach for `.clone()` only after that genuinely does not fit.
 
-Try these exercises to reinforce what you learned:
+**Returning a reference to a local variable.** A function that builds a `String` internally and tries to return `&str` into it will not compile, because the local is dropped at the end of the function and the reference would dangle. Return the owned `String` instead, and let the caller decide whether to borrow it.
 
-1. Write a function that takes a `&[i32]` slice and returns the largest element.
-2. Create a struct `Circle` with a `radius` field, then write methods for `area` and `circumference`.
-3. Experiment with ownership by passing a `String` to a function and trying to use it afterward. Fix it using borrowing.
-4. Build a `Vec<String>` of names, then write a function that takes `&[String]` and returns the longest name.
+**Mutating a `Vec` while iterating over it.** `for x in &v { v.push(y) }` does not compile, and that is the point: growing a `Vec` can reallocate its buffer, which would invalidate every reference the iterator is holding. Collect the values to add into a separate `Vec` first, then extend after the loop ends.
 
-Ready to put these fundamentals to work? Head over to [Rust exercises](/tracks/rust) to practice with interactive coding challenges.
-
-## What's Next?
-
-Now that you understand variables, ownership, borrowing, structs, and vectors, you are ready to explore more powerful abstractions. Next up: [Enums and Pattern Matching](/tutorials/rust-enums-and-pattern-matching), which unlock expressive and safe ways to model your data.
+**Assuming integer overflow always panics.** It panics in debug builds and silently wraps in `--release`. Code that depends on overflow being caught should use `checked_add`, which returns `Option`, rather than relying on which build profile happens to be active.

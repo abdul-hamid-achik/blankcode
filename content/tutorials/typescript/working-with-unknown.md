@@ -24,11 +24,11 @@ ways to say so, and they behave in opposite ways.
 and the switch travels.
 
 ```typescript
-const config: any = JSON.parse(raw);
+const config: any = JSON.parse(raw)
 
-const port = config.port;        // any
-const host = port.toUpperCase(); // any — no error, port is a number
-const url = `http://${host}`;    // any, and wrong at runtime
+const port = config.port        // any
+const host = port.toUpperCase() // any — no error, port is a number
+const url = `http://${host}`    // any, and wrong at runtime
 ```
 
 Nothing above is reported. `any` propagates through property access, through
@@ -45,10 +45,11 @@ are not looking.
 is.
 
 ```typescript
-const config: unknown = JSON.parse(raw);
+const config: unknown = JSON.parse(raw)
 
-config.port;         // Error: 'config' is of type 'unknown'
-(config as any).port // Compiles, and you have just re-opened the hole
+config.port // Error: 'config' is of type 'unknown'
+
+const leaked = (config as any).port // Compiles, and you have just re-opened the hole
 ```
 
 The error is the feature. It appears at the boundary, which is the one place
@@ -62,18 +63,18 @@ widest possible starting point.
 ```typescript
 function describe(value: unknown): string {
   if (typeof value === "string") {
-    return value.toUpperCase();
+    return value.toUpperCase()
   }
   if (typeof value === "number") {
-    return value.toFixed(2);
+    return value.toFixed(2)
   }
   if (Array.isArray(value)) {
-    return `array of ${value.length}`;
+    return `array of ${value.length}`
   }
   if (value instanceof Date) {
-    return value.toISOString();
+    return value.toISOString()
   }
-  return "unrecognised";
+  return "unrecognised"
 }
 ```
 
@@ -82,13 +83,13 @@ and tells you nothing about properties:
 
 ```typescript
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 function readPort(value: unknown): number | null {
-  if (!isRecord(value)) return null;
-  if (typeof value["port"] !== "number") return null;
-  return value["port"];
+  if (!isRecord(value)) return null
+  if (typeof value["port"] !== "number") return null
+  return value["port"]
 }
 ```
 
@@ -96,6 +97,18 @@ function readPort(value: unknown): number | null {
 `unknown`, so you keep having to check as you drill in, one level at a time.
 That is tedious exactly in proportion to how little you actually know about the
 input.
+
+::code-blank{lang="typescript" href="/tracks/typescript/basics" label="practice typescript basics for real"}
+---
+code: |
+  function describe(value: unknown): string {
+    if (___blank_start___typeof___blank_end___ value === "string") {
+      return value.toUpperCase()
+    }
+    return "unrecognised"
+  }
+---
+::
 
 ## Type predicates, and what they cost
 
@@ -105,8 +118,8 @@ with better manners.
 
 ```typescript
 interface User {
-  id: string;
-  name: string;
+  id: string
+  name: string
 }
 
 function isUser(value: unknown): value is User {
@@ -114,7 +127,7 @@ function isUser(value: unknown): value is User {
     isRecord(value) &&
     typeof value["id"] === "string" &&
     typeof value["name"] === "string"
-  );
+  )
 }
 ```
 
@@ -123,7 +136,7 @@ This one is not:
 
 ```typescript
 function isUser(value: unknown): value is User {
-  return isRecord(value) && "id" in value;   // never checked name
+  return isRecord(value) && "id" in value // never checked name
 }
 ```
 
@@ -141,6 +154,19 @@ for a schema validation library. The narrowing is the same; the difference is
 that the checks are derived from the type rather than maintained in parallel
 with it.
 
+::code-blank{lang="typescript" href="/tracks/typescript/basics" label="practice typescript basics for real"}
+---
+code: |
+  function isUser(value: unknown): value ___blank_start___is___blank_end___ User {
+    return (
+      isRecord(value) &&
+      typeof value["id"] === "string" &&
+      typeof value["name"] === "string"
+    )
+  }
+---
+::
+
 ## Assertion functions at a boundary
 
 When a bad value means the operation cannot continue, an assertion function is
@@ -150,14 +176,14 @@ rather than one branch.
 ```typescript
 function assertIsUser(value: unknown): asserts value is User {
   if (!isUser(value)) {
-    throw new TypeError("Expected a User");
+    throw new TypeError("Expected a User")
   }
 }
 
 async function loadUser(id: string): Promise<User> {
-  const body: unknown = await fetch(`/api/users/${id}`).then((r) => r.json());
-  assertIsUser(body);
-  return body; // User, for the rest of the function
+  const body: unknown = await fetch(`/api/users/${id}`).then((r) => r.json())
+  assertIsUser(body)
+  return body // User, for the rest of the function
 }
 ```
 
@@ -170,7 +196,7 @@ boundary in a web application.
 
 ```typescript
 export function parseJson(text: string): unknown {
-  return JSON.parse(text);
+  return JSON.parse(text)
 }
 ```
 
@@ -186,53 +212,64 @@ anything, and plenty of libraries throw strings.
 
 ```typescript
 function messageOf(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  return "Unknown error";
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  return "Unknown error"
 }
 
 try {
-  await save(record);
+  await save(record)
 } catch (error) {
-  logger.error(messageOf(error));
+  logger.error(messageOf(error))
 }
 ```
 
 `error.message` inside the `catch` is the single most common place `any` gets
 reintroduced, usually as `catch (error: any)`. One helper removes the temptation
-everywhere.
+everywhere. The rule for this whole page is that small: use `unknown` where data
+enters your program, narrow it once, deliberately, at that boundary, and
+everything downstream works with real types.
 
-## Where `any` is still the right answer
+::code-blank{lang="typescript" href="/tracks/typescript/basics" label="practice typescript basics for real"}
+---
+code: |
+  function messageOf(error: unknown): string {
+    if (error ___blank_start___instanceof___blank_end___ Error) return error.message
+    return "Unknown error"
+  }
+---
+::
 
-Sometimes you genuinely need to opt out: a third-party type definition is wrong,
-or you are writing the internals of a generic utility where the type is
-unspeakable. `any` is the tool for that, and the way to use it safely is to
-contain it.
+## Where this bites
+
+**Banning `any` outright.** Sometimes a third-party type definition is wrong, or
+you're writing the internals of a generic utility where the type genuinely can't
+be spoken, and `any` is the tool for that — contained to one line with a comment
+saying why, and a typed value on the way back out:
 
 ```typescript
 // The upstream types omit the callback overload; verified against v4.2 source.
-// oxlint-disable-next-line typescript/no-explicit-any
-const client = createClient(options) as any as TypedClient;
+const client = createClient(options) as any as TypedClient
 ```
 
-One line, one comment saying why, and a typed value on the way out. The problem
-was never the keyword. It was `any` values escaping into code that never agreed
-to handle them.
+The problem was never the keyword. It's `any` values escaping into code that
+never agreed to handle them.
 
-## The shape of the rule
+**`catch (error: any)`.** It reintroduces the exact leak this page is about, at
+the single most common boundary in a web application. Annotate the caught value
+as `unknown` — or leave it unannotated, since `useUnknownInCatchVariables` makes
+that the default under `strict` — and write one `messageOf` helper the whole
+codebase can share.
 
-Use `unknown` where data enters your program. Narrow it once, deliberately, at
-that boundary. Everything downstream then works with real types, and the checks
-live in the one place that has any business knowing what the outside world looks
-like.
+**A predicate that checks one property and claims the whole type.** `isUser`
+returning `isRecord(value) && "id" in value` compiles, narrows, and quietly ships
+`user.name` as a `string` that is actually `undefined` everywhere it's read.
+Review a predicate as the cast it secretly is, and confirm it checks every
+property in the type it claims to prove.
 
-## Practice
-
-The narrowing techniques these checks are built from — `typeof`, `in`,
-discriminated unions, exhaustiveness with `never` — are covered in
-[Type Narrowing in TypeScript](/tutorials/typescript-type-narrowing).
-
-Practise both with hands-on exercises in the
-[TypeScript track](/tracks/typescript). The union and interface exercises are a
-good place to start, and the code review exercises there are largely about
-values whose shape somebody assumed instead of checked.
+**Trusting `JSON.parse` or `response.json()` without an explicit `unknown`
+annotation.** Both are typed to return `any` in the standard library, so the
+moment you write `const data = await res.json()` with no annotation, the leak
+has already happened, silently, on the most common boundary in the app. Wrap
+them once so every caller receives a value they have to inspect before they can
+use it.
