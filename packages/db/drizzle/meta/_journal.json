@@ -36,6 +36,13 @@
       "when": 1771470555751,
       "tag": "0004_add_turn_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1771470555752,
+      "tag": "0005_add_context_sessions",
+      "breakpoints": true
     }
   ]
 }

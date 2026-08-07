@@ -463,6 +463,49 @@ export const turnSessions = pgTable(
   ]
 )
 
+/**
+ * One attempt at a context-selection exercise.
+ *
+ * The sources and which of them are required are snapshotted here at creation
+ * rather than read from the exercise on each request. An exercise that gains a
+ * source, or reprices one, must not change the cost of an attempt already under
+ * way — and a score that moves after the fact is not a score.
+ *
+ * `selected` is the server's record of what was actually handed over. It cannot
+ * be a number the client reports: the whole exercise is about the cost of what
+ * you asked for, so the ledger has to be kept by whoever serves the content.
+ */
+export const contextSessions = pgTable(
+  'context_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    exerciseId: uuid('exercise_id')
+      .notNull()
+      .references(() => exercises.id, { onDelete: 'cascade' }),
+    sources: jsonb('sources')
+      .$type<Array<{ id: string; label: string; tokens: number }>>()
+      .notNull()
+      .default([]),
+    required: jsonb('required').$type<string[]>().notNull().default([]),
+    selected: jsonb('selected').$type<string[]>().notNull().default([]),
+    answer: text('answer'),
+    status: turnSessionStatusEnum('status').notNull().default('open'),
+    revealedAt: timestamp('revealed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('context_sessions_user_idx').on(table.userId, table.createdAt),
+    // Same reason as the turn sessions: a second open attempt is a fresh budget.
+    uniqueIndex('context_sessions_one_open_idx')
+      .on(table.userId, table.exerciseId)
+      .where(sql`status = 'open'`),
+  ]
+)
+
 export const usageEvents = pgTable(
   'usage_events',
   {
