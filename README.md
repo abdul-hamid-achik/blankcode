@@ -33,6 +33,9 @@ below is for working on it, not for running a copy of it.
   tier enforced server-side (10 submissions/day, 3 AI explanations/day).
 - **Content**: markdown everywhere — exercises import into Postgres, blog and
   tutorials render via @nuxt/content with build-time Shiki highlighting.
+  Tutorials carry interactive fill-in-the-blank checkpoints (`::code-blank`),
+  graded client-side mid-read and linking to the graded exercises — the
+  authoring contract lives in AGENTS.md (Tutorial Authoring Rules).
 
 ## Layout
 

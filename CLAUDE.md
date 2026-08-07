@@ -21,3 +21,10 @@ are pushed with `bun run seed` (`-- --live` for production). Local development
 against the preview database and real sandboxes: `bash
 tools/ops/dev-against-preview.sh` then `bun run dev`. Vercel only reads new
 environment variables on a fresh build — `vercel redeploy` reuses the old one.
+
+Content has a quality bar, written down. Exercises follow the authoring rules
+in AGENTS.md; tutorials follow the Tutorial Authoring Rules there too — the
+2026-08-08 rewrite is the reference: product voice, interactive
+`::code-blank` checkpoints after the section they test, one non-obvious
+insight per tutorial, claims verified by running them, and every page swept
+rendered before shipping. Do not add content below that bar.

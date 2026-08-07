@@ -241,6 +241,56 @@ exists because something in `content/tracks/` is currently wrong.
 12. **Set `difficulty` deliberately.** 42 of 60 blank exercises say `beginner`,
     including whole concepts named "advanced-*".
 
+## Tutorial Authoring Rules
+
+The 2026-08-08 rewrite set the bar, and this section exists so nothing ships
+below it. A tutorial here is not a blog post with headings: it is the
+product's thesis — reading is not practicing — carried into its own reading.
+Anything that reads like documentation filler fails review.
+
+1. **Frontmatter is a contract.** `slug`, `track`, `order`, `difficulty`,
+   `tags`, and `practice: { concept, label }` drive the series navigation, the
+   practice CTA, and the index — the page chrome renders all of that, so the
+   body must never duplicate it (no h1, no manual "Practice"/"What's next"
+   sections, no "Back to…" links).
+2. **Structure**: 4–7 `##` sections (the TOC keys on h2 only), fenced code
+   with the correct language tag (Shiki highlights at build), 900–1500 words
+   of prose. End with a named failure-modes section ("Where this bites"):
+   3–4 concrete mistakes, each with a two-sentence counter.
+3. **Voice**: the register of the design system's copy rule — statements, not
+   apologies; opinionated, concrete, no cheerleading, no emoji, no
+   exclamation marks, no "Let's dive in". When to reach for the thing AND
+   when not to. Each tutorial must carry at least one genuinely non-obvious
+   insight a mid-level dev would learn from — that insight is the reason the
+   page deserves to exist.
+4. **Checkpoints are mandatory**: 2–3 `::code-blank` MDC blocks per tutorial,
+   each placed immediately after the section whose idea it tests and solvable
+   purely from that section. Syntax:
+
+   ```
+   ::code-blank{lang="typescript" href="/tracks/<track>/<practice.concept>" label="practice <label> for real"}
+   ---
+   code: |
+     function identity<___blank_start___T___blank_end___>(value: T): T {
+       return value
+     }
+   ---
+   ::
+   ```
+
+   Blank answers follow the exercise rules: ONE short token (≤ 20 chars), no
+   quotes, no newlines, no underscore-adjacent boundaries. Grading is an
+   exact trimmed compare in the client (`components/content/CodeBlank.vue`).
+5. **Claims get verified, not asserted.** The Go rewrite compiled and ran
+   every non-trivial claim before stating it; that is the standard. If a
+   sentence says the language does X, run X.
+6. **Verify by rendering, not by reading** — the same rule as exercises.
+   Sweep every page and check: ≥ 4 real `<h2>`, checkpoints mounted, no
+   literal `___blank_start___` outside the SSR payload, no unparsed
+   `::code-blank` text, `LearningResource` JSON-LD present. A checkpoint
+   whose YAML indentation is off renders as literal text and the page ships
+   looking broken.
+
 ## Design System
 
 The UI is a **practice sheet**: engineering graph paper you make a mark on. The
