@@ -38,7 +38,8 @@
     "shiki",
     "vscode-oniguruma",
     "vscode-textmate",
-    "flexsearch"
+    "flexsearch",
+    "vue-router"
   ],
   "ignoreWorkspaces": ["content"],
   "ignoreExportsUsedInFile": true

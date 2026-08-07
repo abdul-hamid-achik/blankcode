@@ -102,3 +102,26 @@ describe('review exercises announce themselves', () => {
     expect(banner.slice(0, 400)).not.toContain('passes the tests')
   })
 })
+
+/**
+ * `vue-router` is declared as a direct dependency even though Nuxt brings it
+ * in. Without that, it lives only under nuxt's own node_modules, and vue-tsc —
+ * which resolves the volar plugin relative to itself, not to the project —
+ * cannot find `vue-router/volar/sfc-route-blocks`. Every typecheck then printed
+ * a module-not-found stack that had nothing to do with the code being checked.
+ */
+describe('vue-router is declared, not just inherited', () => {
+  const pkg = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf-8')) as {
+    dependencies: Record<string, string>
+  }
+
+  it('is a direct dependency', () => {
+    expect(pkg.dependencies['vue-router']).toBeDefined()
+  })
+
+  it('is not pinned away from the version nuxt resolves', () => {
+    // A second copy would be the CodeMirror bug again: two routers, one of
+    // which the app is not using.
+    expect(pkg.dependencies['vue-router']).toMatch(/^\^5\./)
+  })
+})
