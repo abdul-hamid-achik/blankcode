@@ -11,6 +11,9 @@
 #
 # Where each value comes from, and why not all of them from one place:
 #
+#   Stripe / Resend     tvault project `blankcode-preview`, which is where the
+#                       keys live. Vercel stores them sensitive, so the pull
+#                       returns the literal [SENSITIVE].
 #   VERCEL_OIDC_TOKEN   `vercel env pull`. This is what authenticates
 #                       Sandbox.create() off-platform. It is short lived —
 #                       re-run this script when sandboxes start returning 401.
@@ -67,6 +70,14 @@ jwt_secret=$(printf 'blankcode-local-%s' "$(hostname)" | shasum -a 256 | cut -d'
 
   ai_key=$(value_of AI_GATEWAY_API_KEY)
   [ -n "$ai_key" ] && echo "AI_GATEWAY_API_KEY=\"$ai_key\""
+
+  # From tvault, not from the pull: these are stored sensitive in Vercel and
+  # come back as the literal [SENSITIVE]. tvault is where they actually live,
+  # which is also what makes this file disposable — delete it and re-run.
+  for key in STRIPE_SECRET_KEY STRIPE_PRICE_ID STRIPE_WEBHOOK_SECRET RESEND_API_KEY; do
+    value=$(tvault get "$key" -p blankcode-preview 2>/dev/null || true)
+    [ -n "$value" ] && echo "$key=\"$value\""
+  done
 
   missing=0
   for lang in TYPESCRIPT REACT VUE PYTHON GO RUST; do
