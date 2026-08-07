@@ -3,6 +3,7 @@ import { reviewSchedules } from '@blankcode/db/schema'
 import type { ReviewExercise } from '@blankcode/shared'
 import { and, eq, lte } from 'drizzle-orm'
 import { Context, Effect, Layer } from 'effect'
+import { redactExercise } from '../exercises/redact.js'
 import { NotFoundError } from '../../api/errors.js'
 import { calculateNextReview, type ReviewQuality } from './scheduler.js'
 
@@ -129,7 +130,20 @@ export const ReviewsServiceLive = Layer.effect(
           })
 
           const reviewExercises: ReviewExercise[] = dueSchedules.map((schedule) => {
-            const exercise = schedule.exercise
+            /*
+             * Redacted, like every other path that ships an exercise. This one
+             * spread the raw row, so the daily review queue — the surface a
+             * learner opens most — handed back `solutionCode` and every blank's
+             * answer for every exercise due that day.
+             *
+             * The cast is because `ReviewExercise extends Exercise`, and
+             * `Exercise` still declares the fields that were just removed. The
+             * shared type is what should change; until it does, this is the
+             * honest place to note that the value no longer matches it.
+             */
+            const exercise = redactExercise(
+              schedule.exercise as unknown as Record<string, unknown>
+            ) as unknown as typeof schedule.exercise
             return {
               ...exercise,
               difficulty: exercise.difficulty as ReviewExercise['difficulty'],

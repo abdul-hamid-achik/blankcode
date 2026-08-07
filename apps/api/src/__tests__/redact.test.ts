@@ -169,3 +169,59 @@ describe('the submissions list does not leak answers', () => {
     expect(shape).not.toContain('Effect.Effect<any[]')
   })
 })
+
+/**
+ * The review queue spread the raw exercise row, so the surface a learner opens
+ * every day handed back `solutionCode` and every blank's answer for each
+ * exercise due. Third path with the same defect, after the exercises service
+ * and the submissions list.
+ *
+ * The pattern is worth naming: each leak was a place that joined an exercise
+ * and returned it without going through `redactExercise`. Any new one will look
+ * the same.
+ */
+describe('the review queue does not leak answers', () => {
+  const service = readFileSync(
+    join(process.cwd(), 'src/modules/reviews/reviews.service.ts'),
+    'utf-8'
+  )
+
+  it('redacts the exercise it joins', () => {
+    expect(service).toContain('redactExercise(')
+  })
+
+  it('redacts before spreading, not after', () => {
+    // `...exercise` on a raw row is the bug. The redaction has to happen while
+    // binding `exercise`, or the spread puts the answers straight back.
+    const spread = service.indexOf('...exercise,')
+    const redaction = service.indexOf('redactExercise(')
+    expect(redaction).toBeGreaterThan(-1)
+    expect(redaction).toBeLessThan(spread)
+  })
+})
+
+/**
+ * Every service that joins an exercise has to redact it. This is the check that
+ * would have caught all three leaks at once, which is the argument for having
+ * it rather than three separate ones.
+ */
+describe('no service returns an unredacted exercise join', () => {
+  const MODULES = join(process.cwd(), 'src/modules')
+
+  it.each(['submissions/submissions.service.ts', 'reviews/reviews.service.ts'])(
+    '%s redacts what it joins',
+    (file) => {
+      const source = readFileSync(join(MODULES, file), 'utf-8')
+      const joins = source.split(/with: \{\s*exercise/).length - 1
+      if (joins === 0) return
+
+      // withBlankFeedback is where the submissions service applies it.
+      const redactions =
+        source.split('redactExercise(').length - 1 + (source.split('withBlankFeedback(').length - 1)
+      expect(
+        redactions,
+        `${file} joins an exercise more often than it redacts one`
+      ).toBeGreaterThan(0)
+    }
+  )
+})
