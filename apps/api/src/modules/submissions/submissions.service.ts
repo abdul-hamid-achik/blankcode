@@ -36,6 +36,16 @@ export interface SubmissionWithFeedback extends SubmissionRow {
   exercise: Record<string, unknown>
 }
 
+/**
+ * Which credential created the submission. Defaults to the web session; the
+ * MCP surface passes the practice token's identity so agent work is labeled
+ * at the row, never inferred later.
+ */
+export interface SubmissionOrigin {
+  readonly via: 'web' | 'agent'
+  readonly apiTokenId: string | null
+}
+
 interface SubmissionsServiceShape {
   readonly create: (
     userId: string,
@@ -43,7 +53,8 @@ interface SubmissionsServiceShape {
   ) => Effect.Effect<SubmissionRow, NotFoundError | BadRequestError>
   readonly createAndExecute: (
     userId: string,
-    input: SubmissionCreateInput
+    input: SubmissionCreateInput,
+    origin?: SubmissionOrigin
   ) => Effect.Effect<SubmissionRow | SubmissionWithFeedback, NotFoundError | BadRequestError>
   readonly findById: (
     id: string,
@@ -224,7 +235,7 @@ export const SubmissionsServiceLive = Layer.effect(
        * nothing but a poll loop, a lease reaper, and a class of bug where a
        * crashed worker stranded rows in `running`.
        */
-      createAndExecute: (userId, input) =>
+      createAndExecute: (userId, input, origin = { via: 'web', apiTokenId: null }) =>
         Effect.gen(function* () {
           const exercise = yield* Effect.tryPromise({
             try: () =>
@@ -250,6 +261,8 @@ export const SubmissionsServiceLive = Layer.effect(
                   exerciseId: input.exerciseId,
                   code: input.code,
                   status: 'pending',
+                  via: origin.via,
+                  apiTokenId: origin.apiTokenId,
                 })
                 .returning()
               return result[0]
@@ -273,6 +286,8 @@ export const SubmissionsServiceLive = Layer.effect(
               code: input.code,
               testCode: exercise.testCode,
               language: exercise.concept.track.slug,
+              via: origin.via,
+              exerciseType: exercise.type,
             })
           )
 

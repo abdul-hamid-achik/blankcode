@@ -10,7 +10,12 @@ export const SubmissionsHandlers = HttpApiBuilder.group(BlankCodeApi, 'submissio
       Effect.gen(function* () {
         const user = yield* CurrentUser
         const svc = yield* SubmissionsService
-        return yield* svc.createAndExecute(user.id, payload)
+        // The credential that spoke travels to the row: agent work is
+        // labeled at creation, never reconstructed later.
+        return yield* svc.createAndExecute(user.id, payload, {
+          via: user.via,
+          apiTokenId: user.apiTokenId,
+        })
       })
     )
     .handle('getById', ({ path }) =>

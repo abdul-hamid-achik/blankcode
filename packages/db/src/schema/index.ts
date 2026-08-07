@@ -24,6 +24,13 @@ import {
 
 export const difficultyEnum = pgEnum('difficulty', [...DIFFICULTIES] as [string, ...string[]])
 
+/**
+ * Who typed: the web editor or an agent holding a practice token. A column,
+ * not a heuristic — the server knows the credential and cannot know the
+ * hands, so it records the credential and never pretends to detect more.
+ */
+export const submissionViaEnum = pgEnum('submission_via', ['web', 'agent'])
+
 export const submissionStatusEnum = pgEnum('submission_status', [...SUBMISSION_STATUSES] as [
   string,
   ...string[],
@@ -237,6 +244,8 @@ export const submissions = pgTable(
     // distinguish worker crashes (retryable) from legitimate test failures
     // (which never enter the reaper path).
     attemptCount: integer('attempt_count').notNull().default(0),
+    via: submissionViaEnum('via').notNull().default('web'),
+    apiTokenId: uuid('api_token_id').references(() => apiTokens.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -625,6 +634,67 @@ export const learningPaths = pgTable('learning_paths', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+/**
+ * Practice tokens: the credential a coding agent carries into the API.
+ *
+ * Modeled on refresh_tokens — random secret, sha256 lookup in `token`,
+ * revocation as a timestamp — with one deliberate divergence: no bcrypt
+ * verify hash. A refresh token is presented once per session; this rides
+ * every tool call, and bcrypt per call buys nothing against a 256-bit
+ * random secret. Scope is recorded but 'practice' is the only value cut so
+ * far; the API enforces it as a route allowlist.
+ */
+export const apiTokens = pgTable(
+  'api_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** The label the owner gave it ("laptop", "codex at work"). */
+    name: varchar('name', { length: 100 }).notNull(),
+    /** First characters of the secret, for recognising it in a list. */
+    tokenPrefix: varchar('token_prefix', { length: 16 }).notNull(),
+    /** sha256 of the full secret. The secret itself is never stored. */
+    token: text('token').notNull(),
+    scope: varchar('scope', { length: 20 }).notNull().default('practice'),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('api_tokens_token_idx').on(table.token),
+    index('api_tokens_user_id_idx').on(table.userId),
+  ]
+)
+
+/**
+ * Agent practice sessions, maintained implicitly: each tool call upserts the
+ * row whose lastSeenAt is within a 30-minute window, else starts a new one.
+ * No start/end tools — an agent is a bad bookkeeper, and a session the
+ * client reports is a claim, not a session.
+ */
+export const harnessSessions = pgTable(
+  'harness_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    apiTokenId: uuid('api_token_id').references(() => apiTokens.id, { onDelete: 'set null' }),
+    /** What the MCP client said it was ("claude-code", "codex"). */
+    clientName: text('client_name'),
+    clientVersion: text('client_version'),
+    toolCalls: integer('tool_calls').notNull().default(0),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('harness_sessions_user_id_idx').on(table.userId),
+    index('harness_sessions_token_seen_idx').on(table.apiTokenId, table.lastSeenAt),
+  ]
+)
 
 export const userAchievements = pgTable(
   'user_achievements',

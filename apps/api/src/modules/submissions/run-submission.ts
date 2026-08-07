@@ -185,6 +185,28 @@ export interface SubmissionToRun {
   code: string
   testCode: string
   language: string
+  /** Which credential submitted. Defaults to the web session. */
+  via?: 'web' | 'agent'
+  /** The exercise's type, for the SM-2 gate below. */
+  exerciseType?: string
+}
+
+/**
+ * Whether this submission may move the review schedule.
+ *
+ * The scheduler models the learner's memory. For the vibecoding forms
+ * (review, turn, context, spec, challenge) an agent submitting IS the
+ * curriculum, so the schedule moves as usual. But a blank exercise is a
+ * recall exercise — if an agent fills the blanks, the recall that happened
+ * was the agent's, and advancing the human's schedule on it corrupts the one
+ * model the product runs on. The attempt still counts and is labeled
+ * `assisted`; the review simply stays owed until the human does it.
+ */
+export function shouldScheduleReview(
+  via: 'web' | 'agent',
+  exerciseType: string | undefined
+): boolean {
+  return via === 'web' || exerciseType !== 'blank'
 }
 
 /**
@@ -195,6 +217,8 @@ export interface SubmissionToRun {
 export async function runSubmission(db: Db, input: SubmissionToRun): Promise<void> {
   const startedAt = Date.now()
   const { submissionId, userId, exerciseId, code, testCode, language } = input
+  const via = input.via ?? 'web'
+  const movesSchedule = shouldScheduleReview(via, input.exerciseType)
 
   try {
     await db
@@ -223,10 +247,11 @@ export async function runSubmission(db: Db, input: SubmissionToRun): Promise<voi
 
     if (result.status === 'passed') {
       await markExerciseCompleted(db, userId, exerciseId, submissionId)
-      await scheduleReview(db, userId, exerciseId, true)
+      if (movesSchedule) await scheduleReview(db, userId, exerciseId, true)
     } else if (result.status === 'failed') {
       await incrementAttempts(db, userId, exerciseId)
-      await scheduleReview(db, userId, exerciseId, false)
+      // A failed agent attempt must not shorten the human's intervals either.
+      if (movesSchedule) await scheduleReview(db, userId, exerciseId, false)
     }
 
     logger.info('submission.done', {

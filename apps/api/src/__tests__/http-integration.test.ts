@@ -104,6 +104,8 @@ const MOCK_SUBMISSION_ROW = {
   executionTimeMs: null,
   errorMessage: null,
   attemptCount: 0,
+  via: 'web' as const,
+  apiTokenId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
 }
@@ -118,6 +120,8 @@ const MOCK_SUBMISSION = {
   executionTimeMs: null,
   errorMessage: null,
   attemptCount: 0,
+  via: 'web' as const,
+  apiTokenId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   exercise: MOCK_EXERCISE,

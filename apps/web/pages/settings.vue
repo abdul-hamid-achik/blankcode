@@ -123,6 +123,89 @@ async function saveProfile() {
   }
 }
 
+/** Practice tokens: the keys a coding agent carries. */
+interface TokenRow {
+  id: string
+  name: string
+  prefix: string
+  createdAt: string
+  lastUsedAt: string | null
+}
+
+const tokens = ref<TokenRow[]>([])
+const tokenName = ref('')
+const tokenBusy = ref(false)
+const tokenError = ref('')
+/** The one moment the full secret exists in the page. */
+const freshToken = ref<{ token: string; name: string } | null>(null)
+const copied = ref(false)
+
+async function loadTokens() {
+  try {
+    const state = await $fetch<{ tokens: TokenRow[] }>('/api/account/tokens', {
+      headers: reminderHeaders(),
+    })
+    tokens.value = state.tokens
+  } catch {
+    // The section renders empty; creating a token will surface any real error.
+  }
+}
+
+onMounted(loadTokens)
+
+async function createToken() {
+  if (!tokenName.value.trim() || tokenBusy.value) return
+  tokenBusy.value = true
+  tokenError.value = ''
+  try {
+    const minted = await $fetch<TokenRow & { token: string }>('/api/account/tokens', {
+      method: 'POST',
+      headers: reminderHeaders(),
+      body: { name: tokenName.value },
+    })
+    freshToken.value = { token: minted.token, name: minted.name }
+    copied.value = false
+    tokenName.value = ''
+    await loadTokens()
+  } catch (e) {
+    tokenError.value = e instanceof Error ? e.message : 'Could not create the token'
+  } finally {
+    tokenBusy.value = false
+  }
+}
+
+async function revokeToken(id: string) {
+  if (tokenBusy.value) return
+  tokenBusy.value = true
+  tokenError.value = ''
+  try {
+    await $fetch(`/api/account/tokens/${id}`, { method: 'DELETE', headers: reminderHeaders() })
+    tokens.value = tokens.value.filter((t) => t.id !== id)
+  } catch (e) {
+    tokenError.value = e instanceof Error ? e.message : 'Could not revoke the token'
+  } finally {
+    tokenBusy.value = false
+  }
+}
+
+async function copyFreshToken() {
+  if (!freshToken.value) return
+  try {
+    await navigator.clipboard.writeText(freshToken.value.token)
+    copied.value = true
+  } catch {
+    // The token is on screen; selecting it by hand still works.
+  }
+}
+
+function tokenLastUsed(iso: string | null): string {
+  if (!iso) return 'never used'
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+  if (days <= 0) return 'used today'
+  if (days === 1) return 'used yesterday'
+  return `used ${days}d ago`
+}
+
 function increaseFontSize() {
   preferencesStore.setFontSize(preferencesStore.preferences.fontSize + 1)
 }
@@ -233,6 +316,69 @@ function decreaseFontSize() {
             >
               {{ remindersEnabled ? 'On' : 'Off' }}
             </Button>
+          </div>
+        </Card>
+
+        <!-- Practice tokens -->
+        <Card>
+          <h2 class="display text-lg mb-1">Practice tokens</h2>
+          <p class="text-xs text-muted-foreground leading-relaxed mb-4 max-w-sm">
+            Keys for practicing from your own coding agent. A token can read exercises and submit
+            solutions as you — nothing else. Submissions made with one are labeled, and recall
+            exercises an agent passes stay owed on your review schedule.
+          </p>
+
+          <!-- The secret, shown exactly once. -->
+          <div v-if="freshToken" class="mb-4 border-l-2 border-signal bg-signal/5 p-4">
+            <p class="text-sm font-medium mb-1">“{{ freshToken.name }}” is ready.</p>
+            <p class="text-xs text-muted-foreground mb-3">
+              Copy it now — this is the only time it will be shown.
+            </p>
+            <code
+              class="block overflow-x-auto whitespace-nowrap rounded border border-rule bg-background px-3 py-2 font-mono text-xs"
+              >{{ freshToken.token }}</code
+            >
+            <div class="mt-3 flex gap-2">
+              <Button size="sm" @click="copyFreshToken">{{ copied ? 'Copied' : 'Copy' }}</Button>
+              <Button variant="outline" size="sm" @click="freshToken = null">Done</Button>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div
+              v-for="token in tokens"
+              :key="token.id"
+              class="flex items-center justify-between gap-4"
+            >
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium">{{ token.name }}</p>
+                <p class="font-mono text-xs text-muted-foreground">
+                  {{ token.prefix }}… · {{ tokenLastUsed(token.lastUsedAt) }}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                :disabled="tokenBusy"
+                @click="revokeToken(token.id)"
+              >
+                Revoke
+              </Button>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+              <input
+                v-model="tokenName"
+                type="text"
+                placeholder="Name this key (e.g. laptop)"
+                class="w-full max-w-xs rounded-lg border border-rule bg-background px-3 py-2 text-sm"
+                @keydown.enter="createToken"
+              />
+              <Button size="sm" :disabled="tokenBusy || !tokenName.trim()" @click="createToken">
+                Create
+              </Button>
+            </div>
+            <p v-if="tokenError" class="text-xs text-fail">{{ tokenError }}</p>
           </div>
         </Card>
 
