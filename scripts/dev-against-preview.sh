@@ -91,17 +91,18 @@ if [ "$missing" -gt 0 ]; then
 
     snapshots  MISSING — running an exercise will fail with MissingSnapshotError
 
-    The snapshot ids are stored Sensitive in Vercel, and a sensitive value
-    cannot be read back by anyone, including you. They are ids, not secrets;
-    storing them that way bought nothing and cost this.
+    This means a snapshot id came back as [SENSITIVE], which is what happens
+    when one is stored with the sensitive flag: nobody can read it back, not
+    even you. They are ids, not secrets.
 
-    To recover them once:
+    To fix:
 
         bun run sandbox:build          # prints a fresh id per language
-        # then add each one back WITHOUT --sensitive, e.g.
-        vercel env add SANDBOX_SNAPSHOT_GO preview --scope the-lacanians
+        vercel env add SANDBOX_SNAPSHOT_GO preview \
+          --value snap_... --no-sensitive --scope the-lacanians
 
-    After that this script picks them up on its own.
+    `--no-sensitive` is required, not merely omitting `--sensitive`: this
+    project defaults new variables to sensitive.
 NOTE
 fi
 

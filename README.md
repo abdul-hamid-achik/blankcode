@@ -92,10 +92,11 @@ The OIDC token is short lived; re-run the script when sandboxes start answering
 401. `DATABASE_URL` comes from `neonctl` rather than the pull, and `JWT_SECRET`
 is generated per machine so a local token cannot authenticate against preview.
 
-The snapshot ids are stored Sensitive in Vercel, which means nobody can read
-them back. Until they are re-added without that flag, running an exercise
-locally fails with `MissingSnapshotError`; the script says so and prints the
-one-time recovery. They are ids, not secrets.
+If a snapshot id ever comes back as `[SENSITIVE]`, it was stored with the
+sensitive flag and nobody can read it back — not even you. They are ids, not
+secrets. Re-add them with `--no-sensitive`, which is required rather than
+merely omitting `--sensitive`: this project defaults new variables to
+sensitive.
 
 
 ```bash
