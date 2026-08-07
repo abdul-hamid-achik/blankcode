@@ -1,6 +1,6 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { concepts, exercises, tracks } from '@blankcode/db/schema'
-import { and, asc, eq, gt, notInArray, or } from 'drizzle-orm'
+import { and, asc, eq, gt, or } from 'drizzle-orm'
 import { requireUserId } from '../../../../utils/auth'
 
 /**
@@ -59,9 +59,6 @@ export default defineEventHandler(async (event) => {
         eq(concepts.trackId, here.trackId),
         eq(exercises.isPublished, true),
         eq(concepts.isPublished, true),
-        // The context form is gated until its surface exists; "next" must
-        // not land on a gate. Drop once the context view ships.
-        notInArray(exercises.type, ['context']),
         // Later in this concept, or anywhere in a later concept.
         or(
           and(eq(concepts.id, here.conceptId), gt(exercises.order, here.exerciseOrder)),
