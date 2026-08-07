@@ -155,3 +155,41 @@ describe('missing resources are real 404s', () => {
     expect(source).toContain('LEARNING_PATHS.some')
   })
 })
+
+/**
+ * The track pages are what someone searching "rust exercises" would land on.
+ * They used to fetch in `onMounted`, so the server rendered a spinner: 8kB of
+ * markup with no track name and no concepts. `routeRules` said `ssr: true` for
+ * this route and the data flow was quietly ignoring it.
+ */
+describe('track pages render on the server', () => {
+  const page = readFileSync(join(process.cwd(), 'pages/tracks/[trackSlug]/index.vue'), 'utf-8')
+
+  it('fetches during the render, not on mount', () => {
+    expect(page).toContain('useAsyncData')
+    // The call, not the word — the comment above the fix explains what it used
+    // to do, and matching that would fail on the explanation rather than the code.
+    expect(page).not.toContain('onMounted(')
+  })
+
+  it('uses $fetch, which works on the server', () => {
+    // `useApi` builds a relative URL and calls `fetch` directly — fine in a
+    // browser, impossible in Node.
+    expect(page).toContain('$fetch')
+    expect(page).not.toContain('useApi()')
+  })
+
+  it('404s an unknown slug from the static list', () => {
+    expect(page).toContain('TRACK_SLUGS.includes')
+    expect(page).toContain('statusCode: 404')
+  })
+
+  it('carries its own title and description', () => {
+    expect(page).toContain('useSeoMeta')
+  })
+
+  it('is listed in the sitemap now that it has content', () => {
+    const sitemap = readFileSync(join(process.cwd(), 'server/routes/sitemap.xml.ts'), 'utf-8')
+    expect(sitemap).toContain('TRACK_SLUGS.map')
+  })
+})

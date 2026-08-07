@@ -1,15 +1,43 @@
 <script setup lang="ts">
+import { TRACK_SLUGS, type Concept, type Track } from '@blankcode/shared'
 import Card from '~/components/ui/card.vue'
-import { useAsync } from '~/composables/useAsync'
 
 const route = useRoute()
 const trackSlug = computed(() => route.params['trackSlug'] as string)
 
-const api = useApi()
-const { data: track, isLoading, execute } = useAsync(() => api.tracks.getBySlug(trackSlug.value))
+// The slugs are a fixed set, so an unknown one is knowable without a request.
+if (!TRACK_SLUGS.includes(trackSlug.value as (typeof TRACK_SLUGS)[number])) {
+  throw createError({ statusCode: 404, statusMessage: 'Track not found', fatal: true })
+}
 
-onMounted(() => {
-  execute()
+/*
+ * Fetched with `useAsyncData` rather than on mount.
+ *
+ * This page used to load its data in `onMounted`, so the server rendered a
+ * spinner and nothing else: 8kB of markup with no track name and no concepts.
+ * A crawler saw an empty page, which for the pages someone finds by searching
+ * "rust exercises" is the whole audience gone. `routeRules` already said
+ * `ssr: true` for this route; the data flow was quietly ignoring it.
+ *
+ * `$fetch` rather than `useApi`, which builds a relative URL and calls `fetch`
+ * directly — fine in a browser, impossible on the server. On the server this
+ * routes into Nitro without a network round trip. The endpoint is public, so
+ * there is no token to forward.
+ */
+const { data: track, pending: isLoading } = await useAsyncData(
+  () => `track-${trackSlug.value}`,
+  () => $fetch<Track & { concepts?: Concept[] }>(`/api/tracks/${trackSlug.value}`)
+)
+
+if (!track.value) {
+  throw createError({ statusCode: 404, statusMessage: 'Track not found', fatal: true })
+}
+
+useSeoMeta({
+  title: () => track.value?.name ?? 'Track',
+  description: () => track.value?.description ?? '',
+  ogTitle: () => `${track.value?.name} exercises`,
+  ogDescription: () => track.value?.description ?? '',
 })
 </script>
 

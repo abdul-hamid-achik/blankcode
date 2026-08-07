@@ -1,4 +1,5 @@
 import { queryCollection } from '@nuxt/content/nitro'
+import { TRACK_SLUGS } from '@blankcode/shared'
 
 /**
  * The sitemap, built from the content collections rather than a hand-kept list,
@@ -25,6 +26,13 @@ const STATIC_ROUTES: Entry[] = [
   { loc: '/blog', changefreq: 'weekly', priority: '0.8' },
   { loc: '/tutorials', changefreq: 'weekly', priority: '0.8' },
   { loc: '/tracks', changefreq: 'weekly', priority: '0.7' },
+  // Each track page renders its name and concepts on the server, so these are
+  // real content rather than shells — worth listing. The slugs are a fixed set.
+  ...TRACK_SLUGS.map((slug): Entry => ({
+    loc: `/tracks/${slug}`,
+    changefreq: 'weekly',
+    priority: '0.7',
+  })),
   { loc: '/challenges', changefreq: 'weekly', priority: '0.6' },
   { loc: '/paths', changefreq: 'weekly', priority: '0.6' },
   { loc: '/privacy', changefreq: 'monthly', priority: '0.2' },
