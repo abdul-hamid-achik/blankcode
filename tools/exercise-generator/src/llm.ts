@@ -14,7 +14,18 @@
 import { APICallError, gateway, generateText } from 'ai'
 
 /** DeepSeek's cheap tier: ~20-50x cheaper than frontier models for this task. */
-export const DEFAULT_MODEL = 'deepseek/deepseek-v4-flash'
+/*
+ * Measured, not chosen by preference.
+ *
+ * With the real validator gating what gets saved, deepseek-v4-flash produced
+ * nothing usable across six attempts — the format is exacting (blank markers,
+ * a Tests section, no quotes inside a blank) and it kept breaking one rule or
+ * another. Sonnet passed on the first try.
+ *
+ * An exercise is generated once and read by everyone who takes it, so the
+ * cheaper model is only cheaper if its output can be used.
+ */
+export const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-5'
 
 export interface LlmConfig {
   readonly model: string

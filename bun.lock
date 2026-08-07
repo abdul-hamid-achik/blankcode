@@ -178,6 +178,7 @@
         "exercise-generator": "./dist/cli.js",
       },
       "dependencies": {
+        "@blankcode/exercise-validator": "workspace:*",
         "@blankcode/shared": "workspace:*",
         "ai": "^7.0.55",
         "dotenv-mono": "^1.3.0",

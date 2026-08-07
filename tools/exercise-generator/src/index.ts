@@ -1,5 +1,6 @@
 import type { Difficulty } from '@blankcode/shared'
 import { complete, isGatewayConfigured, resolveConfig } from './llm.js'
+import { validateExerciseSource } from '@blankcode/exercise-validator'
 
 export { describeConfig, isGatewayConfigured, listAvailableModels, resolveConfig } from './llm.js'
 
@@ -96,7 +97,64 @@ function validateGeneratedExercise(content: string): { valid: boolean; errors: s
     errors.push('Missing code blocks')
   }
 
+  /*
+   * Two rules the real validator rejects and the model keeps breaking.
+   *
+   * They are here rather than only in the prompt because asking did not work:
+   * the instruction was added, the very next generation broke the same rule
+   * again, and an instruction the model can ignore is not a constraint. Caught
+   * here, the retry gets told exactly what is wrong instead of being asked
+   * nicely a second time.
+   */
+  const frontmatter = /^---\n([\s\S]*?)\n---/.exec(content)?.[1] ?? ''
+  for (const line of frontmatter.split('\n')) {
+    // A hint starting with a backtick is a YAML reserved character: the file
+    // does not parse at all, and the importer skips it.
+    if (/^\s*-\s+`/.test(line)) {
+      errors.push('A hint starts with a backtick; every hint must be a quoted string')
+      break
+    }
+  }
+
+  for (const match of content.matchAll(/___blank_start___([\s\S]*?)___blank_end___/g)) {
+    const answer = match[1] ?? ''
+    // Per-blank feedback is an exact compare, so 'x' and "x" are both correct
+    // and one of them is marked wrong. The quotes belong outside the blank.
+    if (/['"]/.test(answer)) {
+      errors.push(`Blank answer contains a quote: ${answer.trim().slice(0, 40)}`)
+    }
+    if (answer.trim().length === 0) {
+      errors.push('A blank is empty')
+    }
+  }
+
   return { valid: errors.length === 0, errors }
+}
+
+/**
+ * The shape checks above, plus the validator the corpus is actually held to.
+ *
+ * Asking the model in the prompt did not work: the rule was added, the next
+ * generation broke it, and an instruction a model can ignore is not a
+ * constraint. Nor were hand-rolled regexes enough — a file that passed them
+ * still came back with a fatal finding from the real validator.
+ *
+ * So the generator is now held to the same bar as a hand-written exercise. A
+ * generated file that would fail `content:validate` is not saved; the retry is
+ * told exactly which rule it broke.
+ */
+function validateAgainstTheRealRules(content: string): { valid: boolean; errors: string[] } {
+  const shape = validateGeneratedExercise(content)
+  if (!shape.valid) return shape
+
+  const findings = validateExerciseSource({ file: 'generated.md', text: content }).filter(
+    (finding) => finding.severity === 'fatal' || finding.severity === 'error'
+  )
+
+  return {
+    valid: findings.length === 0,
+    errors: findings.map((finding) => `${finding.rule}: ${finding.message}`),
+  }
 }
 
 export async function generateExercise(options: GenerateOptions): Promise<string> {
@@ -108,12 +166,12 @@ export async function generateExercise(options: GenerateOptions): Promise<string
   const prompt = buildPrompt(options)
   let result = sanitizeGeneratedMarkdown((await complete(config, prompt)).text)
 
-  const validation = validateGeneratedExercise(result)
+  const validation = validateAgainstTheRealRules(result)
   if (!validation.valid) {
     console.warn(`Generated exercise validation failed: ${validation.errors.join(', ')}`)
     const retryPrompt = `${prompt}\n\nIMPORTANT: Your previous output had these issues: ${validation.errors.join(', ')}. Please fix them.`
     result = sanitizeGeneratedMarkdown((await complete(config, retryPrompt)).text)
-    const retryValidation = validateGeneratedExercise(result)
+    const retryValidation = validateAgainstTheRealRules(result)
     if (!retryValidation.valid) {
       console.error(
         `Generated exercise still invalid after retry: ${retryValidation.errors.join(', ')}`
@@ -141,6 +199,17 @@ Requirements:
 4. Include 2-4 blanks that test understanding of the concept
 5. Include a Tests section with ${cfg.testFramework} tests
 6. Make it educational and progressive
+
+Rules the validator enforces, and which generated output has broken before:
+7. Every hint must be a QUOTED YAML string: hints: ["like this"]. A hint
+   starting with a backtick is a reserved character and the file will not parse.
+8. A blank's answer must NOT contain a string literal or a quote character.
+   Per-blank feedback is an exact compare, so 'x' and "x" are equally correct
+   and one of them gets marked wrong. Put the quotes outside the blank.
+9. A blank must not be only whitespace, and must not span a bracket or quote
+   pair — take the whole expression or none of it.
+10. Slug must match the concept's existing files, e.g. ts-basics-004, not an
+    invented prefix.
 
 Output ONLY the raw Markdown document. Do not add any explanation before or
 after it, and do not wrap the whole document in a code fence.

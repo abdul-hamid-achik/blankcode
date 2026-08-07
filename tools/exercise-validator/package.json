@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "./dist/validate.js",
+  "types": "./dist/validate.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/validate.d.ts",
+      "default": "./dist/validate.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",

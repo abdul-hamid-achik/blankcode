@@ -64,7 +64,7 @@ Options:
 
 Environment:
   AI_GATEWAY_API_KEY    Vercel AI Gateway key (the only credential needed)
-  LLM_MODEL             Model slug (default: deepseek/deepseek-v4-flash)
+  LLM_MODEL             Model slug (default: anthropic/claude-sonnet-4-5)
   LLM_FALLBACK_MODELS   Comma-separated failover models
   LLM_TEMPERATURE       Sampling temperature (default: 0.6)
 
