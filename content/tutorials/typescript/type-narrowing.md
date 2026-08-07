@@ -6,6 +6,9 @@ track: "typescript"
 order: 4
 difficulty: "intermediate"
 tags: ["type-guards", "narrowing", "discriminated-unions", "assertion-functions"]
+practice:
+  concept: "basics"
+  label: "TypeScript basics"
 ---
 
 # Type Narrowing in TypeScript

@@ -6,6 +6,9 @@ track: "vue"
 order: 3
 difficulty: "intermediate"
 tags: ["pinia", "state-management", "stores", "getters", "actions", "plugins", "persistence", "storeToRefs"]
+practice:
+  concept: "pinia"
+  label: "Pinia"
 ---
 
 # State Management with Pinia

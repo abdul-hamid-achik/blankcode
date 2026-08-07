@@ -6,6 +6,9 @@ track: "react"
 order: 3
 difficulty: "intermediate"
 tags: ["state", "useReducer", "context", "lifting-state"]
+practice:
+  concept: "state-and-events"
+  label: "State and events"
 ---
 
 # State Management

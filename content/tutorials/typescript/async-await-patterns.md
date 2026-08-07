@@ -6,6 +6,9 @@ track: "typescript"
 order: 3
 difficulty: "intermediate"
 tags: ["async", "promises", "error-handling", "abort-controller"]
+practice:
+  concept: "async-patterns"
+  label: "Async patterns"
 ---
 
 # Async/Await Patterns in TypeScript

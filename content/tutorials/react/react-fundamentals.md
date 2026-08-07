@@ -6,6 +6,9 @@ track: "react"
 order: 1
 difficulty: "beginner"
 tags: ["jsx", "components", "props", "events", "lists", "conditional-rendering"]
+practice:
+  concept: "state-and-events"
+  label: "State and events"
 ---
 
 # React Fundamentals

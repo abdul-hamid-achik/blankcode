@@ -6,6 +6,9 @@ track: "react"
 order: 2
 difficulty: "intermediate"
 tags: ["hooks", "useState", "useEffect", "custom-hooks", "useRef", "useContext"]
+practice:
+  concept: "advanced-hooks"
+  label: "Advanced hooks"
 ---
 
 # Hooks in Depth

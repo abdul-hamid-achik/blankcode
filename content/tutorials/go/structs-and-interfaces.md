@@ -6,6 +6,9 @@ track: "go"
 order: 2
 difficulty: "intermediate"
 tags: ["structs", "interfaces", "methods", "struct-tags", "composition"]
+practice:
+  concept: "structs-and-interfaces"
+  label: "Structs and interfaces"
 ---
 
 # Structs and Interfaces

@@ -6,6 +6,9 @@ track: "typescript"
 order: 1
 difficulty: "beginner"
 tags: ["types", "fundamentals", "type-inference", "union-types", "enums", "functions"]
+practice:
+  concept: "basics"
+  label: "TypeScript basics"
 ---
 
 # Getting Started with TypeScript

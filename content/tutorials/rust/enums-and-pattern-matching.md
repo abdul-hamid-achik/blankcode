@@ -6,6 +6,9 @@ track: "rust"
 order: 2
 difficulty: "intermediate"
 tags: ["enums", "pattern-matching", "option", "result"]
+practice:
+  concept: "structs-enums-and-pattern-matching"
+  label: "Structs, enums and matching"
 ---
 
 # Enums and Pattern Matching

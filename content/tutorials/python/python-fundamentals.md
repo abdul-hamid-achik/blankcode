@@ -6,6 +6,9 @@ track: "python"
 order: 1
 difficulty: "beginner"
 tags: ["basics", "variables", "functions", "control-flow", "strings", "exceptions"]
+practice:
+  concept: "functions-modules"
+  label: "Functions and modules"
 ---
 
 # Python Fundamentals

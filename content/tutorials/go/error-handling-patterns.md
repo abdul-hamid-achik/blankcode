@@ -6,6 +6,9 @@ track: "go"
 order: 4
 difficulty: "intermediate"
 tags: ["errors", "error-handling", "patterns", "wrapping", "sentinel-errors"]
+practice:
+  concept: "error-handling"
+  label: "Error handling"
 ---
 
 # Error Handling Patterns

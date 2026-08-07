@@ -6,6 +6,9 @@ track: "react"
 order: 4
 difficulty: "advanced"
 tags: ["patterns", "performance", "composition", "memo", "code-splitting", "compound-components"]
+practice:
+  concept: "performance-and-patterns"
+  label: "Performance and patterns"
 ---
 
 # Advanced Patterns

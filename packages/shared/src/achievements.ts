@@ -326,4 +326,25 @@ export const LEARNING_PATHS = [
     ],
     isPublished: true,
   },
+  {
+    id: 'path-working-with-models',
+    slug: 'working-with-models',
+    name: 'Working with Models',
+    // The table of contents of the vibecoding curriculum: reviewing what a
+    // model wrote, specifying before it writes, prompting under a turn
+    // budget, buying only the context it needs, and building it a tool.
+    description:
+      'Practice the craft of working with AI: review, specify, budget your turns, pick context, build tools',
+    icon: '🤝',
+    color: '#8b5cf6',
+    order: 11,
+    challengeIds: [
+      'ts-review-001', // Find the defect the model shipped
+      'ts-spec-001', // Specify before it writes
+      'ts-turn-001', // Three messages: a retry that has to give up
+      'ts-context-001', // Give it what it needs
+      'ts-tool-001', // Build the model a tool
+    ],
+    isPublished: true,
+  },
 ]

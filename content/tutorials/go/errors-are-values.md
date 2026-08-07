@@ -6,6 +6,9 @@ track: "go"
 order: 5
 difficulty: "advanced"
 tags: ["errors", "api-design", "wrapping", "errors-is", "errors-as", "sentinel-errors"]
+practice:
+  concept: "error-handling"
+  label: "Error handling"
 ---
 
 # Errors Are Values: The Patterns That Follow

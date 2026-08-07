@@ -6,6 +6,9 @@ track: "python"
 order: 2
 difficulty: "beginner"
 tags: ["basics", "lists", "dicts", "comprehensions", "sets", "tuples", "unpacking"]
+practice:
+  concept: "data-structures"
+  label: "Data structures"
 ---
 
 # Python Data Structures Guide

@@ -6,6 +6,9 @@ track: "go"
 order: 3
 difficulty: "advanced"
 tags: ["goroutines", "channels", "concurrency", "context", "sync"]
+practice:
+  concept: "concurrency"
+  label: "Concurrency"
 ---
 
 # Concurrency with Goroutines

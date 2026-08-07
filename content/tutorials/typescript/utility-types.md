@@ -6,6 +6,9 @@ track: "typescript"
 order: 5
 difficulty: "advanced"
 tags: ["utility-types", "mapped-types", "conditional-types", "readonly", "non-nullable"]
+practice:
+  concept: "generics"
+  label: "Generics"
 ---
 
 # Mastering TypeScript Utility Types

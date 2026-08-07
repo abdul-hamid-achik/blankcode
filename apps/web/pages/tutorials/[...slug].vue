@@ -72,6 +72,33 @@ const difficultyColor: Record<string, string> = {
       >
         <ContentRenderer :value="tutorial" />
       </div>
+
+      <!--
+        The ending is practice, not navigation. A tutorial that closes with
+        "Back to Tutorials" closes by contradicting the product's one thesis:
+        reading is not practicing.
+      -->
+      <div
+        v-if="(tutorial as any).practice && (tutorial as any).track"
+        class="mt-12 border-l-2 border-signal bg-signal/5 p-5"
+      >
+        <p class="eyebrow mb-2">now practice it</p>
+        <p class="mb-4 text-sm leading-relaxed text-muted-foreground">
+          Reading this is the cheap half. The exercises for
+          {{ (tutorial as any).practice.label }} run your code against a real suite — that is where
+          it becomes yours.
+        </p>
+        <NuxtLink
+          :to="`/tracks/${(tutorial as any).track}/${(tutorial as any).practice.concept}`"
+          class="inline-block"
+        >
+          <button
+            class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Practice this: {{ (tutorial as any).practice.label }}
+          </button>
+        </NuxtLink>
+      </div>
     </div>
 
     <div v-else class="text-center py-24">

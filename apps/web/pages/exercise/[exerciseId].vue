@@ -64,9 +64,37 @@ watch(
 watch(
   () => exerciseStore.latestSubmission?.status,
   (status) => {
-    if (status === 'passed') void loadWhatsNext()
+    if (status === 'passed') {
+      void loadWhatsNext()
+      void loadConceptTutorial()
+    }
   }
 )
+
+/**
+ * The tutorial behind this concept, when one exists — the other half of the
+ * tutorial↔exercise thread. Tutorials end in "practice this"; the report
+ * after practicing points back at the reading.
+ */
+const conceptTutorial = ref<{ path: string; title: string } | null>(null)
+let tutorialLookupDone = false
+
+async function loadConceptTutorial() {
+  const conceptSlug = (concept.value as { slug?: string } | undefined)?.slug
+  const track = trackSlug.value
+  if (!conceptSlug || !track || tutorialLookupDone) return
+  tutorialLookupDone = true
+  try {
+    const candidates = await queryCollection('tutorials').where('track', '=', track).all()
+    const hit = candidates.find(
+      (tutorial) =>
+        (tutorial as { practice?: { concept?: string } }).practice?.concept === conceptSlug
+    )
+    if (hit) conceptTutorial.value = { path: hit.path, title: hit.title }
+  } catch {
+    // A missing tutorial link costs nothing; the report stands without it.
+  }
+}
 
 function handleExplain() {
   const id = exerciseStore.latestSubmission?.id
@@ -505,6 +533,15 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
               <Button size="sm">Continue</Button>
             </NuxtLink>
           </div>
+
+          <!-- The reading behind the practice, for whoever wants the why. -->
+          <NuxtLink
+            v-if="conceptTutorial"
+            :to="conceptTutorial.path"
+            class="mt-4 block font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            the tutorial behind this: {{ conceptTutorial.title }} →
+          </NuxtLink>
 
           <div v-else-if="whatsNext" class="rounded border border-rule bg-card p-4">
             <p class="eyebrow mb-2">that was the last one</p>

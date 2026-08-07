@@ -6,6 +6,9 @@ track: "rust"
 order: 1
 difficulty: "beginner"
 tags: ["ownership", "borrowing", "basics", "structs", "vec", "cargo"]
+practice:
+  concept: "ownership-and-borrowing"
+  label: "Ownership and borrowing"
 ---
 
 # Rust Fundamentals

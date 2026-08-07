@@ -22,6 +22,13 @@ export default defineContentConfig({
         difficulty: z.enum(['beginner', 'intermediate', 'advanced']),
         tags: z.array(z.string()).default([]),
         track: z.string().optional(),
+        /**
+         * Where to practice what this teaches: a concept in the track. The
+         * whole thesis of the product is that reading is not practicing —
+         * so a tutorial that ends with "Back to Tutorials" ends by
+         * contradicting it.
+         */
+        practice: z.object({ concept: z.string(), label: z.string() }).optional(),
       }),
     }),
 

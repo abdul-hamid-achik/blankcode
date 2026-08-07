@@ -6,6 +6,9 @@ track: "python"
 order: 5
 difficulty: "intermediate"
 tags: ["comprehensions", "generators", "readability", "itertools", "iterators"]
+practice:
+  concept: "data-structures"
+  label: "Data structures"
 ---
 
 # Comprehensions Without Regret

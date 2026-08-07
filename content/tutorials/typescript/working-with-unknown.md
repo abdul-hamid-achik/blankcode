@@ -6,6 +6,9 @@ track: "typescript"
 order: 6
 difficulty: "intermediate"
 tags: ["unknown", "any", "type-guards", "type-predicates", "narrowing", "validation"]
+practice:
+  concept: "basics"
+  label: "TypeScript basics"
 ---
 
 # Working with unknown safely

@@ -6,6 +6,9 @@ track: "python"
 order: 3
 difficulty: "intermediate"
 tags: ["classes", "oop", "inheritance", "dataclasses", "properties", "abstract-classes"]
+practice:
+  concept: "object-oriented-python"
+  label: "Object-oriented Python"
 ---
 
 # Object-Oriented Python

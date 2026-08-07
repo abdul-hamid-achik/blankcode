@@ -6,6 +6,9 @@ track: "vue"
 order: 1
 difficulty: "beginner"
 tags: ["components", "props", "events", "slots", "v-model", "defineModel", "defineEmits", "defineExpose", "provide", "inject", "dynamic-components"]
+practice:
+  concept: "components"
+  label: "Components"
 ---
 
 # Vue Component Patterns

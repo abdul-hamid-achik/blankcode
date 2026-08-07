@@ -6,6 +6,9 @@ track: "vue"
 order: 4
 difficulty: "advanced"
 tags: ["composables", "composition-api", "reusability", "useAsync", "usePagination", "useLocalStorage", "lifecycle-hooks", "MaybeRefOrGetter", "toValue"]
+practice:
+  concept: "composition-api"
+  label: "Composition API"
 ---
 
 # Building Composables

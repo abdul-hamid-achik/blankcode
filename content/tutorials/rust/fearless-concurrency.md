@@ -6,6 +6,9 @@ track: "rust"
 order: 4
 difficulty: "advanced"
 tags: ["concurrency", "threads", "async", "mutex", "arc", "tokio"]
+practice:
+  concept: "concurrency-and-async"
+  label: "Concurrency and async"
 ---
 
 # Fearless Concurrency

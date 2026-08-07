@@ -6,6 +6,9 @@ track: "vue"
 order: 2
 difficulty: "intermediate"
 tags: ["reactivity", "ref", "reactive", "computed", "watch", "watchEffect", "shallowRef", "shallowReactive", "toRefs", "toRef", "proxy"]
+practice:
+  concept: "composition-api"
+  label: "Composition API"
 ---
 
 # Vue Reactivity Deep Dive

@@ -6,6 +6,9 @@ track: "typescript"
 order: 2
 difficulty: "intermediate"
 tags: ["generics", "type-safety", "reusability", "constraints", "keyof"]
+practice:
+  concept: "generics"
+  label: "Generics"
 ---
 
 # Understanding TypeScript Generics

@@ -6,6 +6,9 @@ track: "python"
 order: 4
 difficulty: "advanced"
 tags: ["decorators", "generators", "type-hints", "context-managers", "pattern-matching", "async"]
+practice:
+  concept: "advanced-python-patterns"
+  label: "Advanced patterns"
 ---
 
 # Advanced Python

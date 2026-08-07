@@ -6,6 +6,9 @@ track: "go"
 order: 1
 difficulty: "beginner"
 tags: ["basics", "variables", "functions", "control-flow", "slices", "maps", "pointers"]
+practice:
+  concept: "structs-and-interfaces"
+  label: "Structs and interfaces"
 ---
 
 # Go Fundamentals

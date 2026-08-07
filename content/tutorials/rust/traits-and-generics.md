@@ -6,6 +6,9 @@ track: "rust"
 order: 3
 difficulty: "intermediate"
 tags: ["traits", "generics", "trait-bounds", "iterator", "dynamic-dispatch"]
+practice:
+  concept: "traits-and-generics"
+  label: "Traits and generics"
 ---
 
 # Traits and Generics
