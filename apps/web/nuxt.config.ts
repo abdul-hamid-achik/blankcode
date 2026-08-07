@@ -167,14 +167,23 @@ export default defineNuxtConfig({
     /*
      * The public catalogue barely changes and is identical for everyone —
      * exercises are redacted server-side and tracks/paths carry no user
-     * state. SWR caching serves them from the edge and revalidates in the
-     * background, instead of a Postgres round trip per pageview. Exact paths
-     * on purpose: /api/exercises/:id/progress and /draft are per-user and
-     * must never share a cache.
+     * state. Explicit s-maxage + stale-while-revalidate rather than Nitro's
+     * `swr` rule: the ISR mapping did not survive the catch-all mount in
+     * this setup (verified live — responses kept max-age=0), while these
+     * headers are the documented way to have Vercel's CDN cache a function
+     * response, and they are portable besides. Exact paths on purpose:
+     * /api/exercises/:id/progress and /draft are per-user and must never
+     * share a cache.
      */
-    '/api/exercises': { swr: 300 },
-    '/api/paths': { swr: 300 },
-    '/api/tracks/**': { swr: 300 },
+    '/api/exercises': {
+      headers: { 'cache-control': 'public, s-maxage=300, stale-while-revalidate=600' },
+    },
+    '/api/paths': {
+      headers: { 'cache-control': 'public, s-maxage=300, stale-while-revalidate=600' },
+    },
+    '/api/tracks/**': {
+      headers: { 'cache-control': 'public, s-maxage=300, stale-while-revalidate=600' },
+    },
   },
 
   typescript: {
