@@ -47,6 +47,25 @@ onMounted(async () => {
 
 const first = computed(() => reviewStore.dueExercises[0])
 
+/**
+ * Backlog triage. A wall of 40 due reviews is the moment the habit dies —
+ * not because the work is large but because the list refuses to say what
+ * "done today" means. Past the threshold, the page names a batch (the
+ * oldest first, which is the order the queue already sorts by) and says out
+ * loud that the rest are postponed, not failed. The schedule is a tool, not
+ * a debt collector.
+ */
+const TRIAGE_THRESHOLD = 15
+const TRIAGE_BATCH = 10
+const inTriage = computed(() => reviewStore.dueExercises.length > TRIAGE_THRESHOLD)
+const showAll = ref(false)
+const visibleQueue = computed(() =>
+  inTriage.value && !showAll.value
+    ? reviewStore.dueExercises.slice(0, TRIAGE_BATCH)
+    : reviewStore.dueExercises
+)
+const postponedCount = computed(() => reviewStore.dueExercises.length - visibleQueue.value.length)
+
 /** How long this exercise had been left alone before coming back. */
 function intervalLabel(days: number): string {
   if (days <= 1) return '1 day'
@@ -79,7 +98,12 @@ function lastSeen(iso: string | null | undefined): string {
         {{ reviewStore.dueExercises.length === 1 ? 'exercise is' : 'exercises are' }} back.
       </h1>
 
-      <p class="text-muted-foreground mb-8 max-w-lg">
+      <p v-if="inTriage" class="text-muted-foreground mb-8 max-w-lg">
+        That happens — the schedule kept counting while you were away. Today's plan is the
+        {{ TRIAGE_BATCH }} oldest. The rest are postponed, not failed: they will still be here, and
+        doing ten well beats staring at {{ reviewStore.dueExercises.length }}.
+      </p>
+      <p v-else class="text-muted-foreground mb-8 max-w-lg">
         These are due because the schedule expects you to be losing them. Work down the list —
         rating your recall after each one sets the next interval.
       </p>
@@ -90,7 +114,7 @@ function lastSeen(iso: string | null | undefined): string {
 
       <ol class="border border-rule">
         <li
-          v-for="(exercise, i) in reviewStore.dueExercises"
+          v-for="(exercise, i) in visibleQueue"
           :key="exercise.id"
           class="border-b border-rule last:border-b-0"
         >
@@ -111,6 +135,32 @@ function lastSeen(iso: string | null | undefined): string {
           </NuxtLink>
         </li>
       </ol>
+
+      <button
+        v-if="postponedCount > 0"
+        class="mt-3 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+        @click="showAll = true"
+      >
+        and {{ postponedCount }} more, waiting — show them anyway
+      </button>
+    </template>
+
+    <!-- The sitting that just ended gets its ending said. -->
+    <template v-else-if="reviewStore.completedThisSession > 0">
+      <h1 class="display text-2xl md:text-3xl mb-2">That's the queue.</h1>
+      <p class="mb-6 font-mono text-sm text-muted-foreground">
+        {{ reviewStore.completedThisSession }} reviewed today<span v-if="nextBatch">
+          · {{ nextBatch }}</span
+        >
+      </p>
+      <div class="flex flex-wrap items-center gap-3">
+        <NuxtLink v-if="continueTarget" :to="`/exercise/${continueTarget.id}`">
+          <Button>Something new: {{ continueTarget.title }}</Button>
+        </NuxtLink>
+        <NuxtLink to="/dashboard">
+          <Button :variant="continueTarget ? 'outline' : 'primary'">Done for today</Button>
+        </NuxtLink>
+      </div>
     </template>
 
     <template v-else>

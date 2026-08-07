@@ -495,6 +495,16 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
             rating saved — {{ scheduledPhrase ?? 'scheduled forward' }}
           </p>
 
+          <!-- Mid-queue, the queue is the thread; the track can wait. -->
+          <NuxtLink
+            v-if="reviewStore.dueCount > 0"
+            to="/review"
+            class="mb-4 block rounded border border-rule bg-card p-4 transition-colors hover:border-rule-strong"
+          >
+            <p class="eyebrow mb-1">the queue</p>
+            <p class="text-sm">{{ reviewStore.dueCount }} still due — keep going →</p>
+          </NuxtLink>
+
           <div v-if="whatsNext?.next" class="rounded border border-rule bg-card p-4">
             <p class="eyebrow mb-2">next</p>
             <p class="text-sm mb-1">{{ whatsNext.next.title }}</p>

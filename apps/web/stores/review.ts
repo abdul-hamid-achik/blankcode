@@ -6,6 +6,12 @@ export const useReviewStore = defineStore('review', () => {
   const dueCount = ref(0)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
+  /**
+   * How many reviews this sitting has closed. Lets the queue page end with
+   * "that's the queue — 5 reviewed" instead of the generic empty state, which
+   * reads like you were never there.
+   */
+  const completedThisSession = ref(0)
 
   async function loadDueReviews() {
     const api = useApi()
@@ -33,8 +39,10 @@ export const useReviewStore = defineStore('review', () => {
   async function completeReview(exerciseId: string, passed: boolean, quality?: 3 | 4 | 5) {
     const api = useApi()
     const schedule = await api.reviews.complete(exerciseId, passed, quality)
+    const wasDue = dueExercises.value.some((e) => e.id === exerciseId) || dueCount.value > 0
     dueExercises.value = dueExercises.value.filter((e) => e.id !== exerciseId)
     dueCount.value = Math.max(0, dueCount.value - 1)
+    if (wasDue) completedThisSession.value += 1
     // The date the rating just set — the page gets to say it out loud.
     return schedule
   }
@@ -42,6 +50,7 @@ export const useReviewStore = defineStore('review', () => {
   return {
     dueExercises,
     dueCount,
+    completedThisSession,
     isLoading,
     error,
     loadDueReviews,
