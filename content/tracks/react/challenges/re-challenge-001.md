@@ -132,3 +132,42 @@ describe('useLocalStorage', () => {
   })
 })
 ```
+
+## Solution
+
+```tsx
+import { useCallback, useState } from 'react'
+
+export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => void] {
+  // Read in a lazy initialiser so localStorage is touched once on mount rather
+  // than on every render.
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const stored = window.localStorage.getItem(key)
+      return stored === null ? initialValue : (JSON.parse(stored) as T)
+    } catch {
+      // Corrupt JSON or a blocked storage API should not stop the component
+      // from rendering — the default is a perfectly good fallback.
+      return initialValue
+    }
+  })
+
+  const store = useCallback(
+    (next: T) => {
+      // State updates first: the component must reflect the change even if
+      // persistence fails, which it does when the quota is full or the user
+      // has blocked storage.
+      setValue(next)
+      try {
+        window.localStorage.setItem(key, JSON.stringify(next))
+      } catch {
+        // Nothing useful to do here. Throwing would take the caller down for a
+        // failure they did not ask about.
+      }
+    },
+    [key]
+  )
+
+  return [value, store]
+}
+```

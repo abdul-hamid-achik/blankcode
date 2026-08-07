@@ -237,3 +237,111 @@ describe('VirtualizedList', () => {
   })
 })
 ```
+
+## Solution
+
+```tsx
+import { useCallback, useRef, useState } from 'react'
+
+export interface VirtualizedListProps<T> {
+  items: T[]
+  itemHeight: number
+  containerHeight: number
+  renderItem: (item: T, index: number) => React.ReactNode
+  overscan?: number
+  onScroll?: (scrollTop: number) => void
+  onReachEnd?: () => void
+  reachEndThreshold?: number
+}
+
+export function VirtualizedList<T>({
+  items,
+  itemHeight,
+  containerHeight,
+  renderItem,
+  overscan = 3,
+  onScroll,
+  onReachEnd,
+  reachEndThreshold = 100,
+}: VirtualizedListProps<T>) {
+  const [scrollTop, setScrollTop] = useState(0)
+  const containerRef = useRef<HTMLDivElement>(null)
+  // Latched so a run of scroll events near the bottom fires the callback once.
+  // Without this, an infinite-scroll consumer would fetch the same page on
+  // every pixel of movement.
+  const reachedEnd = useRef(false)
+
+  const totalHeight = items.length * itemHeight
+  const visibleCount = Math.ceil(containerHeight / itemHeight)
+  const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan)
+  const endIndex = Math.min(items.length, startIndex + visibleCount + overscan * 2)
+
+  const handleScroll = useCallback(
+    (event: React.UIEvent<HTMLDivElement>) => {
+      const top = event.currentTarget.scrollTop
+      setScrollTop(top)
+      onScroll?.(top)
+
+      const distanceFromEnd = totalHeight - (top + containerHeight)
+      if (distanceFromEnd <= reachEndThreshold) {
+        if (!reachedEnd.current) {
+          reachedEnd.current = true
+          onReachEnd?.()
+        }
+      } else {
+        // Unlatched only after scrolling back out of the zone, so the next
+        // approach counts as a new one.
+        reachedEnd.current = false
+      }
+    },
+    [containerHeight, onReachEnd, onScroll, reachEndThreshold, totalHeight]
+  )
+
+  // Arrow keys move focus between rendered rows. The list owns this rather than
+  // each row, because a row does not know who its neighbours are.
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+
+    const focusable = Array.from(
+      containerRef.current?.querySelectorAll<HTMLElement>('[tabindex]') ?? []
+    )
+    const current = focusable.indexOf(document.activeElement as HTMLElement)
+    if (current === -1) return
+
+    const next = event.key === 'ArrowDown' ? current + 1 : current - 1
+    focusable[next]?.focus()
+    event.preventDefault()
+  }, [])
+
+  return (
+    <div
+      ref={containerRef}
+      role="list"
+      style={{ height: `${containerHeight}px`, overflowY: 'auto', position: 'relative' }}
+      onScroll={handleScroll}
+      onKeyDown={handleKeyDown}
+    >
+      {/* A spacer of the full height so the scrollbar reflects the whole list,
+          even though only a window of it exists in the DOM. */}
+      <div style={{ height: `${totalHeight}px`, position: 'relative' }}>
+        {items.slice(startIndex, endIndex).map((item, offset) => {
+          const index = startIndex + offset
+          return (
+            <div
+              key={index}
+              style={{
+                position: 'absolute',
+                top: `${index * itemHeight}px`,
+                height: `${itemHeight}px`,
+                width: '100%',
+              }}
+            >
+              {renderItem(item, index)}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+```

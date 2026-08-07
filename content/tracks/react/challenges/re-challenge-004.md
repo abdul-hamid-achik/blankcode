@@ -338,3 +338,162 @@ describe('useForm', () => {
   })
 })
 ```
+
+## Solution
+
+```tsx
+import { useCallback, useMemo, useRef, useState } from 'react'
+
+export type ValidationRule =
+  | { type: 'required'; message: string }
+  | { type: 'email'; message: string }
+  | { type: 'minLength'; value: number; message: string }
+  | { type: 'maxLength'; value: number; message: string }
+  | { type: 'pattern'; pattern: RegExp; message: string }
+  | { type: 'custom'; validator: (value: any) => boolean; message: string }
+  | { type: 'async'; validator: (value: any) => Promise<boolean>; message: string }
+
+export interface UseFormOptions<T extends Record<string, any>> {
+  initialValues: T
+  validationRules: Partial<Record<keyof T, ValidationRule[]>>
+  validateOnChange?: boolean
+}
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** Runs the rules that can answer immediately. Async rules are handled at submit. */
+function firstSyncError(value: any, rules: ValidationRule[]): string | undefined {
+  for (const rule of rules) {
+    switch (rule.type) {
+      case 'required':
+        if (value === undefined || value === null || String(value).trim() === '') return rule.message
+        break
+      case 'email':
+        if (!EMAIL.test(String(value))) return rule.message
+        break
+      case 'minLength':
+        if (String(value).length < rule.value) return rule.message
+        break
+      case 'maxLength':
+        if (String(value).length > rule.value) return rule.message
+        break
+      case 'pattern':
+        if (!rule.pattern.test(String(value))) return rule.message
+        break
+      case 'custom':
+        if (!rule.validator(value)) return rule.message
+        break
+      case 'async':
+        break
+    }
+  }
+  return undefined
+}
+
+export function useForm<T extends Record<string, any>>({
+  initialValues,
+  validationRules,
+  validateOnChange = false,
+}: UseFormOptions<T>) {
+  const [values, setValues] = useState<T>(initialValues)
+  const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({})
+  const [touched, setTouched] = useState<Partial<Record<keyof T, boolean>>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  /*
+   * The ref is the source of truth for reads, the state is what renders.
+   *
+   * State updates are batched, so a caller that sets a value and submits in the
+   * same tick would otherwise submit the value from before the change — and
+   * "set it, then send it" is exactly what form code does.
+   */
+  const valuesRef = useRef<T>(initialValues)
+
+  const write = useCallback((next: T) => {
+    valuesRef.current = next
+    setValues(next)
+  }, [])
+
+  const setFieldValue = useCallback(
+    (name: keyof T, value: any) => {
+      const next = { ...valuesRef.current, [name]: value }
+      write(next)
+
+      if (validateOnChange) {
+        const message = firstSyncError(value, validationRules[name] ?? [])
+        setErrors((previous) => ({ ...previous, [name]: message }))
+      }
+    },
+    [validateOnChange, validationRules, write]
+  )
+
+  const register = useCallback(
+    (name: keyof T) => ({
+      name,
+      value: values[name],
+      onChange: (value: any) => setFieldValue(name, value),
+      onBlur: () => setTouched((previous) => ({ ...previous, [name]: true })),
+    }),
+    [setFieldValue, values]
+  )
+
+  const handleSubmit = useCallback(
+    (onSubmit: (data: T) => void | Promise<void>) => async (event?: { preventDefault?: () => void }) => {
+      event?.preventDefault?.()
+
+      const current = valuesRef.current
+      const found: Partial<Record<keyof T, string>> = {}
+
+      for (const key of Object.keys(validationRules) as (keyof T)[]) {
+        const message = firstSyncError(current[key], validationRules[key] ?? [])
+        if (message) found[key] = message
+      }
+
+      setErrors(found)
+      if (Object.keys(found).length > 0) return
+
+      setIsSubmitting(true)
+
+      // Async rules run only once the cheap ones have passed — there is no
+      // point paying for a round trip to reject a field that is already wrong.
+      for (const key of Object.keys(validationRules) as (keyof T)[]) {
+        for (const rule of validationRules[key] ?? []) {
+          if (rule.type !== 'async') continue
+          const ok = await rule.validator(current[key])
+          if (!ok) found[key] = rule.message
+        }
+      }
+
+      if (Object.keys(found).length > 0) {
+        setErrors(found)
+        setIsSubmitting(false)
+        return
+      }
+
+      try {
+        await onSubmit(current)
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
+    [validationRules]
+  )
+
+  const resetForm = useCallback(() => {
+    write(initialValues)
+    setErrors({})
+    setTouched({})
+    setIsSubmitting(false)
+  }, [initialValues, write])
+
+  const isValid = useMemo(
+    () =>
+      (Object.keys(validationRules) as (keyof T)[]).every(
+        (key) => firstSyncError(values[key], validationRules[key] ?? []) === undefined
+      ),
+    [validationRules, values]
+  )
+
+  return { register, handleSubmit, errors, touched, isSubmitting, isValid, setFieldValue, resetForm, values }
+}
+```
