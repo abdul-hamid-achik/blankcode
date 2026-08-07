@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import Button from '~/components/ui/button.vue'
 import { EXERCISE_COUNT, LANDING_TRACKS } from '~/utils/landing-tracks'
+import { evaluateFibDemo, FIB_DEMO_EXPECTED } from '~/utils/fib-demo'
 
 /**
  * The hero is a real exercise, not a mockup of one.
@@ -14,27 +15,33 @@ import { EXERCISE_COUNT, LANDING_TRACKS } from '~/utils/landing-tracks'
 
 interface Blank {
   id: string
-  /** Everything accepted as correct, compared after trimming. */
-  answers: string[]
   width: number
 }
 
 const BLANKS: Blank[] = [
-  { id: 'a', answers: ['1'], width: 3 },
-  { id: 'b', answers: ['2'], width: 3 },
+  { id: 'a', width: 3 },
+  { id: 'b', width: 3 },
 ]
 
 const values = ref<Record<string, string>>({ a: '', b: '' })
+const received = ref<number | null>(null)
 const state = ref<'idle' | 'running' | 'passed' | 'failed'>('idle')
 const inputs = useTemplateRef<HTMLInputElement[]>('blankInput')
 
 const filled = computed(() => BLANKS.filter((b) => values.value[b.id]?.trim()).length)
 const canRun = computed(() => filled.value === BLANKS.length && state.value !== 'running')
 
-function verdictFor(blank: Blank): 'correct' | 'incorrect' | null {
-  if (state.value !== 'passed' && state.value !== 'failed') return null
-  const value = values.value[blank.id]?.trim() ?? ''
-  return blank.answers.includes(value) ? 'correct' : 'incorrect'
+/**
+ * Both blanks share one verdict, because the suite does.
+ *
+ * Correctness here is a property of the pair — 1 and 2 work in either order —
+ * so marking one input right and the other wrong would be inventing a
+ * distinction the run cannot make.
+ */
+function verdictFor(_blank: Blank): 'correct' | 'incorrect' | null {
+  if (state.value === 'passed') return 'correct'
+  if (state.value === 'failed') return 'incorrect'
+  return null
 }
 
 async function run() {
@@ -42,12 +49,17 @@ async function run() {
   state.value = 'running'
   // A beat of latency so the result reads as a consequence of running, not of typing.
   await new Promise((resolve) => setTimeout(resolve, 420))
-  const allCorrect = BLANKS.every((b) => b.answers.includes(values.value[b.id]?.trim() ?? ''))
-  state.value = allCorrect ? 'passed' : 'failed'
+
+  const a = Number(values.value['a']?.trim())
+  const b = Number(values.value['b']?.trim())
+  received.value = Number.isFinite(a) && Number.isFinite(b) ? evaluateFibDemo(a, b) : null
+
+  state.value = received.value === FIB_DEMO_EXPECTED ? 'passed' : 'failed'
 }
 
 function reset() {
   values.value = { a: '', b: '' }
+  received.value = null
   state.value = 'idle'
   nextTick(() => inputs.value?.[0]?.focus())
 }
@@ -71,7 +83,11 @@ const resultLine = computed(() => {
     case 'passed':
       return '3 passed  ·  fib(10) === 55'
     case 'failed':
-      return '1 failed  ·  expected 55, received NaN'
+      // What it actually produced. `null` means the recursion never finished —
+      // saying so is more use than a number nobody computed.
+      return received.value === null
+        ? '1 failed  ·  expected 55, never terminated'
+        : `1 failed  ·  expected 55, received ${received.value}`
     default:
       return null
   }
@@ -215,7 +231,7 @@ const resultLine = computed(() => {
               and the next rep gets scheduled.
             </template>
             <template v-else>
-              Try it — the answers are 1 and 2.
+              Try it — the answers are 1 and 2, in either order.
               <span class="hidden md:inline">⌘↵ runs the tests.</span>
             </template>
           </p>
