@@ -55,6 +55,51 @@ const ASSERTIONS: Record<string, RegExp> = {
  * whole-file segment when the language is unknown or nothing matched, so the
  * caller never silently skips a file.
  */
+/**
+ * Blanks out the contents of string and template literals, keeping the source
+ * the same length so every offset still points where it did.
+ *
+ * A test declaration inside a string is a *fixture*, not a test — an exercise
+ * about linting test files contains them by definition, and reporting those
+ * gave eight findings on a file with nothing wrong with it. A rule that cries
+ * wolf is a rule people stop reading, which costs more than the rule was worth.
+ */
+export function maskStringContents(code: string): string {
+  const out = code.split('')
+  let quote: string | null = null
+  let escaped = false
+
+  for (let i = 0; i < code.length; i++) {
+    const char = code[i]!
+
+    if (quote) {
+      if (escaped) {
+        escaped = false
+        out[i] = ' '
+        continue
+      }
+      if (char === '\\') {
+        escaped = true
+        out[i] = ' '
+        continue
+      }
+      if (char === quote) {
+        quote = null
+        continue
+      }
+      // Newlines are preserved so line numbers do not shift.
+      if (char !== '\n') out[i] = ' '
+      continue
+    }
+
+    if (char === "'" || char === '"' || char === '`') {
+      quote = char
+    }
+  }
+
+  return out.join('')
+}
+
 export function segmentTests(lang: string, code: string): TestSegment[] {
   const normalized = normalizeLang(lang)
   const pattern = SEGMENTERS[normalized]
@@ -62,10 +107,18 @@ export function segmentTests(lang: string, code: string): TestSegment[] {
 
   const re = new RegExp(pattern.source, pattern.flags)
   const starts: Array<{ name: string; offset: number }> = []
-  let match = re.exec(code)
+  // Scanned against the masked source so a fixture inside a string cannot be
+  // mistaken for a test; the offsets still index into the real code.
+  const scannable = maskStringContents(code)
+  let match = re.exec(scannable)
   while (match) {
-    starts.push({ name: match[1] ?? '', offset: match.index })
-    match = re.exec(code)
+    // The name lives inside the literal the mask blanked, so it is read back
+    // from the original source at the same offset.
+    const nameMatch = new RegExp(pattern.source, pattern.flags.replace('g', '')).exec(
+      code.slice(match.index)
+    )
+    starts.push({ name: nameMatch?.[1] ?? '', offset: match.index })
+    match = re.exec(scannable)
   }
   if (starts.length === 0) return [{ name: '', offset: 0, body: code }]
 

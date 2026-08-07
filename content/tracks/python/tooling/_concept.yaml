@@ -1,0 +1,5 @@
+slug: tooling
+name: Build the Tool
+description: Stop doing the check by hand. These exercises are about writing the thing that does it for you, forever — the highest-leverage move available and the one nobody teaches, because it looks hard to grade. It is not: a tool either processes its cases or it does not.
+order: 120
+isPublished: true
