@@ -10,7 +10,7 @@ useHead({
     {
       name: 'description',
       content:
-        'Self-hosted code practice. Fill in the blanks in working code, run the real test suite in a sandbox, and let spaced repetition bring exercises back before you forget them.',
+        "Fill in the blanks in working code, run the exercise's real test suite in a sandbox, and let spaced repetition bring it back before you forget. Seven languages, free, open source.",
     },
   ],
 })

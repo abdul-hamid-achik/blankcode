@@ -43,14 +43,30 @@
 
       <h2>Data Storage</h2>
       <p>
-        All data is stored in a PostgreSQL database. If you self-host BlankCode, your data stays
-        entirely on your own infrastructure.
+        Your account and submissions are stored in a PostgreSQL database hosted on Neon, in a single
+        region. BlankCode is also open source, so you can run the whole thing on your own
+        infrastructure and keep the database entirely to yourself.
+      </p>
+
+      <h2>Code Execution</h2>
+      <p>
+        Submitted code runs in an isolated microVM that is created for one submission and destroyed
+        when it finishes. It has no access to your account, to other users' submissions, or to the
+        database. Nothing is kept in the sandbox between runs.
       </p>
 
       <h2>Third-Party Services</h2>
       <p>
-        BlankCode may use the Anthropic API for exercise content generation. No user-submitted code
-        or personal data is sent to third-party APIs.
+        When you explicitly ask for an explanation of a failed submission, that submission's code,
+        its error output, and the exercise's title and description are sent to a language model
+        through the Vercel AI Gateway in order to produce the explanation. This only happens when
+        you press the button; nothing is sent automatically, and no other submission is included.
+        Your email address and everything else about your account stay here.
+      </p>
+      <p>
+        Apart from that feature, no user-submitted code or personal data is sent to third parties.
+        The site is hosted on Vercel, which processes request metadata such as IP address in order
+        to serve it.
       </p>
 
       <h2>Data Deletion</h2>

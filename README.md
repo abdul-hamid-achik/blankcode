@@ -1,15 +1,18 @@
 # BlankCode
 
-A self-hosted coding-practice platform. You read real code with strategic gaps,
-fill in the blanks, and a sandboxed runner executes the exercise's real test
-suite against your answer. Built to keep programming muscle memory alive across
-several languages.
+A coding-practice platform, live at <https://blankcode.dev>. You read real code
+with strategic gaps, fill in the blanks, and a sandboxed runner executes the
+exercise's real test suite against your answer. Built to keep programming muscle
+memory alive across several languages.
+
+The hosted site is free and needs nothing installed. The source is MIT, so you
+can also run the whole thing yourself — see [Local development](#development).
 
 ## Features
 
-- **6 language tracks**: TypeScript, Python, Go, Rust, Vue, and React
+- **7 language tracks**: TypeScript, Node, Python, Go, Rust, Vue, and React
 - **Fill-in-the-blank exercises**: CodeMirror editor with inline blank widgets, Tab navigation, and per-blank feedback
-- **Real test execution**: submissions run in a hardened Docker sandbox and the output is parsed per language
+- **Real test execution**: submissions run in a Vercel Sandbox microVM, one per submission, and the output is parsed per language
 - **Spaced repetition**: SM-2 scheduler resurfaces exercises before you forget them
 - **Progress tracking**: mastery levels, completion rates, streaks, achievements, and learning paths
 - **AI exercise generation**: author new exercises through the Vercel AI Gateway (DeepSeek by default)

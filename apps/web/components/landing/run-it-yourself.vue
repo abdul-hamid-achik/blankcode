@@ -2,13 +2,15 @@
 import Button from '~/components/ui/button.vue'
 
 /**
- * The honest closing section for a self-hosted tool: there is nothing to buy
- * and no one to sign up with. The only real call to action is "run it".
+ * The closing section. This used to tell the reader to clone the repository and
+ * run three commands, which was true when the only way to use BlankCode was to
+ * host it. It is a site now, so the honest call to action is "start", and the
+ * repository is the second option rather than the only one.
  */
-const SETUP = [
-  'git clone https://github.com/abdul-hamid-achik/blankcode.git',
-  'bun install && docker compose up -d',
-  'bun run content:import',
+const STEPS = [
+  'Pick a track — seven languages',
+  'Fill in the blanks in working code',
+  'Real tests run in a sandbox and answer immediately',
 ]
 </script>
 
@@ -17,18 +19,19 @@ const SETUP = [
     <div class="container py-16 md:py-24">
       <div class="grid gap-12 lg:grid-cols-2 lg:gap-16 lg:items-center">
         <div>
-          <p class="eyebrow mb-3">run it yourself</p>
+          <p class="eyebrow mb-3">start practising</p>
           <h2 class="display text-2xl md:text-3xl mb-4 max-w-md">
-            It runs on your machine, against your Postgres.
+            Nothing to install. Nothing to configure.
           </h2>
           <p class="text-muted-foreground leading-relaxed max-w-md mb-8">
-            No account on someone else's server, no plan, no telemetry. Your submissions and your
-            review schedule stay in a database you own.
+            Your code runs in an isolated microVM that exists for the length of one submission and
+            is destroyed after it. The source is open, so if you would rather host it yourself, you
+            can.
           </p>
 
           <div class="flex flex-wrap items-center gap-3">
             <NuxtLink to="/register">
-              <Button size="lg">Create a local account</Button>
+              <Button size="lg">Create an account</Button>
             </NuxtLink>
             <a
               href="https://github.com/abdul-hamid-achik/blankcode"
@@ -42,12 +45,19 @@ const SETUP = [
 
         <div class="rounded border border-rule-strong bg-card overflow-hidden">
           <div class="border-b border-rule px-4 py-2.5 bg-muted/40">
-            <span class="eyebrow">three commands</span>
+            <span class="eyebrow">how a session goes</span>
           </div>
-          <div class="p-5 overflow-x-auto">
-            <pre
-              class="font-mono text-xs md:text-sm leading-loose text-muted-foreground"
-            ><code v-for="line in SETUP" :key="line" class="block"><span class="select-none text-signal">$ </span>{{ line }}</code></pre>
+          <div class="p-5">
+            <ol class="space-y-4">
+              <li
+                v-for="(step, index) in STEPS"
+                :key="step"
+                class="flex gap-3 text-sm leading-relaxed text-muted-foreground"
+              >
+                <span class="font-mono text-signal select-none">{{ index + 1 }}</span>
+                <span>{{ step }}</span>
+              </li>
+            </ol>
           </div>
         </div>
       </div>

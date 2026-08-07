@@ -87,7 +87,7 @@ const resultLine = computed(() => {
       >
         <!-- Left: the thesis, stated plainly and left-aligned. -->
         <div>
-          <p class="eyebrow mb-5">self-hosted practice</p>
+          <p class="eyebrow mb-5">practice that sticks</p>
 
           <h1 class="display text-4xl md:text-5xl lg:text-[3.5rem] mb-6">
             Keep your hands from

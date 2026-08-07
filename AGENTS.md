@@ -250,8 +250,9 @@ UI inside it rather than reaching for generic dashboard patterns.
 - **Focus is never invisible** — a global `:focus-visible` ring in `--signal`.
   Do not remove it.
 - **Copy**: statements, not apologies. Errors say what happened and what to do.
-  Empty states offer an action. No marketing voice — this is a self-hosted tool
-  with one user, not a funnel.
+  Empty states offer an action. The site is public now, but the voice does not
+  change: describe what the thing does and let that be the argument. No
+  superlatives, no urgency, no funnel.
 
 Error pages: `apps/web/error.vue` renders every status from
 `apps/web/utils/error-copy.ts`. Adding a new status to the API means adding it
