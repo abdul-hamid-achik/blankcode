@@ -1,0 +1,5 @@
+slug: turn-budget
+name: Three Messages
+description: 'Anyone can steer a model with unlimited turns. The skill shows up when you have three: what you say first, what you check, and when you stop steering and read the code yourself. The tests you are graded against stay hidden until you finish.'
+order: 150
+isPublished: true

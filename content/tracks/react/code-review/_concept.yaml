@@ -1,0 +1,5 @@
+slug: code-review
+name: Code Review
+description: Code that already looks finished, and is wrong. Find the defect before you submit — the tests it came with all pass.
+order: 110
+isPublished: true
