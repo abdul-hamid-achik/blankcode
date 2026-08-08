@@ -360,19 +360,24 @@ export const LEARNING_PATHS = [
     order: 12,
     challengeIds: [
       'py-review-002', // The default argument with a memory
+      'py-spec-001', // Specify before it writes
       'py-turn-001', // Three messages: a slugify that survives truncation
       'py-context-001', // Column names you cannot guess
       'py-tool-002', // The rule that finds the fence nobody closed
       'go-review-001', // The truncate that corrupts text
+      'go-spec-001', // The cases that make card masking unambiguous
       'go-turn-001', // Three messages: one slash exactly
       'go-context-001', // Struct fields you cannot guess
       'ru-review-002', // The budget that explodes at zero
+      'ru-spec-001', // The cases that make a duration formatter unambiguous
       'ru-turn-001', // Three messages: a parser that counts its commas
       'ru-context-001', // The error variant that is not NotFound
       're-review-002', // The countdown stuck one second in
+      're-spec-001', // The cases that make a classnames helper unambiguous
       're-turn-001', // Three messages: a debounce that keeps the last word
       're-context-001', // Props the training data cannot supply
       'vue-review-001', // The cart total that never moves
+      'vue-spec-001', // The cases that make a relative timestamp unambiguous
       'vue-turn-001', // Three messages: pagination that survives shrinking
       'vue-context-001', // The toast API that is not the famous one
     ],
