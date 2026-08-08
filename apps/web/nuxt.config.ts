@@ -106,6 +106,10 @@ export default defineNuxtConfig({
   },
 
   nitro: {
+    // The skill markdown ships to browsers as a public asset AND to the MCP
+    // resource handler as a server asset: internal $fetch cannot reach public
+    // files (it routes into the app), so the server reads its own copy.
+    serverAssets: [{ baseName: 'skills', dir: '../public/skills' }],
     // The Effect API is mounted at server/routes/api/[...].ts, so there is no
     // separate API process to proxy to — dev and production take the same path
     // through the same handler.

@@ -83,16 +83,27 @@ function headers(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+interface AgentEvent {
+  tool: string
+  status: string | null
+  createdAt: string
+  exerciseSlug: string | null
+  exerciseTitle: string | null
+}
+const events = ref<AgentEvent[]>([])
+
 async function refresh() {
   if (!auth.isAuthenticated) return
   try {
     const wasConnected = connected.value
-    const [tokenResult, activityResult] = await Promise.all([
+    const [tokenResult, activityResult, eventsResult] = await Promise.all([
       $fetch<{ tokens: TokenRow[] }>('/api/account/tokens', { headers: headers() }),
       $fetch<Activity>('/api/account/harness-sessions', { headers: headers() }),
+      $fetch<{ events: AgentEvent[] }>('/api/account/agent-events', { headers: headers() }),
     ])
     tokens.value = tokenResult.tokens
     activity.value = activityResult
+    events.value = eventsResult.events
     loaded.value = true
     if (!wasConnected && connected.value && loaded.value) {
       analytics.emit('agent-connected', { client: latest.value?.clientName ?? 'unknown' })
@@ -146,6 +157,23 @@ async function mint() {
     error.value = e instanceof Error ? e.message : 'Could not create the token'
   } finally {
     busy.value = false
+  }
+}
+
+/** One feed line per agent action, readable without a legend. */
+function eventLine(agentEvent: AgentEvent): string {
+  const subject = agentEvent.exerciseSlug ?? 'an exercise'
+  switch (agentEvent.tool) {
+    case 'get_exercise':
+      return `read ${subject}`
+    case 'run_tests':
+      return `ran tests on ${subject}`
+    case 'submit_solution':
+      return `submitted ${subject}`
+    case 'record_reflection':
+      return `recorded your reflection on ${subject}`
+    default:
+      return `${agentEvent.tool} · ${subject}`
   }
 }
 
@@ -301,7 +329,27 @@ usePageSeo({
         </dl>
       </div>
 
-      <ol v-if="activity!.sessions.length" class="mt-4 border border-rule">
+      <!-- The feed: the session unfolding, not just counted. -->
+      <ol v-if="events.length" class="mt-4 border border-rule">
+        <li
+          v-for="(agentEvent, i) in events.slice(0, 8)"
+          :key="i"
+          class="flex items-baseline justify-between gap-3 border-b border-rule px-4 py-2 last:border-b-0"
+        >
+          <span class="min-w-0 flex-1 truncate font-mono text-xs">
+            {{ eventLine(agentEvent) }}
+            <span
+              v-if="agentEvent.status"
+              :class="agentEvent.status === 'passed' ? 'text-pass' : 'text-fail'"
+              >→ {{ agentEvent.status }}</span
+            >
+          </span>
+          <span class="shrink-0 font-mono text-xs text-muted-foreground">{{
+            relativeTime(agentEvent.createdAt)
+          }}</span>
+        </li>
+      </ol>
+      <ol v-else-if="activity!.sessions.length" class="mt-4 border border-rule">
         <li
           v-for="(session, i) in activity!.sessions.slice(0, 3)"
           :key="i"

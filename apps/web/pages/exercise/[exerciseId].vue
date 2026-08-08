@@ -21,8 +21,25 @@ interface ExerciseWithRelations {
 const route = useRoute()
 const exerciseStore = useExerciseStore()
 const reviewStore = useReviewStore()
+const api = useApi()
 
 const exerciseId = computed(() => route.params['exerciseId'] as string)
+
+/**
+ * What the learner said when an agent asked them to explain this exercise —
+ * recorded verbatim over MCP, read back here so the page holds both halves
+ * of the record: the sandbox's verdict and the human's understanding.
+ */
+const reflections = ref<Array<{ id: string; question: string; answer: string; createdAt: string }>>(
+  []
+)
+onMounted(async () => {
+  try {
+    reflections.value = await api.reflections.getByExercise(exerciseId.value)
+  } catch {
+    // No reflections reads the same as none recorded; the section stays out.
+  }
+})
 const ratingSubmittedFor = ref<string | null>(null)
 const isRating = ref(false)
 
@@ -702,6 +719,22 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
             :exercise="exerciseStore.exercise?.slug"
             :hints="exerciseStore.exercise.hints"
           />
+        </div>
+
+        <!-- The other half of the record: what the human could explain,
+             recorded verbatim by their agent. Absent until one exists. -->
+        <div v-if="reflections.length" class="mt-8 border-t border-rule pt-6">
+          <p class="eyebrow mb-3">your reflections</p>
+          <dl class="border border-rule">
+            <div
+              v-for="reflection in reflections"
+              :key="reflection.id"
+              class="border-b border-rule px-4 py-3 last:border-b-0"
+            >
+              <dt class="text-xs text-muted-foreground">{{ reflection.question }}</dt>
+              <dd class="mt-1 text-sm leading-relaxed">{{ reflection.answer }}</dd>
+            </div>
+          </dl>
         </div>
       </aside>
     </div>

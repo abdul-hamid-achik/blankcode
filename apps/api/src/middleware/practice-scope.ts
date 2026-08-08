@@ -33,6 +33,11 @@ const RULES: ReadonlyArray<{ method: 'GET' | 'POST'; pattern: RegExp }> = [
   // The iterate step: run against the suite without recording a submission.
   { method: 'POST', pattern: /^\/submissions\/run$/ },
   { method: 'GET', pattern: /^\/submissions(\/|$)/ },
+
+  // The reflect step: recording the human's answer is agent work by design;
+  // reading back what was already said lets a session pick up where it left.
+  { method: 'POST', pattern: /^\/reflections$/ },
+  { method: 'GET', pattern: /^\/reflections\/exercise\/[^/]+$/ },
 ]
 
 /** `path` is the pathname with any `/api` mount prefix already stripped. */

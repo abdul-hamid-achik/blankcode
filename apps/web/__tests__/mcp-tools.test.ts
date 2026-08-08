@@ -14,10 +14,23 @@ const SOURCE = readFileSync(join(process.cwd(), 'server/utils/mcp-server.ts'), '
 const SKILL = readFileSync(join(process.cwd(), 'public/skills/blankcode-practice.md'), 'utf-8')
 
 describe('the MCP tool surface', () => {
-  it('stays at nine tools, on purpose', () => {
+  it('stays at ten tools, on purpose', () => {
     const registered = SOURCE.match(/registerTool\(\s*'([a-z_]+)'/g) ?? []
-    expect(registered).toHaveLength(9)
+    expect(registered).toHaveLength(10)
     expect(SOURCE).toContain("'list_paths'")
+    expect(SOURCE).toContain("'record_reflection'")
+  })
+
+  it('exposes the course prompt and the skill as MCP prompt/resource', () => {
+    expect(SOURCE).toContain("registerPrompt(\n    'walk-a-path'")
+    expect(SOURCE).toContain('registerResource(')
+    expect(SOURCE).toContain('blankcode://skill/practice')
+  })
+
+  it('ledgers the meaningful actions for the live feed, fail-open', () => {
+    for (const tool of ['get_exercise', 'run_tests', 'submit_solution', 'record_reflection']) {
+      expect(SOURCE).toMatch(new RegExp(`record\\?\\.\\(\\{ tool: '${tool}'`))
+    }
   })
 
   it('list_exercises projects the compact shape instead of proxying the full payload', () => {

@@ -2,16 +2,16 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 
 /**
- * The MCP surface: nine tools, each a thin proxy onto the same API the web
+ * The MCP surface: ten tools, each a thin proxy onto the same API the web
  * client uses, carrying the caller's practice token. Nothing here re-decides
  * anything — redaction, the daily cap, via-labeling, and the SM-2 gate all
  * live server-side on the API routes, so an agent and a browser get exactly
  * the same product with the same rules. The tool layer's whole job is to
  * describe that product to a model well enough that it uses it properly.
  *
- * Nine on purpose: agents degrade with large tool menus, and the practice
+ * Ten on purpose: agents degrade with large tool menus, and the practice
  * loop is small — orient, pick a path, read, iterate, submit, reflect with
- * the human, check where you stand.
+ * the human and record their answer, check where you stand.
  *
  * Two places this layer does shape data, both learned from watching a real
  * harness practice: list_exercises projects the catalogue down to the fields
@@ -26,6 +26,14 @@ interface McpContext {
   bearer: string
   /** Base URL for internal API calls. */
   fetcher: (path: string, init?: { method?: string; body?: unknown }) => Promise<unknown>
+  /**
+   * Fire-and-forget ledger entry for the live feed on /connect. Only the
+   * actions worth reading back: reads of an exercise, runs and submissions
+   * with their verdicts, recorded reflections. Optional so tests and callers
+   * without a ledger stay valid; losing an event degrades the feed, never
+   * the call.
+   */
+  record?: (event: { tool: string; exerciseId?: string; status?: string }) => void
 }
 
 const text = (value: unknown) => ({
@@ -103,7 +111,7 @@ export function buildPracticeServer(ctx: McpContext): McpServer {
         'Iterate with run_tests (feedback, nothing recorded), then submit_solution when green (the verdict of record). Each has its own daily budget on free accounts.',
         'Never claim a pass you did not get from submit_solution. The verdict comes from the sandbox, not from you.',
         'list_paths gives the curated sequences — the natural shape of a session is walking one with the human.',
-        "After every verdict, submit_solution returns `reflect` questions. Ask them and wait for the human's answers before the next exercise: their learning is the product, your throughput is not.",
+        "After every verdict, submit_solution returns `reflect` questions. Ask them, wait for the human's answers, and record them verbatim with record_reflection before the next exercise: their learning is the product, your throughput is not.",
       ].join('\n'),
     }
   )
@@ -226,7 +234,10 @@ export function buildPracticeServer(ctx: McpContext): McpServer {
         'One exercise by id: description, starter code, hints, blanks (positions only). Solutions and hidden test suites never leave the server — grade by submitting.',
       inputSchema: { id: z.string().describe('The exercise UUID from list_exercises') },
     },
-    ({ id }) => proxy(ctx, `/api/exercises/${encodeURIComponent(id)}`)
+    ({ id }) => {
+      ctx.record?.({ tool: 'get_exercise', exerciseId: id })
+      return proxy(ctx, `/api/exercises/${encodeURIComponent(id)}`)
+    }
   )
 
   server.registerTool(
@@ -240,8 +251,21 @@ export function buildPracticeServer(ctx: McpContext): McpServer {
         code: z.string().max(50_000).describe('The complete solution code to run'),
       },
     },
-    ({ exerciseId, code }) =>
-      proxy(ctx, '/api/submissions/run', { method: 'POST', body: { exerciseId, code } })
+    async ({ exerciseId, code }) => {
+      const result = await proxy(ctx, '/api/submissions/run', {
+        method: 'POST',
+        body: { exerciseId, code },
+      })
+      try {
+        const outcome = JSON.parse(
+          'isError' in result ? '{}' : (result.content[0]?.text ?? '{}')
+        ) as { status?: string }
+        ctx.record?.({ tool: 'run_tests', exerciseId, status: outcome.status })
+      } catch {
+        ctx.record?.({ tool: 'run_tests', exerciseId })
+      }
+      return result
+    }
   )
 
   server.registerTool(
@@ -268,6 +292,7 @@ export function buildPracticeServer(ctx: McpContext): McpServer {
       // garnish.
       try {
         const submission = JSON.parse(result.content[0]?.text ?? '{}') as { status?: string }
+        ctx.record?.({ tool: 'submit_solution', exerciseId, status: submission.status })
         const exercise = (await ctx.fetcher(
           `/api/exercises/${encodeURIComponent(exerciseId)}`
         )) as {
@@ -281,6 +306,27 @@ export function buildPracticeServer(ctx: McpContext): McpServer {
       } catch {
         return result
       }
+    }
+  )
+
+  server.registerTool(
+    'record_reflection',
+    {
+      title: "Record the human's reflection",
+      description:
+        "After asking the reflect questions, record the human's answer VERBATIM — their words, not your paraphrase. The answer lands on their exercise page and dashboard as the record of what they could explain. Record one entry per question answered. Do not answer for them, and do not record silence as an answer.",
+      inputSchema: {
+        exerciseId: z.string().describe('The exercise UUID the reflection is about'),
+        question: z.string().max(1000).describe('The question as you asked it'),
+        answer: z.string().max(10_000).describe("The human's answer, verbatim"),
+      },
+    },
+    ({ exerciseId, question, answer }) => {
+      ctx.record?.({ tool: 'record_reflection', exerciseId })
+      return proxy(ctx, '/api/reflections', {
+        method: 'POST',
+        body: { exerciseId, question, answer },
+      })
     }
   )
 
@@ -303,6 +349,75 @@ export function buildPracticeServer(ctx: McpContext): McpServer {
       inputSchema: {},
     },
     () => proxy(ctx, '/api/reviews/due')
+  )
+
+  // ── Prompts and resources ─────────────────────────────────────────────────
+  // The /connect page asks people to copy a course prompt and download a
+  // skill file. A harness that speaks MCP can discover both right here
+  // instead: prompts/list surfaces the session shape, resources/read hands
+  // over the etiquette. Same content, zero copy-paste.
+
+  server.registerPrompt(
+    'walk-a-path',
+    {
+      title: 'Walk a learning path with the human',
+      description:
+        'The canonical session: pick a path, work it in order, iterate with run_tests, submit when believed in, and reflect with the human after every verdict.',
+      argsSchema: {
+        path: z
+          .string()
+          .optional()
+          .describe('A path slug from list_paths; omit to let the human choose'),
+      },
+    },
+    ({ path }) => ({
+      messages: [
+        {
+          role: 'user' as const,
+          content: {
+            type: 'text' as const,
+            text: [
+              'Connect to BlankCode. Call whoami first.',
+              path
+                ? `Walk the '${path}' path in order.`
+                : 'Call list_paths and let me pick one, then walk it in order.',
+              'For each exercise: fetch it, discuss the approach with me before anything is submitted, iterate with run_tests (it records nothing), and only call submit_solution when we believe in it.',
+              'After every verdict, ask me the reflect questions it returns, wait for my answers, and record them verbatim with record_reflection. If I cannot explain the pass, we redo the exercise together.',
+              'Never claim a pass the sandbox did not return.',
+            ].join(' '),
+          },
+        },
+      ],
+    })
+  )
+
+  server.registerResource(
+    'practice-skill',
+    'blankcode://skill/practice',
+    {
+      title: 'BlankCode practice skill',
+      description: 'The etiquette in full: the loop, the honesty rules, the limits.',
+      mimeType: 'text/markdown',
+    },
+    async (uri) => {
+      // The markdown ships to browsers as a public asset and to this handler
+      // as a Nitro server asset (see nuxt.config): internal $fetch cannot
+      // reach public files — it routes into the app instead of the asset.
+      const skill = await useStorage('assets:skills')
+        .getItem<string>('blankcode-practice.md')
+        .catch(() => null)
+      return {
+        contents: [
+          {
+            uri: uri.href,
+            mimeType: 'text/markdown',
+            text:
+              (typeof skill === 'string' && skill.length > 0 && skill) ||
+              'The skill file could not be loaded — read it at https://blankcode.dev/skills/blankcode-practice.md',
+          },
+        ],
+      }
+    }
   )
 
   return server

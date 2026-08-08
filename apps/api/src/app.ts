@@ -9,6 +9,7 @@ import { ExercisesHandlers } from './handlers/exercises.handlers.js'
 import { HealthHandlers } from './handlers/health.handlers.js'
 import { PathsHandlers } from './handlers/paths.handlers.js'
 import { ProgressHandlers } from './handlers/progress.handlers.js'
+import { ReflectionsHandlers } from './handlers/reflections.handlers.js'
 import { ReviewsHandlers } from './handlers/reviews.handlers.js'
 import { SubmissionsHandlers } from './handlers/submissions.handlers.js'
 import { TracksHandlers } from './handlers/tracks.handlers.js'
@@ -21,6 +22,7 @@ import { AchievementsServiceLive } from './modules/achievements/achievements.ser
 import { AuthServiceLive } from './modules/auth/auth.service.js'
 import { ExercisesServiceLive } from './modules/exercises/exercises.service.js'
 import { ProgressServiceLive } from './modules/progress/progress.service.js'
+import { ReflectionsServiceLive } from './modules/reflections/reflections.service.js'
 import { ReviewsServiceLive } from './modules/reviews/reviews.service.js'
 import { SubmissionsServiceLive } from './modules/submissions/submissions.service.js'
 import { PathsServiceLive } from './modules/paths/paths.service.js'
@@ -48,7 +50,8 @@ const ServicesLive = Layer.mergeAll(
   SubmissionsServiceLive,
   ProgressServiceLive,
   AchievementsServiceLive,
-  ReviewsServiceLive
+  ReviewsServiceLive,
+  ReflectionsServiceLive
 )
 
 const MiddlewareLive = Layer.mergeAll(
@@ -68,7 +71,8 @@ const HandlersLive = Layer.mergeAll(
   HealthHandlers,
   PathsHandlers,
   AchievementsHandlers,
-  ReviewsHandlers
+  ReviewsHandlers,
+  ReflectionsHandlers
 )
 
 export const ApiLive = HttpApiBuilder.api(BlankCodeApi).pipe(

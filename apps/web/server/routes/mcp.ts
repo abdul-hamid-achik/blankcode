@@ -1,5 +1,5 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
-import { apiTokens, harnessSessions } from '@blankcode/db/schema'
+import { agentEvents, apiTokens, harnessSessions } from '@blankcode/db/schema'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { and, eq, gt, isNull, sql } from 'drizzle-orm'
 import { buildPracticeServer } from '../utils/mcp-server'
@@ -132,6 +132,20 @@ export default defineEventHandler(async (event) => {
         headers: { Authorization: `Bearer ${bearer}` },
         ...(init?.body !== undefined ? { body: init.body } : {}),
       }),
+    // The live-feed ledger, fire-and-forget: a lost row degrades the feed on
+    // /connect, never the tool call that was being made.
+    record: (entry) => {
+      void db
+        .insert(agentEvents)
+        .values({
+          userId: tokenRow.userId,
+          apiTokenId: tokenRow.id,
+          tool: entry.tool,
+          exerciseId: entry.exerciseId ?? null,
+          status: entry.status ?? null,
+        })
+        .catch(() => {})
+    },
   })
 
   const transport = new StreamableHTTPServerTransport({

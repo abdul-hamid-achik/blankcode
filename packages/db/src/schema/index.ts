@@ -804,6 +804,60 @@ export const harnessSessions = pgTable(
   ]
 )
 
+/**
+ * The human's answers to the reflect questions an agent asked after a
+ * verdict. This is the datum that makes agent practice worth anything: a
+ * pass exists in `submissions`, but whether the human can EXPLAIN the pass
+ * lives here — and an exercise with a verdict and no reflection (or a hollow
+ * one) is a gap wearing a green checkmark.
+ */
+export const reflections = pgTable(
+  'reflections',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    exerciseId: uuid('exercise_id')
+      .notNull()
+      .references(() => exercises.id, { onDelete: 'cascade' }),
+    /** The question as the agent posed it — recorded so the answer can be read alone. */
+    question: text('question').notNull(),
+    /** The human's answer, verbatim. The agent must not paraphrase it. */
+    answer: text('answer').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('reflections_user_created_idx').on(table.userId, table.createdAt),
+    index('reflections_user_exercise_idx').on(table.userId, table.exerciseId),
+  ]
+)
+
+/**
+ * One row per meaningful agent action — the ledger behind the live feed on
+ * /connect. Deliberately narrower than "every tool call" (harness_sessions
+ * already counts those): only the actions worth reading back land here, with
+ * the verdict when there is one. Written fire-and-forget from the MCP layer;
+ * losing a row degrades the feed, never the call.
+ */
+export const agentEvents = pgTable(
+  'agent_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    apiTokenId: uuid('api_token_id').references(() => apiTokens.id, { onDelete: 'set null' }),
+    /** Which tool: get_exercise, run_tests, submit_solution, record_reflection. */
+    tool: varchar('tool', { length: 50 }).notNull(),
+    exerciseId: uuid('exercise_id').references(() => exercises.id, { onDelete: 'set null' }),
+    /** The verdict for run/submit ('passed' | 'failed' | 'error'), else null. */
+    status: varchar('status', { length: 20 }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('agent_events_user_created_idx').on(table.userId, table.createdAt)]
+)
+
 export const userAchievements = pgTable(
   'user_achievements',
   {

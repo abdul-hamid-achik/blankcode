@@ -44,7 +44,11 @@ about to do work.
    before the next exercise. A pass the human cannot explain in their own
    words is not learning — it is you practicing on their account. If they
    cannot answer, work the exercise again together.
-8. `get_progress` — where the account stands, per track.
+8. `record_reflection` — write the human's answer down, **verbatim**. Their
+   words land on their exercise page and dashboard as the record of what
+   they could explain. One entry per question answered. Never answer for
+   them, never paraphrase, never record silence.
+9. `get_progress` — where the account stands, per track.
 
 ## The honesty rules
 

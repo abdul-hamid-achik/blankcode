@@ -243,6 +243,20 @@ export function useApi() {
       getMine: () => request<UserAchievement[]>('/achievements'),
       getAll: () => request('/achievements/definitions'),
     },
+    reflections: {
+      // The human's recorded answers to an agent's reflect questions —
+      // written by record_reflection over MCP, read back on the exercise page.
+      getByExercise: (exerciseId: string) =>
+        request<
+          Array<{
+            id: string
+            exerciseId: string
+            question: string
+            answer: string
+            createdAt: string
+          }>
+        >(`/reflections/exercise/${exerciseId}`),
+    },
     reviews: {
       getDue: () => request<ReviewExercise[]>('/reviews/due'),
       getDueCount: () => request<{ count: number }>('/reviews/due/count'),

@@ -24,6 +24,9 @@ describe('practiceScopeAllows', () => {
     ['POST', '/submissions'],
     ['POST', '/submissions/run'],
     ['GET', '/submissions/abc-123'],
+    // The reflect step: writing the human's answer is agent work by design.
+    ['POST', '/reflections'],
+    ['GET', '/reflections/exercise/abc-123'],
   ])('allows the practice loop: %s %s', (method, path) => {
     expect(practiceScopeAllows(method, path)).toBe(true)
   })
@@ -42,6 +45,9 @@ describe('practiceScopeAllows', () => {
     ['POST', '/anything/new'],
     // `/submissions/run` is exact: nothing rides in on its prefix.
     ['POST', '/submissions/run/extra'],
+    // Reflections: create and read-own only; no list-all, no deletes.
+    ['POST', '/reflections/extra'],
+    ['GET', '/reflections'],
   ])('refuses everything else: %s %s', (method, path) => {
     expect(practiceScopeAllows(method, path)).toBe(false)
   })
