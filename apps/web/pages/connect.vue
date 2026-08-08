@@ -94,6 +94,13 @@ const snippets = computed<Snippet[]>(() => [
     ),
     note: 'The field names vary slightly per harness; the three facts are constant — HTTP transport, this URL, this bearer.',
   },
+  {
+    key: 'stdio-bridge',
+    label: 'Harness cannot send HTTP headers? Bridge over stdio',
+    language: 'yaml',
+    body: `# any harness that can launch a stdio MCP server (sonar, older CLIs)\n- name: blankcode\n  command: bunx\n  args: ["-y", "mcp-remote", "${mcpUrl.value}",\n         "--header", "Authorization: Bearer ${shownToken.value}"]`,
+    note: 'mcp-remote speaks stdio to the harness and streamable HTTP to us, carrying the bearer. Same product, one hop longer.',
+  },
 ])
 
 async function copyText(text: string, key: string) {
@@ -111,7 +118,7 @@ async function copyText(text: string, key: string) {
 
 /** The one prompt that turns a connected harness into a self-paced course. */
 const coursePrompt =
-  "Connect to BlankCode. Call whoami, then get_progress. Walk me through the 'Working with Models' path: list the exercises, and for each one, fetch it and discuss the approach with me before anything is submitted. Never claim a pass the sandbox did not return."
+  "Connect to BlankCode. Call whoami, then get_progress. Walk me through the 'Working with Models' path: list the exercises, and for each one, fetch it and discuss the approach with me before anything is submitted. Check work in progress with run_tests — it records nothing — and only call submit_solution when we believe in it. Never claim a pass the sandbox did not return."
 
 usePageSeo({
   title: 'Connect your agent — BlankCode',
@@ -226,7 +233,7 @@ usePageSeo({
     <Card class="mb-6">
       <h2 class="display text-lg mb-1">4 · What a session looks like</h2>
       <p class="mb-4 max-w-lg text-xs leading-relaxed text-muted-foreground">
-        Four calls from a real sitting, in order, and exactly what came back — nothing smoothed
+        Five calls from a real sitting, in order, and exactly what came back — nothing smoothed
         over.
       </p>
       <ol class="border border-rule">
@@ -244,6 +251,12 @@ usePageSeo({
           <p class="eyebrow mb-1.5">get_exercise</p>
           <p class="font-mono text-sm leading-relaxed">
             → description, starter code, hints — solution and hidden tests redacted
+          </p>
+        </li>
+        <li class="border-b border-rule px-4 py-3 last:border-b-0">
+          <p class="eyebrow mb-1.5">run_tests</p>
+          <p class="font-mono text-sm leading-relaxed">
+            → 2 of 3 passing — feedback only, nothing recorded · iterate and run again
           </p>
         </li>
         <li class="border-b border-rule px-4 py-3 last:border-b-0">
@@ -293,6 +306,13 @@ usePageSeo({
           <dt class="text-sm">Where do I see agent activity?</dt>
           <dd class="mt-1 text-xs text-muted-foreground">
             Your dashboard, labeled — never merged silently.
+          </dd>
+        </div>
+        <div class="border-b border-rule px-4 py-3 last:border-b-0">
+          <dt class="text-sm">Do practice runs spend my submissions?</dt>
+          <dd class="mt-1 text-xs text-muted-foreground">
+            No. run_tests has its own daily budget on free accounts and records nothing; submissions
+            are the verdicts of record.
           </dd>
         </div>
         <div class="border-b border-rule px-4 py-3 last:border-b-0">

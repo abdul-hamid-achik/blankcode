@@ -33,7 +33,9 @@ interface Events {
   /** Checkout started. Paired with the Stripe webhook, this gives drop-off. */
   'checkout-started': { currency: string }
   /** A free account hit its daily cap — the signal the limit is doing work. */
-  'limit-reached': { kind: 'submission' | 'explanation' | 'reading' }
+  'limit-reached': { kind: 'submission' | 'explanation' | 'reading' | 'run' }
+  /** A practice run (execute without recording) finished. */
+  'practice-run': { status: 'passed' | 'failed' | 'error' }
 
   // ── Reading practice ──
   /** A reading codebase was opened. */

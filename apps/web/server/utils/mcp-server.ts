@@ -9,8 +9,8 @@ import { z } from 'zod'
  * the same product with the same rules. The tool layer's whole job is to
  * describe that product to a model well enough that it uses it properly.
  *
- * Seven on purpose: agents degrade with large tool menus, and the practice
- * loop is small — orient, pick, read, submit, check where you stand.
+ * Eight on purpose: agents degrade with large tool menus, and the practice
+ * loop is small — orient, pick, read, iterate, submit, check where you stand.
  */
 
 interface McpContext {
@@ -41,7 +41,7 @@ async function proxy(ctx: McpContext, path: string, init?: { method?: string; bo
     }
     if (status === 401) {
       return errorText(
-        'This practice token was revoked or is invalid. Mint a new one at blankcode.dev/settings.'
+        'This practice token was revoked or is invalid. Mint a new one at blankcode.dev/connect.'
       )
     }
     return errorText(`The API refused: ${status ?? 'network error'}. ${String(error)}`)
@@ -56,6 +56,7 @@ export function buildPracticeServer(ctx: McpContext): McpServer {
         'BlankCode is coding practice with real execution: exercises are graded by running their test suite in a sandbox.',
         'You are practicing on behalf of the human whose token you carry. Call whoami first to confirm whose work this is.',
         'Recall exercises (type "blank") that you complete are recorded as assisted and do NOT advance the human\'s review schedule — their memory is theirs to train. The vibecoding forms (challenge, review) count fully; working through an agent is their curriculum.',
+        'Iterate with run_tests (feedback, nothing recorded), then submit_solution when green (the verdict of record). Each has its own daily budget on free accounts.',
         'Never claim a pass you did not get from submit_solution. The verdict comes from the sandbox, not from you.',
       ].join('\n'),
     }
@@ -102,6 +103,21 @@ export function buildPracticeServer(ctx: McpContext): McpServer {
       inputSchema: { id: z.string().describe('The exercise UUID from list_exercises') },
     },
     ({ id }) => proxy(ctx, `/api/exercises/${encodeURIComponent(id)}`)
+  )
+
+  server.registerTool(
+    'run_tests',
+    {
+      title: 'Run the tests without submitting',
+      description:
+        "The iterate step: executes the code against the exercise's real test suite in a sandbox and returns per-test results, WITHOUT creating a submission — nothing lands on progress, the dashboard, or the review schedule. Use this to check work in progress; when it passes, make it count with submit_solution. Free accounts get their own daily run budget, separate from submissions; the response includes runsRemainingToday (null means unmetered or unknown).",
+      inputSchema: {
+        exerciseId: z.string().describe('The exercise UUID'),
+        code: z.string().max(50_000).describe('The complete solution code to run'),
+      },
+    },
+    ({ exerciseId, code }) =>
+      proxy(ctx, '/api/submissions/run', { method: 'POST', body: { exerciseId, code } })
   )
 
   server.registerTool(

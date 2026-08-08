@@ -25,10 +25,17 @@ about to do work.
 4. `get_exercise` — read one. You get the starter, the description, hints,
    and blank positions. You never get solutions or hidden tests; neither
    does the browser. Grade by submitting.
-5. `submit_solution` — the sandbox runs the real suite and returns the
-   verdict. **This is the only source of truth about passing.** Never tell
-   the human something passed unless this tool said so.
-6. `get_progress` — where the account stands, per track.
+5. `run_tests` — the iterate step. Executes your work-in-progress against
+   the real suite and returns per-test results, **without recording
+   anything**: no submission, no progress, no schedule movement. Use it to
+   check before you claim; when it passes, make it count with
+   `submit_solution`. Watch `runsRemainingToday` in the response and say so
+   when the budget runs low.
+6. `submit_solution` — the sandbox runs the real suite and returns the
+   verdict of record. **This is the only source of truth about passing.**
+   Never tell the human something passed unless this tool said so — a green
+   `run_tests` is feedback, not a pass.
+7. `get_progress` — where the account stands, per track.
 
 ## The honesty rules
 
@@ -51,6 +58,9 @@ about to do work.
 
 - The account's daily submission cap is shared between the web editor and
   you. If `submit_solution` reports the cap, stop submitting and say so.
+- Runs are metered separately: free accounts get their own daily `run_tests`
+  budget. Exhausting runs does not spend submissions, and vice versa. Iterate
+  with runs; spend submissions on work you believe in.
 - Your token can read the catalogue, read the account's own progress and
   queue, and submit. It cannot touch billing, settings, email, other
   accounts, or mint more tokens. If a call is refused with "practice scope

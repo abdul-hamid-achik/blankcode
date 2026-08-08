@@ -618,7 +618,7 @@ export const usageEvents = pgTable(
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    /** What was metered: `ai_explain`, `submission`. */
+    /** What was metered: `ai_explain`, `submission`, `practice_run`. */
     kind: varchar('kind', { length: 40 }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },

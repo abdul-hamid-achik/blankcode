@@ -3,6 +3,7 @@ import type {
   Exercise,
   LearningPath,
   ReviewExercise,
+  RunOutcome,
   Submission,
   SubmissionCreateInput,
   Track,
@@ -179,6 +180,9 @@ export function useApi() {
     submissions: {
       create: (data: SubmissionCreateInput) =>
         request<Submission>('/submissions', { method: 'POST', body: JSON.stringify(data) }),
+      // The iterate step: executes in the sandbox, records nothing.
+      run: (data: SubmissionCreateInput) =>
+        request<RunOutcome>('/submissions/run', { method: 'POST', body: JSON.stringify(data) }),
       retry: (id: string) =>
         request<Submission>(`/submissions/${id}/retry`, { method: 'POST', body: '' }),
       getById: (id: string) => request<Submission>(`/submissions/${id}`),

@@ -307,6 +307,17 @@ const MockSubmissionsService = Layer.succeed(SubmissionsService, {
       return Effect.fail(new NotFoundError({ resource: 'Exercise', id: input.exerciseId }))
     return Effect.succeed({ ...MOCK_SUBMISSION, exerciseId: input.exerciseId })
   },
+  runOnly: (_userId, input) => {
+    if (!VALID_EXERCISE_IDS.has(input.exerciseId))
+      return Effect.fail(new NotFoundError({ resource: 'Exercise', id: input.exerciseId }))
+    return Effect.succeed({
+      status: 'passed' as const,
+      testResults: [],
+      executionTimeMs: 5,
+      errorMessage: null,
+      runsRemainingToday: 19,
+    })
+  },
   findById: (id, _userId) => {
     if (id !== 'submission-1') return Effect.fail(new NotFoundError({ resource: 'Submission', id }))
     return Effect.succeed({ ...MOCK_SUBMISSION, blankFeedback: null })

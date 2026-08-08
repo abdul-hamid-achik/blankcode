@@ -1,4 +1,4 @@
-import type { BlankRegionInStarter, Exercise, Submission } from '@blankcode/shared'
+import type { BlankRegionInStarter, Exercise, RunOutcome, Submission } from '@blankcode/shared'
 import { defineStore } from 'pinia'
 import { useAnalytics } from '~/composables/useAnalytics'
 import { extractDraftBlankValues, reconstructCode } from '~/composables/useBlankEditor'
@@ -13,6 +13,11 @@ export const useExerciseStore = defineStore('exercise', () => {
   const blankFeedback = ref<Map<string, 'correct' | 'incorrect'> | undefined>(undefined)
   const isSubmitting = ref(false)
   const latestSubmission = ref<Submission | null>(null)
+  // The iterate step: a run executes but records nothing, so its result lives
+  // apart from submissions and is cleared the moment a real one starts.
+  const isRunning = ref(false)
+  const latestRun = ref<RunOutcome | null>(null)
+  const runError = ref<string | null>(null)
   const isSaving = ref(false)
   const timedOut = ref(false)
   const submissionError = ref<string | null>(null)
@@ -279,6 +284,38 @@ export const useExerciseStore = defineStore('exercise', () => {
     blankFeedback.value = feedback
   }
 
+  /**
+   * Executes the current code against the real suite without creating a
+   * submission — feedback, not a verdict. Nothing lands on progress or the
+   * review schedule; the pass that counts still comes from submitCode.
+   */
+  async function runCode(code?: string) {
+    if (!exercise.value) return
+    if (isRunning.value || isSubmitting.value) return
+
+    const codeToRun = isBlankMode.value
+      ? reconstructCode(exercise.value.starterCode, blanks.value, blankValues.value)
+      : (code ?? currentCode.value)
+
+    const api = useApi()
+    runError.value = null
+    isRunning.value = true
+    try {
+      latestRun.value = await api.submissions.run({
+        exerciseId: exercise.value.id,
+        code: codeToRun,
+      })
+      useAnalytics().emit('practice-run', { status: latestRun.value.status })
+    } catch (e) {
+      runError.value = e instanceof Error ? e.message : 'Run failed'
+      if (/limit|429|free runs/i.test(runError.value)) {
+        useAnalytics().emit('limit-reached', { kind: 'run' })
+      }
+    } finally {
+      isRunning.value = false
+    }
+  }
+
   async function submitCode(code?: string) {
     if (!exercise.value) return
     if (isSubmitting.value) return
@@ -290,6 +327,9 @@ export const useExerciseStore = defineStore('exercise', () => {
 
     const api = useApi()
     submissionError.value = null
+    // The run was a draft of this moment; the submission supersedes it.
+    latestRun.value = null
+    runError.value = null
     isSubmitting.value = true
     stopAutosave()
     try {
@@ -336,6 +376,9 @@ export const useExerciseStore = defineStore('exercise', () => {
     isSubmitting.value = false
     isSaving.value = false
     latestSubmission.value = null
+    isRunning.value = false
+    latestRun.value = null
+    runError.value = null
     timedOut.value = false
     submissionError.value = null
     loadError.value = null
@@ -357,12 +400,16 @@ export const useExerciseStore = defineStore('exercise', () => {
     isSubmitting,
     isSaving,
     latestSubmission,
+    isRunning,
+    latestRun,
+    runError,
     timedOut,
     submissionError,
     loadError,
     hasPassedSubmission,
     loadExercise,
     loadSubmissions,
+    runCode,
     submitCode,
     retrySubmission,
     updateCode,

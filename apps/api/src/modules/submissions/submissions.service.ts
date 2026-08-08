@@ -1,10 +1,13 @@
+import { randomUUID } from 'node:crypto'
 import { Drizzle } from '@blankcode/db/client'
-import { exercises, submissions, users } from '@blankcode/db/schema'
+import { exercises, submissions, usageEvents, users } from '@blankcode/db/schema'
 import type { SubmissionCreateInput } from '@blankcode/shared'
 import { and, count, desc, eq, gte } from 'drizzle-orm'
 import { type BlankRegionInStarter, gradeBlanks, limitsFor, mayUse } from '@blankcode/shared'
 import { Context, Effect, Layer } from 'effect'
 import { BadRequestError, InvalidTransitionError, NotFoundError } from '../../api/errors.js'
+import { executionService } from '../../services/execution/index.js'
+import type { ExecutionResult } from '../../services/execution/types.js'
 import { redactExercise } from '../exercises/redact.js'
 import { runSubmission } from './run-submission.js'
 
@@ -46,6 +49,22 @@ export interface SubmissionOrigin {
   readonly apiTokenId: string | null
 }
 
+/**
+ * What a run hands back: the execution outcome and nothing else. No submission
+ * row exists, so there is no id to poll and no verdict of record — callers that
+ * want the pass to count submit.
+ *
+ * `runsRemainingToday` is null when unmetered (paid) or when the count could
+ * not be taken; an agent uses it to pace the iterate loop.
+ */
+export interface RunResult {
+  status: 'passed' | 'failed' | 'error'
+  testResults: NonNullable<ExecutionResult['testResults']>
+  executionTimeMs: number | null
+  errorMessage: string | null
+  runsRemainingToday: number | null
+}
+
 interface SubmissionsServiceShape {
   readonly create: (
     userId: string,
@@ -56,6 +75,11 @@ interface SubmissionsServiceShape {
     input: SubmissionCreateInput,
     origin?: SubmissionOrigin
   ) => Effect.Effect<SubmissionRow | SubmissionWithFeedback, NotFoundError | BadRequestError>
+  /** Executes without recording: no submission, no progress, no SM-2. */
+  readonly runOnly: (
+    userId: string,
+    input: SubmissionCreateInput
+  ) => Effect.Effect<RunResult, NotFoundError | BadRequestError>
   readonly findById: (
     id: string,
     userId?: string
@@ -301,6 +325,119 @@ export const SubmissionsServiceLive = Layer.effect(
           })
 
           return finished ? withBlankFeedback(finished) : submission
+        }),
+
+      /*
+       * The iterate step of the practice loop: same microVM, same suite, no
+       * record. An agent (or, later, a "Run" button) uses this to get feedback
+       * between attempts without spending a submission or moving progress —
+       * the pass that counts still has to come from createAndExecute.
+       *
+       * Metered on its own budget in usageEvents (`practice_run`): a run costs
+       * what a submission costs, so leaving it free would hand the free tier
+       * unmetered compute through the side door.
+       */
+      runOnly: (userId, input) =>
+        Effect.gen(function* () {
+          const exercise = yield* Effect.tryPromise({
+            try: () =>
+              db.query.exercises.findFirst({
+                where: eq(exercises.id, input.exerciseId),
+                with: { concept: { with: { track: true } } },
+              }),
+            catch: () => new NotFoundError({ resource: 'Exercise', id: input.exerciseId }),
+          })
+
+          if (!exercise || !exercise.isPublished) {
+            return yield* Effect.fail(
+              new NotFoundError({ resource: 'Exercise', id: input.exerciseId })
+            )
+          }
+
+          // Same stance as create: unreadable is not absent, and a database
+          // blip limits spend, not access.
+          const user = yield* Effect.tryPromise({
+            try: () =>
+              db.query.users.findFirst({
+                where: eq(users.id, userId),
+                columns: { subscriptionStatus: true, subscriptionEndsAt: true },
+              }),
+            catch: () => new Error('unreadable'),
+          }).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
+
+          const limits = limitsFor(
+            {
+              subscriptionStatus: user?.subscriptionStatus ?? null,
+              subscriptionEndsAt: user?.subscriptionEndsAt ?? null,
+            },
+            new Date()
+          )
+
+          let usedToday: number | null = null
+          if (!limits.paid) {
+            usedToday = yield* Effect.tryPromise({
+              try: async () => {
+                const since = new Date(Date.now() - 24 * 60 * 60 * 1000)
+                const [row] = await db
+                  .select({ n: count() })
+                  .from(usageEvents)
+                  .where(
+                    and(
+                      eq(usageEvents.userId, userId),
+                      eq(usageEvents.kind, 'practice_run'),
+                      gte(usageEvents.createdAt, since)
+                    )
+                  )
+                return row?.n ?? 0
+              },
+              catch: () => null,
+            }).pipe(Effect.catchAll(() => Effect.succeed(null)))
+
+            if (!mayUse(limits, 'run', usedToday)) {
+              return yield* Effect.fail(
+                new BadRequestError({
+                  message: `You have used today's ${limits.runsPerDay} free runs. They reset 24 hours after each one; submissions are metered separately.`,
+                })
+              )
+            }
+          }
+
+          // Metered before executing: the VM boots whether or not the run
+          // parses. A failed write does not block the run — spend, not access.
+          yield* Effect.tryPromise({
+            try: () => db.insert(usageEvents).values({ userId, kind: 'practice_run' }),
+            catch: () => new Error('unrecorded'),
+          }).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
+
+          // Execution failure is itself a result the caller needs to see.
+          const result = yield* Effect.promise(() =>
+            executionService
+              .execute(
+                `run-${randomUUID()}`,
+                exercise.id,
+                input.code,
+                exercise.testCode,
+                exercise.concept.track.slug
+              )
+              .catch((error): ExecutionResult => ({
+                success: false,
+                status: 'error',
+                testResults: [],
+                executionTimeMs: 0,
+                errorMessage: String(error),
+              }))
+          )
+
+          return {
+            status: result.status,
+            testResults: result.testResults ?? [],
+            executionTimeMs: result.executionTimeMs ?? null,
+            errorMessage: result.errorMessage ?? null,
+            runsRemainingToday:
+              limits.paid || usedToday === null
+                ? null
+                : Math.max(0, limits.runsPerDay - usedToday - 1),
+          }
         }),
 
       findById: (id, userId?) =>

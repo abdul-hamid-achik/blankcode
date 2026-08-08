@@ -3,6 +3,7 @@ import {
   applySubscriptionEvent,
   type BillingState,
   FREE_DAILY_EXPLANATIONS,
+  FREE_DAILY_RUNS,
   FREE_DAILY_SUBMISSIONS,
   hasPaidAccess,
   limitsFor,
@@ -72,14 +73,16 @@ describe('limitsFor', () => {
     expect(limits.paid).toBe(false)
     expect(limits.submissionsPerDay).toBe(FREE_DAILY_SUBMISSIONS)
     expect(limits.explanationsPerDay).toBe(FREE_DAILY_EXPLANATIONS)
+    expect(limits.runsPerDay).toBe(FREE_DAILY_RUNS)
   })
 
   it('keeps the free tier at a cost that was actually computed', () => {
-    // A submission costs ~$0.00082. These caps put a maxed-out free account at
-    // about $0.25 a month; changing them changes what free users cost, so the
-    // number should move deliberately rather than by drifting.
+    // A submission or run costs ~$0.00082. These caps put a maxed-out free
+    // account at about $0.74 a month; changing them changes what free users
+    // cost, so the number should move deliberately rather than by drifting.
     expect(FREE_DAILY_SUBMISSIONS).toBe(10)
     expect(FREE_DAILY_EXPLANATIONS).toBe(3)
+    expect(FREE_DAILY_RUNS).toBe(20)
   })
 
   it('lifts them for a paid account', () => {
@@ -103,6 +106,16 @@ describe('mayUse', () => {
   it('meters explanations separately from submissions', () => {
     expect(mayUse(free, 'explanation', FREE_DAILY_EXPLANATIONS)).toBe(false)
     expect(mayUse(free, 'submission', FREE_DAILY_EXPLANATIONS)).toBe(true)
+  })
+
+  it('meters runs separately from submissions', () => {
+    // The iterate step has its own budget: exhausting runs must not spend
+    // submissions, and vice versa.
+    expect(mayUse(free, 'run', FREE_DAILY_RUNS)).toBe(false)
+    expect(mayUse(free, 'run', FREE_DAILY_RUNS - 1)).toBe(true)
+    // A day that exhausted submissions still has runs left.
+    expect(mayUse(free, 'submission', FREE_DAILY_SUBMISSIONS)).toBe(false)
+    expect(mayUse(free, 'run', FREE_DAILY_SUBMISSIONS)).toBe(true)
   })
 
   it('allows when the count could not be taken', () => {

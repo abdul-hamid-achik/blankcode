@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 401,
       statusMessage:
-        'A practice token is required (Authorization: Bearer bck_…). Mint one at blankcode.dev/settings.',
+        'A practice token is required (Authorization: Bearer bck_…). Mint one at blankcode.dev/connect.',
     })
   }
 

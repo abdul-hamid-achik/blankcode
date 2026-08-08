@@ -22,6 +22,7 @@ describe('practiceScopeAllows', () => {
     ['GET', '/reviews/upcoming'],
     ['GET', '/auth/me'],
     ['POST', '/submissions'],
+    ['POST', '/submissions/run'],
     ['GET', '/submissions/abc-123'],
   ])('allows the practice loop: %s %s', (method, path) => {
     expect(practiceScopeAllows(method, path)).toBe(true)
@@ -39,6 +40,8 @@ describe('practiceScopeAllows', () => {
     // Unknown routes are refused by default — allowlist, not blocklist.
     ['GET', '/achievements'],
     ['POST', '/anything/new'],
+    // `/submissions/run` is exact: nothing rides in on its prefix.
+    ['POST', '/submissions/run/extra'],
   ])('refuses everything else: %s %s', (method, path) => {
     expect(practiceScopeAllows(method, path)).toBe(false)
   })

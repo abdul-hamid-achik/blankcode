@@ -32,6 +32,17 @@ export class SubmissionsApi extends HttpApiGroup.make('submissions')
       .middleware(SubmissionRateLimit)
   )
   .add(
+    // The iterate step: execute against the real suite without creating a
+    // submission. Nothing is recorded on progress or the review schedule —
+    // this is feedback, not a verdict of record. Metered separately.
+    HttpApiEndpoint.post('run', '/submissions/run')
+      .setPayload(CreateSubmissionPayload)
+      .addSuccess(Schema.Unknown)
+      .addError(NotFoundError)
+      .addError(BadRequestError)
+      .middleware(SubmissionRateLimit)
+  )
+  .add(
     HttpApiEndpoint.get('getById')`/submissions/${HttpApiSchema.param('id', Schema.String)}`
       .addSuccess(Schema.Unknown)
       .addError(NotFoundError)

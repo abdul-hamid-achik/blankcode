@@ -30,6 +30,8 @@ const RULES: ReadonlyArray<{ method: 'GET' | 'POST'; pattern: RegExp }> = [
 
   // The loop itself.
   { method: 'POST', pattern: /^\/submissions$/ },
+  // The iterate step: run against the suite without recording a submission.
+  { method: 'POST', pattern: /^\/submissions\/run$/ },
   { method: 'GET', pattern: /^\/submissions(\/|$)/ },
 ]
 

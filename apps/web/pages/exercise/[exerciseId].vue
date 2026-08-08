@@ -46,6 +46,9 @@ const {
 
 const justFailed = computed(() => {
   const sub = exerciseStore.latestSubmission
+  // A visible practice run supersedes the submission on screen; offering to
+  // explain a submission the learner is already iterating past reads stale.
+  if (exerciseStore.latestRun || exerciseStore.isRunning) return false
   return sub?.status === 'failed' || sub?.status === 'error'
 })
 
@@ -275,6 +278,14 @@ async function handleSubmit() {
   }
 }
 
+async function handleRun() {
+  if (exerciseStore.isBlankMode) {
+    await exerciseStore.runCode()
+  } else {
+    await exerciseStore.runCode(exerciseStore.currentCode)
+  }
+}
+
 async function handleRetry() {
   if (exerciseStore.latestSubmission) {
     await exerciseStore.retrySubmission(exerciseStore.latestSubmission.id)
@@ -404,27 +415,40 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
               <span class="text-foreground">
                 {{ exerciseStore.filledBlanksCount }}/{{ exerciseStore.blanks.length }} filled
               </span>
-              <span class="text-muted-foreground">tab moves · {{ submitShortcutLabel }} runs</span>
+              <span class="text-muted-foreground"
+                >tab moves · {{ submitShortcutLabel }} submits</span
+              >
             </template>
             <template v-else-if="exerciseStore.isChallengeMode">
               <span class="text-signal">challenge — implement from scratch</span>
-              <span class="text-muted-foreground">{{ submitShortcutLabel }} runs</span>
+              <span class="text-muted-foreground">{{ submitShortcutLabel }} submits</span>
             </template>
             <template v-else>
-              <span class="text-muted-foreground">{{ submitShortcutLabel }} runs</span>
+              <span class="text-muted-foreground">{{ submitShortcutLabel }} submits</span>
             </template>
 
             <span class="text-muted-foreground">{{ codeSourceLabel }}</span>
             <span v-if="exerciseStore.isSaving" class="text-muted-foreground">saving…</span>
           </div>
 
-          <Button
-            :loading="exerciseStore.isSubmitting"
-            :disabled="exerciseStore.isSubmitting"
-            @click="handleSubmit"
-          >
-            Run tests
-          </Button>
+          <div class="flex items-center gap-2">
+            <!-- The iterate step: same sandbox, same suite, nothing recorded. -->
+            <Button
+              variant="outline"
+              :loading="exerciseStore.isRunning"
+              :disabled="exerciseStore.isRunning || exerciseStore.isSubmitting"
+              @click="handleRun"
+            >
+              Run
+            </Button>
+            <Button
+              :loading="exerciseStore.isSubmitting"
+              :disabled="exerciseStore.isSubmitting || exerciseStore.isRunning"
+              @click="handleSubmit"
+            >
+              Submit
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -435,6 +459,46 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
         aria-label="Results"
       >
         <p class="eyebrow mb-4">results</p>
+
+        <div
+          v-if="exerciseStore.isRunning"
+          class="flex items-center gap-2 font-mono text-sm text-muted-foreground"
+          role="status"
+        >
+          <svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle
+              class="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="4"
+            />
+            <path
+              class="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+          </svg>
+          running — practice, nothing recorded…
+        </div>
+
+        <!-- A run's outcome: feedback with a margin note, never a verdict. -->
+        <div v-else-if="exerciseStore.latestRun" class="space-y-2">
+          <TestResults
+            :status="exerciseStore.latestRun.status"
+            :results="exerciseStore.latestRun.testResults"
+            :error-message="exerciseStore.latestRun.errorMessage"
+            :execution-time="exerciseStore.latestRun.executionTimeMs"
+          />
+          <p class="font-mono text-xs text-muted-foreground">
+            practice run — nothing recorded · submit to make it count<template
+              v-if="exerciseStore.latestRun.runsRemainingToday !== null"
+            >
+              · {{ exerciseStore.latestRun.runsRemainingToday }} runs left today</template
+            >
+          </p>
+        </div>
 
         <div
           v-if="exerciseStore.isSubmitting && !exerciseStore.latestSubmission"
@@ -460,7 +524,7 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
         </div>
 
         <TestResults
-          v-if="exerciseStore.latestSubmission"
+          v-if="exerciseStore.latestSubmission && !exerciseStore.latestRun"
           :status="exerciseStore.latestSubmission.status"
           :results="exerciseStore.latestSubmission.testResults"
           :error-message="exerciseStore.latestSubmission.errorMessage"
@@ -606,7 +670,12 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
         </div>
 
         <p
-          v-else-if="!exerciseStore.latestSubmission && !exerciseStore.isSubmitting"
+          v-else-if="
+            !exerciseStore.latestSubmission &&
+            !exerciseStore.isSubmitting &&
+            !exerciseStore.latestRun &&
+            !exerciseStore.isRunning
+          "
           class="font-mono text-sm text-muted-foreground"
         >
           Nothing run yet.
@@ -618,6 +687,14 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
           role="alert"
         >
           {{ exerciseStore.submissionError }}
+        </div>
+
+        <div
+          v-if="exerciseStore.runError"
+          class="mt-5 border-l-2 border-fail bg-fail/5 p-4 text-sm text-fail break-words"
+          role="alert"
+        >
+          {{ exerciseStore.runError }}
         </div>
 
         <div v-if="exerciseStore.exercise.hints?.length" class="mt-8 border-t border-rule pt-6">

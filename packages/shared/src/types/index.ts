@@ -160,6 +160,20 @@ export interface TestResult {
   duration: number
 }
 
+/**
+ * What `POST /submissions/run` returns: the execution outcome and nothing
+ * else. No submission exists, so there is no id, no persistence, and no
+ * verdict of record — a green run still has to be submitted to count.
+ * `runsRemainingToday` is null when unmetered (paid) or uncountable.
+ */
+export interface RunOutcome {
+  status: 'passed' | 'failed' | 'error'
+  testResults: TestResult[]
+  executionTimeMs: number | null
+  errorMessage: string | null
+  runsRemainingToday: number | null
+}
+
 export interface UserProgress {
   id: string
   userId: string

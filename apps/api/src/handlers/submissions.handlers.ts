@@ -18,6 +18,14 @@ export const SubmissionsHandlers = HttpApiBuilder.group(BlankCodeApi, 'submissio
         })
       })
     )
+    .handle('run', ({ payload }) =>
+      Effect.gen(function* () {
+        const user = yield* CurrentUser
+        const svc = yield* SubmissionsService
+        // No origin: nothing is recorded, so there is no row to label.
+        return yield* svc.runOnly(user.id, payload)
+      })
+    )
     .handle('getById', ({ path }) =>
       Effect.gen(function* () {
         const user = yield* CurrentUser

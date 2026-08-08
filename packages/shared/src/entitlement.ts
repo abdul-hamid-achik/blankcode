@@ -45,9 +45,19 @@ export interface BillingState {
 export const FREE_DAILY_SUBMISSIONS = 10
 export const FREE_DAILY_EXPLANATIONS = 3
 
+/**
+ * Runs are the iterate step of the practice loop — execute against the real
+ * suite without recording a submission. Same microVM, same ~$0.00082 a run, so
+ * twenty a day puts a maxed-out free account at ~$0.49 a month on top of its
+ * submissions: two runs of feedback per submission, which is a practice
+ * rhythm, not a CI runner.
+ */
+export const FREE_DAILY_RUNS = 20
+
 export interface Limits {
   readonly submissionsPerDay: number
   readonly explanationsPerDay: number
+  readonly runsPerDay: number
   readonly paid: boolean
 }
 
@@ -56,12 +66,14 @@ const UNLIMITED = Number.POSITIVE_INFINITY
 const FREE: Limits = {
   submissionsPerDay: FREE_DAILY_SUBMISSIONS,
   explanationsPerDay: FREE_DAILY_EXPLANATIONS,
+  runsPerDay: FREE_DAILY_RUNS,
   paid: false,
 }
 
 const PAID: Limits = {
   submissionsPerDay: UNLIMITED,
   explanationsPerDay: UNLIMITED,
+  runsPerDay: UNLIMITED,
   paid: true,
 }
 
@@ -102,11 +114,16 @@ export function limitsFor(state: BillingState, now: Date): Limits {
  */
 export function mayUse(
   limits: Limits,
-  kind: 'submission' | 'explanation',
+  kind: 'submission' | 'explanation' | 'run',
   usedToday: number | null
 ): boolean {
   if (usedToday === null) return true
-  const cap = kind === 'submission' ? limits.submissionsPerDay : limits.explanationsPerDay
+  const cap =
+    kind === 'submission'
+      ? limits.submissionsPerDay
+      : kind === 'explanation'
+        ? limits.explanationsPerDay
+        : limits.runsPerDay
   return usedToday < cap
 }
 
