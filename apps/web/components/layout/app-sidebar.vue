@@ -74,6 +74,7 @@ const sections = computed<SidebarSection[]>(() => {
         { to: '/paths', label: 'Paths' },
         { to: '/challenges', label: 'Challenges' },
         { to: '/reading', label: 'Reading' },
+        { to: '/drills', label: 'Drills' },
       ],
     },
     {

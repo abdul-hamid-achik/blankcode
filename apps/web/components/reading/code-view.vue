@@ -4,12 +4,11 @@ import { javascript } from '@codemirror/lang-javascript'
 import { python } from '@codemirror/lang-python'
 import { rust } from '@codemirror/lang-rust'
 import { vue } from '@codemirror/lang-vue'
-import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { EditorState, type Extension } from '@codemirror/state'
-import { oneDark } from '@codemirror/theme-one-dark'
 import { EditorView, lineNumbers } from '@codemirror/view'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { usePreferencesStore } from '~/stores/preferences'
+import { resolveEditorTheme } from '~/utils/editor-themes'
 
 /**
  * A file, read-only, with real syntax highlighting.
@@ -65,9 +64,12 @@ function languageExtension(): Extension[] {
 
 /** Mirrors the exercise editor's theme choice so the two surfaces agree. */
 function themeExtension(): Extension[] {
-  return preferencesStore.preferences.theme === 'dark'
-    ? [oneDark]
-    : [syntaxHighlighting(defaultHighlightStyle)]
+  return [
+    resolveEditorTheme(
+      preferencesStore.preferences.editorTheme,
+      preferencesStore.preferences.theme
+    ),
+  ]
 }
 
 function build() {
@@ -128,6 +130,7 @@ watch(
     props.plain,
     props.expanded,
     preferencesStore.preferences.theme,
+    preferencesStore.preferences.editorTheme,
   ],
   async () => {
     if (!hydrated.value) return

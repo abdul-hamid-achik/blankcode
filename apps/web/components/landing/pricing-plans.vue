@@ -1,16 +1,12 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import Button from '~/components/ui/button.vue'
+import { useCheckout } from '~/composables/useCheckout'
+import { useAuthStore } from '~/stores/auth'
+import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 /**
- * The pricing section. Built, deliberately not mounted.
- *
- * `pages/index.vue` has a gap where this goes. It stays out of the page until
- * the plans are decided, because the alternative is shipping invented numbers
- * to a live site and a price is the one piece of copy a visitor is entitled to
- * treat as a promise.
- *
- * To turn it on: import it in `pages/index.vue`, put `<PricingPlans />` in the
- * gap, and fill in the two `price` fields below. Nothing else has to move.
+ * The pricing section, mounted on the landing page.
  *
  * The numbers were computed, not chosen: a submission costs ~$0.00082 (one
  * vCPU, and provisioned memory billed with a one-minute minimum is most of it),
@@ -21,7 +17,31 @@ import Button from '~/components/ui/button.vue'
  * Three currencies are shown because the Stripe price carries an exact amount
  * for each. Everywhere else Adaptive Pricing converts at checkout, so what a
  * visitor in Ankara pays is close to the USD figure rather than any of these.
+ *
+ * The CTA depends on who is looking: signed out, it is the account you need
+ * before there is anything to pay for. Signed in, it is either the same
+ * checkout the settings page starts — through `useCheckout`, so the two
+ * cannot answer "what does upgrading do" differently — or, once paid, nothing
+ * to click at all.
  */
+
+const auth = useAuthStore()
+const paid = ref(false)
+
+onMounted(async () => {
+  if (!auth.isAuthenticated) return
+  try {
+    const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
+    const result = await $fetch<{ paid: boolean }>('/api/billing/status', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    paid.value = result.paid
+  } catch {
+    // Renders as free — the safe reading when the check itself failed.
+  }
+})
+
+const { busy: checkoutBusy, error: checkoutError, startCheckout } = useCheckout()
 
 interface Plan {
   readonly name: string
@@ -109,11 +129,30 @@ const PLANS: readonly Plan[] = [
             </li>
           </ul>
 
-          <NuxtLink to="/register" class="mt-auto">
-            <Button :variant="plan.featured ? 'primary' : 'outline'" class="w-full">
-              {{ plan.cta }}
-            </Button>
-          </NuxtLink>
+          <div class="mt-auto">
+            <NuxtLink v-if="!auth.isAuthenticated" to="/register">
+              <Button :variant="plan.featured ? 'primary' : 'outline'" class="w-full">
+                {{ plan.cta }}
+              </Button>
+            </NuxtLink>
+
+            <template v-else-if="plan.featured">
+              <p v-if="paid" class="text-sm text-muted-foreground">You are on Pro.</p>
+              <template v-else>
+                <Button
+                  variant="primary"
+                  class="w-full"
+                  :loading="checkoutBusy"
+                  @click="startCheckout"
+                >
+                  Upgrade — $12/month
+                </Button>
+                <p v-if="checkoutError" class="text-xs text-fail mt-2">{{ checkoutError }}</p>
+              </template>
+            </template>
+
+            <p v-else class="text-sm text-muted-foreground">You already have an account.</p>
+          </div>
         </div>
       </div>
     </div>

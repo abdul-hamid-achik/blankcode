@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { DEFAULT_EDITOR_THEME } from '~/utils/editor-themes'
 
 interface EditorPreferences {
   theme: 'dark' | 'light'
@@ -8,6 +9,8 @@ interface EditorPreferences {
   minimap: boolean
   /** Desktop sidebar hidden by choice. The drawer below lg is unaffected. */
   sidebarCollapsed: boolean
+  /** CodeMirror color theme id, or 'auto' to follow `theme`. */
+  editorTheme: string
 }
 
 const defaultPreferences: EditorPreferences = {
@@ -17,6 +20,7 @@ const defaultPreferences: EditorPreferences = {
   wordWrap: false,
   minimap: false,
   sidebarCollapsed: false,
+  editorTheme: DEFAULT_EDITOR_THEME,
 }
 
 export const usePreferencesStore = defineStore('preferences', () => {
@@ -51,6 +55,9 @@ export const usePreferencesStore = defineStore('preferences', () => {
   function toggleSidebar() {
     preferences.value.sidebarCollapsed = !preferences.value.sidebarCollapsed
   }
+  function setEditorTheme(id: string) {
+    preferences.value.editorTheme = id
+  }
   function reset() {
     preferences.value = { ...defaultPreferences }
   }
@@ -63,6 +70,7 @@ export const usePreferencesStore = defineStore('preferences', () => {
     toggleWordWrap,
     toggleMinimap,
     toggleSidebar,
+    setEditorTheme,
     reset,
   }
 })

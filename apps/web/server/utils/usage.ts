@@ -20,7 +20,7 @@ import { and, count, eq, gte } from 'drizzle-orm'
  * write. Recording them here as well would create two numbers that can disagree
  * about the same fact.
  */
-export type UsageKind = 'ai_explain'
+export type UsageKind = 'ai_explain' | 'drill_generate'
 
 type Db = ReturnType<typeof createDatabaseFromEnv>
 

@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import BillingSection from '~/components/billing/billing-section.vue'
 import Button from '~/components/ui/button.vue'
 import Card from '~/components/ui/card.vue'
 import { useAnalytics } from '~/composables/useAnalytics'
 import { useAuthStore } from '~/stores/auth'
 import { usePreferencesStore } from '~/stores/preferences'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
+import { DEFAULT_EDITOR_THEME, EDITOR_THEMES } from '~/utils/editor-themes'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
 
@@ -261,6 +263,39 @@ function increaseFontSize() {
 function decreaseFontSize() {
   preferencesStore.setFontSize(preferencesStore.preferences.fontSize - 1)
 }
+
+/** Swatches for the editor color theme picker: 'auto' first, then the registry. */
+interface EditorThemeSwatch {
+  id: string
+  label: string
+  auto: boolean
+  background: string
+  foreground: string
+}
+
+// 'auto' has no fixed colors of its own — it renders whatever resolveEditorTheme
+// would pick for the current site theme, so the swatch never shows a color the
+// editor would not actually use.
+const AUTO_SWATCH_COLORS = {
+  dark: { background: '#282c34', foreground: '#abb2bf' },
+  light: { background: 'hsl(210 33% 99%)', foreground: 'hsl(220 28% 10%)' },
+} as const
+
+const editorThemeSwatches = computed<EditorThemeSwatch[]>(() => [
+  {
+    id: DEFAULT_EDITOR_THEME,
+    label: 'Auto',
+    auto: true,
+    ...AUTO_SWATCH_COLORS[preferencesStore.preferences.theme],
+  },
+  ...Object.entries(EDITOR_THEMES).map(([id, theme]) => ({
+    id,
+    label: theme.label,
+    auto: false,
+    background: theme.background,
+    foreground: theme.foreground,
+  })),
+])
 </script>
 
 <template>
@@ -308,6 +343,9 @@ function decreaseFontSize() {
             </div>
           </div>
         </Card>
+
+        <!-- Plan -->
+        <BillingSection />
 
         <!-- Sign-in methods -->
         <Card>
@@ -496,6 +534,38 @@ function decreaseFontSize() {
                 >
                   Light
                 </Button>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium mb-2">Editor Theme</label>
+              <div class="flex flex-wrap gap-4">
+                <button
+                  v-for="swatch in editorThemeSwatches"
+                  :key="swatch.id"
+                  type="button"
+                  class="flex w-16 flex-col items-center gap-1.5 text-center"
+                  :aria-pressed="preferencesStore.preferences.editorTheme === swatch.id"
+                  :aria-label="swatch.label"
+                  @click="preferencesStore.setEditorTheme(swatch.id)"
+                >
+                  <span
+                    class="flex h-9 w-14 items-center justify-center rounded-sm border font-mono text-[11px] transition-shadow"
+                    :class="
+                      preferencesStore.preferences.editorTheme === swatch.id
+                        ? 'border-signal ring-2 ring-signal ring-offset-2 ring-offset-background'
+                        : 'border-rule'
+                    "
+                    :style="{ backgroundColor: swatch.background, color: swatch.foreground }"
+                    aria-hidden="true"
+                  >
+                    {{ swatch.auto ? 'auto' : 'Aa' }}
+                  </span>
+                  <span class="eyebrow">{{ swatch.label }}</span>
+                  <span v-if="swatch.auto" class="text-[10px] leading-snug text-muted-foreground">
+                    follows the site theme
+                  </span>
+                </button>
               </div>
             </div>
 

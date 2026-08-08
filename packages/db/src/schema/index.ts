@@ -712,6 +712,45 @@ export const readingSubmissions = pgTable(
   ]
 )
 
+/**
+ * Per-user generated drills: weak-spots closing their loop. Authored by a
+ * model FROM the user's own failure pattern, then verified the only way this
+ * repo trusts — the reference solution executed against the drill's own
+ * tests in the real sandbox — before the row may exist. Private to the user;
+ * solutions and tests never leave the server.
+ */
+export const customDrills = pgTable(
+  'custom_drills',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    conceptSlug: varchar('concept_slug', { length: 100 }).notNull(),
+    trackSlug: varchar('track_slug', { length: 50 }).notNull(),
+    language: varchar('language', { length: 20 }).notNull(),
+    title: varchar('title', { length: 200 }).notNull(),
+    description: text('description').notNull(),
+    starterCode: text('starter_code').notNull(),
+    solutionCode: text('solution_code').notNull(),
+    testCode: text('test_code').notNull(),
+    blanks: jsonb('blanks')
+      .$type<
+        Array<{ id: string; from: number; to: number; placeholder: string; solution: string }>
+      >()
+      .notNull(),
+    /** The weak-spot evidence that seeded it — the why, kept with the what. */
+    source: jsonb('source')
+      .$type<{ failedShare: number; attempts: number; window: string }>()
+      .notNull(),
+    model: varchar('model', { length: 60 }).notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    solvedAt: timestamp('solved_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('custom_drills_user_created_idx').on(table.userId, table.createdAt)]
+)
+
 export const apiTokens = pgTable(
   'api_tokens',
   {

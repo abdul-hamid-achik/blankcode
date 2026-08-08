@@ -11,6 +11,10 @@
     "./run-submission": {
       "types": "./dist/modules/submissions/run-submission.d.ts",
       "import": "./dist/modules/submissions/run-submission.js"
+    },
+    "./execution": {
+      "types": "./dist/services/execution/index.d.ts",
+      "import": "./dist/services/execution/index.js"
     }
   },
   "scripts": {

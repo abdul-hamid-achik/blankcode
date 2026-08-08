@@ -7,14 +7,8 @@ import { javascript } from '@codemirror/lang-javascript'
 import { python } from '@codemirror/lang-python'
 import { rust } from '@codemirror/lang-rust'
 import { vue } from '@codemirror/lang-vue'
-import {
-  bracketMatching,
-  defaultHighlightStyle,
-  indentUnit,
-  syntaxHighlighting,
-} from '@codemirror/language'
+import { bracketMatching, indentUnit } from '@codemirror/language'
 import { Compartment, EditorState } from '@codemirror/state'
-import { oneDark } from '@codemirror/theme-one-dark'
 import {
   EditorView,
   highlightActiveLine,
@@ -29,6 +23,7 @@ import {
   setBlankFeedbackOnView,
 } from '~/composables/useBlankEditor'
 import { usePreferencesStore } from '~/stores/preferences'
+import { resolveEditorTheme } from '~/utils/editor-themes'
 
 interface Props {
   code: string
@@ -71,6 +66,7 @@ const fontSize = computed(() => preferencesStore.preferences.fontSize)
 const tabSize = computed(() => preferencesStore.preferences.tabSize)
 const wordWrap = computed(() => preferencesStore.preferences.wordWrap)
 const siteTheme = computed(() => preferencesStore.preferences.theme)
+const editorTheme = computed(() => preferencesStore.preferences.editorTheme)
 
 function getFontSizeExtension(size: number) {
   return EditorView.theme({
@@ -86,13 +82,6 @@ function getTabSizeExtension(size: number) {
 
 function getWordWrapExtension(enabled: boolean) {
   return enabled ? EditorView.lineWrapping : []
-}
-
-// The editor follows the site theme. Dark gets oneDark; light gets no theme
-// extension at all — the defaultHighlightStyle fallback is built for light
-// backgrounds, and the surface colours come from the --code-* tokens.
-function getThemeExtension(theme: 'dark' | 'light') {
-  return theme === 'dark' ? oneDark : []
 }
 
 function getLanguageExtension(lang: string) {
@@ -165,8 +154,7 @@ function createEditor() {
       keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
       submitKeymap,
       getLanguageExtension(props.language),
-      themeCompartment.of(getThemeExtension(siteTheme.value)),
-      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      themeCompartment.of(resolveEditorTheme(editorTheme.value, siteTheme.value)),
       // In blank mode: read-only + blank extensions; otherwise: normal editing
       ...(isBlankMode.value && blankExtensions
         ? [EditorState.readOnly.of(true), ...blankExtensions.extensions]
@@ -293,10 +281,10 @@ watch(wordWrap, (enabled) => {
   }
 })
 
-watch(siteTheme, (theme) => {
+watch([editorTheme, siteTheme], ([theme, appTheme]) => {
   if (editorView.value) {
     editorView.value.dispatch({
-      effects: themeCompartment.reconfigure(getThemeExtension(theme)),
+      effects: themeCompartment.reconfigure(resolveEditorTheme(theme, appTheme)),
     })
   }
 })
