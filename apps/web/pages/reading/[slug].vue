@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import CodeView from '~/components/reading/code-view.vue'
 import FileTree from '~/components/reading/file-tree.vue'
 import RubricLedger from '~/components/reading/rubric-ledger.vue'
@@ -130,6 +130,18 @@ const unopened = computed(() => files.value.filter((file) => !visited.value.incl
  */
 const expanded = ref(false)
 
+// The page behind the overlay must not scroll — that was the bug: wheel
+// events fell through and moved the document while the reader thought they
+// were scrolling code.
+watch(expanded, (isExpanded) => {
+  if (!import.meta.client) return
+  document.documentElement.style.overflow = isExpanded ? 'hidden' : ''
+})
+
+onUnmounted(() => {
+  if (import.meta.client) document.documentElement.style.overflow = ''
+})
+
 function onWorkspaceKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape' && expanded.value) expanded.value = false
 }
@@ -245,11 +257,11 @@ useSeoMeta({
       class="grid gap-6"
       :class="
         expanded
-          ? 'fixed inset-0 z-50 grid-cols-1 content-start overflow-y-auto bg-background p-4 md:p-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:content-stretch'
+          ? 'fixed inset-0 z-50 grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden bg-background p-4 md:p-6 lg:grid-cols-[14rem_minmax(0,1fr)]'
           : 'lg:grid-cols-[12rem_minmax(0,1fr)]'
       "
     >
-      <aside :class="expanded ? 'hidden lg:block' : 'hidden lg:block'">
+      <aside class="hidden lg:block" :class="{ 'min-h-0 overflow-y-auto': expanded }">
         <FileTree
           :files="allFiles"
           :active-path="activePath"
@@ -258,9 +270,10 @@ useSeoMeta({
         />
       </aside>
 
-      <div class="min-w-0">
+      <div class="min-w-0" :class="{ 'flex min-h-0 flex-col': expanded }">
         <FileTree
           class="mb-4 lg:hidden"
+          :class="{ 'shrink-0': expanded }"
           chips
           :files="allFiles"
           :active-path="activePath"
