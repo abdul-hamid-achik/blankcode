@@ -50,6 +50,8 @@ interface Events {
   // ── Bring-your-own-agent ──
   /** A practice token was minted, and from which door. */
   'agent-token-minted': { from: 'connect' | 'settings' }
+  /** /connect saw a token's first tool call arrive while the page was open. */
+  'agent-connected': { client: string }
   /** A harness snippet or the course prompt was copied on /connect. */
   'snippet-copied': { harness: string }
   /** The skill file was downloaded. */

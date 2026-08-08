@@ -33,18 +33,31 @@ describe('the harness-sessions endpoint', () => {
     expect(source).toContain('.limit(10)')
   })
 
-  it('returns the fields the ledger needs, nothing about the token itself', () => {
+  it('returns the fields the ledger needs, and the key name — never the key', () => {
     expect(source).toContain('clientName')
     expect(source).toContain('clientVersion')
     expect(source).toContain('toolCalls')
     expect(source).toContain('startedAt')
     expect(source).toContain('lastSeenAt')
-    expect(source).not.toContain('apiTokenId')
+    // The join exists to label a sitting with the key's human-given name.
+    expect(source).toContain('tokenName: apiTokens.name')
+    // The FK may appear in the join condition; the secret material must not
+    // appear anywhere — not the hash column, not the recognizable prefix.
+    expect(source).not.toContain('apiTokens.token')
+    expect(source).not.toContain('tokenPrefix')
   })
 
   it('computes totals across every session, not just the returned page', () => {
     expect(source).toContain('count()')
     expect(source).toContain('sum(harnessSessions.toolCalls)')
     expect(source).toMatch(/totals:\s*{/)
+  })
+
+  it("meters today's agent work from the durable tables, scoped to the caller", () => {
+    expect(source).toContain("eq(usageEvents.kind, 'practice_run')")
+    expect(source).toContain("eq(submissions.via, 'agent')")
+    expect(source).toContain('eq(usageEvents.userId, userId)')
+    expect(source).toContain('eq(submissions.userId, userId)')
+    expect(source).toMatch(/today:\s*{/)
   })
 })
