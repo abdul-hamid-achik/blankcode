@@ -38,6 +38,13 @@ interface Usage {
   daily: Array<{ day: string; submissions: number; people: number }>
   hardest: Array<{ slug: string; title: string; attempts: number; pass_rate: number }>
   ai: { explanations_7d: number; people: number } | null
+  agent: {
+    people_7d: number
+    sessions_7d: number
+    submissions_7d: number
+    reflections_7d: number
+    unexplained_now: number
+  } | null
 }
 
 const data = ref<Usage | null>(null)
@@ -149,6 +156,31 @@ const peak = computed(() => Math.max(1, ...(data.value?.daily ?? []).map((d) => 
           </tbody>
         </table>
         <p v-else class="text-sm text-muted-foreground">Not enough attempts yet.</p>
+      </section>
+
+      <section class="mb-10">
+        <h2 class="eyebrow mb-4">agent practice, 7 days</h2>
+        <!--
+          The reflect loop's health at a glance: submissions without
+          reflections is the tutor being used as a solver, and a growing
+          unexplained count says the holds are piling up unanswered.
+        -->
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div
+            v-for="stat in [
+              { label: 'people connected', value: data?.agent?.people_7d ?? 0 },
+              { label: 'sessions', value: data?.agent?.sessions_7d ?? 0 },
+              { label: 'agent submissions', value: data?.agent?.submissions_7d ?? 0 },
+              { label: 'reflections recorded', value: data?.agent?.reflections_7d ?? 0 },
+              { label: 'unexplained passes now', value: data?.agent?.unexplained_now ?? 0 },
+            ]"
+            :key="stat.label"
+            class="rounded border border-rule bg-card p-4"
+          >
+            <p class="display text-2xl mb-1">{{ stat.value }}</p>
+            <p class="font-mono text-xs text-muted-foreground">{{ stat.label }}</p>
+          </div>
+        </div>
       </section>
 
       <section>

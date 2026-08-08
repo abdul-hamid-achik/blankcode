@@ -2,7 +2,7 @@ import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { agentEvents, apiTokens, harnessSessions } from '@blankcode/db/schema'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { and, eq, gt, isNull, sql } from 'drizzle-orm'
-import { buildPracticeServer } from '../utils/mcp-server'
+import { buildPracticeServer, isDifferentAgent } from '../utils/mcp-server'
 import { hashPracticeToken, isPracticeToken } from '../utils/practice-tokens'
 
 /**
@@ -77,13 +77,21 @@ export default defineEventHandler(async (event) => {
    * a session. A rejected call now leaves the row exactly as it found it.
    */
   const windowStart = new Date(Date.now() - SESSION_WINDOW_MS)
-  const existing = await db.query.harnessSessions.findFirst({
+  const found = await db.query.harnessSessions.findFirst({
     where: and(
       eq(harnessSessions.apiTokenId, tokenRow.id),
       gt(harnessSessions.lastSeenAt, windowStart)
     ),
-    columns: { id: true, toolCalls: true },
+    columns: { id: true, toolCalls: true, clientName: true },
   })
+
+  /*
+   * A different agent initializing inside the window is a new sitting, not a
+   * continuation: before this split, the second agent's initialize
+   * overwrote clientName and inherited the first agent's call count, which
+   * re-attributed history and could 429 a fresh session on arrival.
+   */
+  const existing = found && !isDifferentAgent(found.clientName, clientInfo?.name) ? found : null
 
   if (existing && existing.toolCalls >= MAX_CALLS_PER_WINDOW) {
     throw createError({

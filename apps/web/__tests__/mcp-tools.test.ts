@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { isDifferentAgent } from '../server/utils/mcp-server'
 
 /**
  * The MCP surface, pinned at the source level (the server needs Nitro's
@@ -66,5 +67,25 @@ describe('the MCP tool surface', () => {
     expect(SOURCE).toContain('reflect')
     expect(SKILL).toContain('reflect')
     expect(SKILL).toContain('list_paths')
+  })
+})
+
+describe('isDifferentAgent (session split)', () => {
+  it('a new agent name at initialize starts a new sitting', () => {
+    expect(isDifferentAgent('mcphub/claude', 'mcphub/sonar')).toBe(true)
+  })
+
+  it('the same agent continues its session', () => {
+    expect(isDifferentAgent('mcphub/sonar', 'mcphub/sonar')).toBe(false)
+  })
+
+  it('ordinary calls carry no clientInfo and can never split', () => {
+    expect(isDifferentAgent('mcphub/sonar', undefined)).toBe(false)
+  })
+
+  it('a first initialize on an anonymous session claims it rather than splitting', () => {
+    // The row was opened by calls that carried no clientInfo; the first
+    // name to arrive is that session's name, not a different agent.
+    expect(isDifferentAgent(null, 'mcphub/sonar')).toBe(false)
   })
 })

@@ -76,6 +76,27 @@ function reflectQuestions(exerciseType: string, passed: boolean): { ask: string[
   }
 }
 
+/**
+ * Whether an initialize belongs to a different agent than the session row.
+ *
+ * The 30-minute merge window keys on the token, so two agents sharing one
+ * token used to fold into a single row — the second initialize overwrote
+ * clientName and the first agent's calls were retroactively re-attributed
+ * (mcphub 0.22.0 presents `mcphub/<agent>`, which made the conflation
+ * visible). A new name at initialize is a new sitting; ordinary calls carry
+ * no clientInfo and can never split a session.
+ */
+export function isDifferentAgent(
+  existingClientName: string | null,
+  incomingClientName: string | undefined
+): boolean {
+  return (
+    incomingClientName !== undefined &&
+    existingClientName !== null &&
+    incomingClientName !== existingClientName
+  )
+}
+
 const errorText = (message: string) => ({
   content: [{ type: 'text' as const, text: message }],
   isError: true as const,

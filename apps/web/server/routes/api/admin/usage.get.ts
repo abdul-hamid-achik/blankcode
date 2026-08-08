@@ -81,6 +81,32 @@ export default defineEventHandler(async (event) => {
     where kind = 'ai_explain' and created_at > now() - interval '7 days'
   `)
 
+  /*
+   * The agent funnel, server-side. The `agent-connected` client event goes
+   * to Vercel Analytics, but the operator question — is agent practice being
+   * used, and is the reflect loop closing — is answerable from rows we
+   * already keep: sessions, agent submissions, reflections, standing holds.
+   */
+  const agentResult = await db.execute<{
+    people_7d: number
+    sessions_7d: number
+    submissions_7d: number
+    reflections_7d: number
+    unexplained_now: number
+  }>(sql`
+    select
+      (select count(distinct user_id)::int from harness_sessions
+        where last_seen_at > now() - interval '7 days') as people_7d,
+      (select count(*)::int from harness_sessions
+        where last_seen_at > now() - interval '7 days') as sessions_7d,
+      (select count(*)::int from submissions
+        where via = 'agent' and created_at > now() - interval '7 days') as submissions_7d,
+      (select count(*)::int from reflections
+        where created_at > now() - interval '7 days') as reflections_7d,
+      (select count(*)::int from review_schedules
+        where held_next_review_at is not null) as unexplained_now
+  `)
+
   // `db.execute` returns a QueryResult, not an array — destructuring it looks
   // right and yields undefined.
   return {
@@ -88,5 +114,6 @@ export default defineEventHandler(async (event) => {
     daily: daily.rows,
     hardest: hardest.rows,
     ai: aiResult.rows[0] ?? null,
+    agent: agentResult.rows[0] ?? null,
   }
 })
