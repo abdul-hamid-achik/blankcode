@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useAuthStore } from '~/stores/auth'
 import { useReviewStore } from '~/stores/review'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
@@ -14,11 +15,14 @@ import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 interface Props {
   open: boolean
+  /** Hidden at lg+ by the user's stored preference. */
+  collapsed?: boolean
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<{ close: [] }>()
 
+const authStore = useAuthStore()
 const reviewStore = useReviewStore()
 const route = useRoute()
 const asideEl = ref<HTMLElement | null>(null)
@@ -130,7 +134,7 @@ watch(
     tabindex="-1"
     aria-label="Sidebar"
     class="fixed inset-y-0 left-0 z-50 w-60 -translate-x-full overflow-y-auto border-r border-rule bg-background transition-transform duration-200 ease-in-out focus:outline-none lg:sticky lg:top-14 lg:z-auto lg:h-[calc(100vh-3.5rem)] lg:w-60 lg:shrink-0 lg:translate-x-0 lg:transition-none"
-    :class="{ 'translate-x-0': open }"
+    :class="{ 'translate-x-0': open, 'lg:hidden': collapsed }"
   >
     <nav aria-label="Primary" class="flex flex-col gap-0.5 px-2 py-4">
       <template v-for="section in sections" :key="section.label">
@@ -153,6 +157,21 @@ watch(
           </span>
         </NuxtLink>
       </template>
+
+      <!-- The way out lives with the account, not floating in the header. -->
+      <hr class="mx-3 my-3 border-rule" />
+      <button
+        class="sidebar-link w-full text-left"
+        type="button"
+        @click="
+          () => {
+            emit('close')
+            authStore.logout()
+          }
+        "
+      >
+        Sign out
+      </button>
     </nav>
   </aside>
 </template>

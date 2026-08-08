@@ -6,6 +6,9 @@ import {
   aggregateReadingGaps,
   ProgressService,
   ProgressServiceLive,
+  aggregateRustingConcepts,
+  aggregateWeakReadings,
+  smoothedFailureShare,
 } from '../modules/progress/progress.service.js'
 
 function createMockDb() {
@@ -19,6 +22,7 @@ function createMockDb() {
       exercises: { findFirst: vi.fn(), findMany: vi.fn() },
       conceptMastery: { findFirst: vi.fn(), findMany: vi.fn() },
       readingSubmissions: { findMany: vi.fn() },
+      readingExercises: { findMany: vi.fn() },
     },
     insert: vi.fn().mockReturnValue({
       values: vi.fn().mockReturnValue({
@@ -499,7 +503,8 @@ describe('ProgressService', () => {
           conceptName: 'Closures',
           trackSlug: 'typescript',
           attempts: 3,
-          failedShare: 2 / 3,
+          // Smoothed: (2 + 1) / (3 + 2). Raw ratios overstated small samples.
+          failedShare: 3 / 5,
           completed: 0,
           total: 0,
         },
@@ -516,7 +521,7 @@ describe('ProgressService', () => {
         new Map()
       )
 
-      expect(result[0]?.failedShare).toBeCloseTo(2 / 3)
+      expect(result[0]?.failedShare).toBeCloseTo(3 / 5)
     })
 
     it('drops concepts with fewer than 3 attempts even at 100% failed', () => {
@@ -546,7 +551,8 @@ describe('ProgressService', () => {
           conceptName: 'Closures',
           trackSlug: 'typescript',
           attempts: 3,
-          failedShare: 0,
+          // Smoothed floor: zero failures still reads (0 + 1) / (3 + 2).
+          failedShare: 1 / 5,
           completed: 1,
           total: 4,
         },
@@ -569,9 +575,9 @@ describe('ProgressService', () => {
     })
 
     it('sorts by failedShare descending and caps at 5', () => {
-      // 7 concepts, each 10 attempts, failedShare stepping from 0.4 to 1.0 —
-      // all clear the 0.4 threshold, so the cap is what trims the list, and
-      // it must keep the 5 highest shares (0.6 through 1.0), dropping 0.4/0.5.
+      // 7 concepts, each 10 attempts, raw failure stepping 0.4 → 1.0. All
+      // clear the smoothed 0.4 threshold, so the cap trims the list and must
+      // keep the 5 highest shares.
       const submissions = Array.from({ length: 7 }, (_, i) => {
         const concept = {
           id: `concept-${i}`,
@@ -589,7 +595,8 @@ describe('ProgressService', () => {
       const result = aggregateConceptWeakSpots(submissions, new Map())
 
       expect(result).toHaveLength(5)
-      expect(result.map((r) => r.failedShare)).toEqual([1.0, 0.9, 0.8, 0.7, 0.6])
+      // Smoothed: failed 10..6 of 10 → (failed + 1) / 12.
+      expect(result.map((r) => r.failedShare)).toEqual([11 / 12, 10 / 12, 9 / 12, 8 / 12, 7 / 12])
       expect(result.map((r) => r.conceptSlug)).toEqual([
         'concept-6',
         'concept-5',
@@ -682,11 +689,33 @@ describe('ProgressService', () => {
         },
       ])
       mockDb.query.conceptMastery.findMany.mockResolvedValue([
-        { conceptId: 'concept-1', exercisesCompleted: 1, exercisesTotal: 4 },
+        {
+          conceptId: 'concept-1',
+          exercisesCompleted: 1,
+          exercisesTotal: 4,
+          masteryLevel: 0.25,
+          lastPracticedAt: new Date(),
+        },
       ])
       mockDb.query.readingSubmissions.findMany.mockResolvedValue([
-        { rubricResults: [{ point: 'explains the trade-off', hit: false }] },
-        { rubricResults: [{ point: 'explains the trade-off', hit: false }] },
+        {
+          rubricResults: [{ point: 'explains the trade-off', hit: false }],
+          readingExerciseId: 'r1',
+          score: 4,
+          maxScore: 16,
+        },
+        {
+          rubricResults: [{ point: 'explains the trade-off', hit: false }],
+          readingExerciseId: 'r1',
+          score: 6,
+          maxScore: 16,
+        },
+      ])
+      mockDb.query.concepts.findMany.mockResolvedValue([
+        { id: 'concept-1', slug: 'closures', name: 'Closures', track: { slug: 'typescript' } },
+      ])
+      mockDb.query.readingExercises.findMany.mockResolvedValue([
+        { id: 'r1', slug: 'paged-client-cache', title: 'A paged client' },
       ])
 
       const result = await runService(
@@ -703,18 +732,26 @@ describe('ProgressService', () => {
           conceptName: 'Closures',
           trackSlug: 'typescript',
           attempts: 3,
-          failedShare: 2 / 3,
+          failedShare: 3 / 5,
           completed: 1,
           total: 4,
         },
       ])
       expect(result.readingGaps).toEqual([{ point: 'explains the trade-off', misses: 2 }])
+      // Fresh practice keeps the concept off the rusting list even at 0.25.
+      expect(result.rusting).toEqual([])
+      // Best read is 6/16 — under the 60% line, so the reading surfaces.
+      expect(result.weakReadings).toEqual([
+        { slug: 'paged-client-cache', title: 'A paged client', bestScore: 6, maxScore: 16 },
+      ])
     })
 
     it('returns empty lists when there is no history', async () => {
       mockDb.query.submissions.findMany.mockResolvedValue([])
       mockDb.query.conceptMastery.findMany.mockResolvedValue([])
       mockDb.query.readingSubmissions.findMany.mockResolvedValue([])
+      mockDb.query.concepts.findMany.mockResolvedValue([])
+      mockDb.query.readingExercises.findMany.mockResolvedValue([])
 
       const result = await runService(
         Effect.gen(function* () {
@@ -724,7 +761,106 @@ describe('ProgressService', () => {
         testLayer
       )
 
-      expect(result).toEqual({ concepts: [], readingGaps: [] })
+      expect(result).toEqual({ concepts: [], readingGaps: [], rusting: [], weakReadings: [] })
     })
+  })
+})
+
+/**
+ * The hardening round: small samples must not scream, rust must be old and
+ * real, and a reading only counts as weak by its BEST attempt.
+ */
+describe('smoothedFailureShare', () => {
+  it('pulls small samples toward the middle', () => {
+    // Three of three failed is 0.8, not the raw ratio's certain 1.0.
+    expect(smoothedFailureShare(3, 3)).toBeCloseTo(0.8)
+    // One of three failed sits exactly on the 0.4 threshold — barely surfaces.
+    expect(smoothedFailureShare(1, 3)).toBeCloseTo(0.4)
+    expect(smoothedFailureShare(0, 3)).toBeCloseTo(0.2)
+  })
+
+  it('converges to the raw ratio as evidence accumulates', () => {
+    expect(smoothedFailureShare(30, 30)).toBeGreaterThan(0.95)
+    expect(smoothedFailureShare(15, 30)).toBeCloseTo(0.5)
+  })
+})
+
+describe('aggregateRustingConcepts', () => {
+  const NOW = new Date('2026-08-08T12:00:00Z')
+  const CONCEPTS = new Map([
+    ['c1', { slug: 'generics', name: 'Generics', trackSlug: 'typescript' }],
+  ])
+
+  const row = (overrides: Partial<Parameters<typeof aggregateRustingConcepts>[0][number]>) => ({
+    conceptId: 'c1',
+    masteryLevel: 0.9,
+    exercisesCompleted: 3,
+    lastPracticedAt: new Date('2026-06-01T12:00:00Z'),
+    ...overrides,
+  })
+
+  it('surfaces a completed concept whose mastery decayed away', () => {
+    const out = aggregateRustingConcepts([row({})], CONCEPTS, NOW)
+    expect(out).toHaveLength(1)
+    expect(out[0]?.conceptSlug).toBe('generics')
+    expect(out[0]?.decayedMastery).toBeLessThan(0.35)
+    expect(out[0]?.idleDays).toBeGreaterThan(60)
+  })
+
+  it('leaves fresh practice alone regardless of level', () => {
+    const out = aggregateRustingConcepts(
+      [row({ lastPracticedAt: new Date('2026-08-05T12:00:00Z'), masteryLevel: 0.1 })],
+      CONCEPTS,
+      NOW
+    )
+    expect(out).toHaveLength(0)
+  })
+
+  it('never accuses a concept with no completions', () => {
+    const out = aggregateRustingConcepts([row({ exercisesCompleted: 0 })], CONCEPTS, NOW)
+    expect(out).toHaveLength(0)
+  })
+
+  it('keeps recently held mastery that has not decayed below the floor', () => {
+    // Ten days idle at 0.9: decayed ≈ 0.55 — held, not rusting.
+    const out = aggregateRustingConcepts(
+      [row({ lastPracticedAt: new Date('2026-07-29T12:00:00Z') })],
+      CONCEPTS,
+      NOW
+    )
+    expect(out).toHaveLength(0)
+  })
+})
+
+describe('aggregateWeakReadings', () => {
+  const META = new Map([['r1', { slug: 'paged-client-cache', title: 'A paged client' }]])
+
+  it('judges by the best attempt, not the worst', () => {
+    const out = aggregateWeakReadings(
+      [
+        { readingExerciseId: 'r1', score: 2, maxScore: 16 },
+        { readingExerciseId: 'r1', score: 12, maxScore: 16 },
+      ],
+      META
+    )
+    // Best attempt is 75% — above the 60% line, so the reading is not weak.
+    expect(out).toHaveLength(0)
+  })
+
+  it('surfaces a reading the reader never beat', () => {
+    const out = aggregateWeakReadings(
+      [
+        { readingExerciseId: 'r1', score: 3, maxScore: 16 },
+        { readingExerciseId: 'r1', score: 7, maxScore: 16 },
+      ],
+      META
+    )
+    expect(out).toHaveLength(1)
+    expect(out[0]?.bestScore).toBe(7)
+  })
+
+  it('ignores rows whose exercise no longer exists', () => {
+    const out = aggregateWeakReadings([{ readingExerciseId: 'gone', score: 0, maxScore: 10 }], META)
+    expect(out).toHaveLength(0)
   })
 })

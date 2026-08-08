@@ -83,6 +83,8 @@ export interface ReadingGap {
 export interface WeakSpots {
   concepts: WeakSpotConcept[]
   readingGaps: ReadingGap[]
+  rusting: RustingConcept[]
+  weakReadings: WeakReading[]
 }
 
 interface ProgressServiceShape {
@@ -152,6 +154,30 @@ const WEAK_SPOT_MIN_FAILED_SHARE = 0.4
 const WEAK_SPOT_MAX_CONCEPTS = 5
 const READING_GAP_MIN_MISSES = 2
 const READING_GAP_MAX_POINTS = 5
+// Rusting: completed work whose decayed mastery has dropped far enough to
+// mean the skill is leaving. Untouched-for-a-week keeps freshly practiced
+// concepts out of the list on decay rounding alone.
+const RUSTING_MAX_DECAYED = 0.35
+const RUSTING_MIN_IDLE_DAYS = 7
+const RUSTING_MAX_CONCEPTS = 5
+// A reading whose best attempt never covered 60% of the rubric is a reading
+// that beat the reader.
+const WEAK_READING_MAX_SHARE = 0.6
+const WEAK_READING_MAX_ITEMS = 3
+
+/**
+ * Laplace-smoothed failure share: (failed + 1) / (attempts + 2).
+ *
+ * The raw ratio makes three attempts with three failures read as 100% — the
+ * same certainty as thirty of thirty, from a single bad afternoon. The
+ * smoothing pulls small samples toward 50%, so a concept has to keep failing
+ * as evidence accumulates to stay above the threshold. With attempts=3,
+ * failed=3 → 0.8; failed=2 → 0.6; failed=1 → 0.4 — the boundary case only
+ * just surfaces, which is the intended humility.
+ */
+export function smoothedFailureShare(failed: number, attempts: number): number {
+  return (failed + 1) / (attempts + 2)
+}
 
 /** The slice of a joined submission row `aggregateConceptWeakSpots` needs. */
 export interface WeakSpotSubmissionInput {
@@ -216,7 +242,7 @@ export function aggregateConceptWeakSpots(
         conceptName: entry.conceptName,
         trackSlug: entry.trackSlug,
         attempts: entry.attempts,
-        failedShare: entry.failed / entry.attempts,
+        failedShare: smoothedFailureShare(entry.failed, entry.attempts),
         completed,
         total,
       }
@@ -256,6 +282,97 @@ export function aggregateReadingGaps(rows: readonly WeakSpotRubricRow[]): Readin
     .filter((gap) => gap.misses >= READING_GAP_MIN_MISSES)
     .toSorted((a, b) => b.misses - a.misses)
     .slice(0, READING_GAP_MAX_POINTS)
+}
+
+export interface RustingInput {
+  conceptId: string
+  masteryLevel: number
+  exercisesCompleted: number
+  lastPracticedAt: Date | null
+}
+
+export interface RustingConcept {
+  conceptSlug: string
+  conceptName: string
+  trackSlug: string
+  decayedMastery: number
+  idleDays: number
+}
+
+/**
+ * Concepts the user once held that are now rusting: real completions, decayed
+ * mastery under the floor, untouched for at least a week. This is the
+ * scheduler's argument made visible on a longer horizon — SM-2 brings back
+ * exercises; this names the concepts whose whole neighbourhood went quiet.
+ */
+export function aggregateRustingConcepts(
+  masteryRows: readonly RustingInput[],
+  conceptsById: ReadonlyMap<string, { slug: string; name: string; trackSlug: string }>,
+  now: Date = new Date()
+): RustingConcept[] {
+  const out: RustingConcept[] = []
+  for (const row of masteryRows) {
+    if (row.exercisesCompleted <= 0 || !row.lastPracticedAt) continue
+    const idleDays = Math.floor(
+      (now.getTime() - new Date(row.lastPracticedAt).getTime()) / (24 * 60 * 60 * 1000)
+    )
+    if (idleDays < RUSTING_MIN_IDLE_DAYS) continue
+    const decayed = applyMasteryDecay(row.masteryLevel, row.lastPracticedAt)
+    if (decayed >= RUSTING_MAX_DECAYED) continue
+    const concept = conceptsById.get(row.conceptId)
+    if (!concept) continue
+    out.push({
+      conceptSlug: concept.slug,
+      conceptName: concept.name,
+      trackSlug: concept.trackSlug,
+      decayedMastery: Math.round(decayed * 100) / 100,
+      idleDays,
+    })
+  }
+  return out.toSorted((a, b) => a.decayedMastery - b.decayedMastery).slice(0, RUSTING_MAX_CONCEPTS)
+}
+
+export interface WeakReadingInput {
+  readingExerciseId: string
+  score: number
+  maxScore: number
+}
+
+export interface WeakReading {
+  slug: string
+  title: string
+  bestScore: number
+  maxScore: number
+}
+
+/** Readings whose BEST attempt still missed too much of the rubric. */
+export function aggregateWeakReadings(
+  rows: readonly WeakReadingInput[],
+  exercisesById: ReadonlyMap<string, { slug: string; title: string }>
+): WeakReading[] {
+  const best = new Map<string, WeakReadingInput>()
+  for (const row of rows) {
+    const current = best.get(row.readingExerciseId)
+    if (!current || row.score / row.maxScore > current.score / current.maxScore) {
+      best.set(row.readingExerciseId, row)
+    }
+  }
+  const out: WeakReading[] = []
+  for (const [id, row] of best) {
+    if (row.maxScore <= 0) continue
+    if (row.score / row.maxScore >= WEAK_READING_MAX_SHARE) continue
+    const exercise = exercisesById.get(id)
+    if (!exercise) continue
+    out.push({
+      slug: exercise.slug,
+      title: exercise.title,
+      bestScore: row.score,
+      maxScore: row.maxScore,
+    })
+  }
+  return out
+    .toSorted((a, b) => a.bestScore / a.maxScore - b.bestScore / b.maxScore)
+    .slice(0, WEAK_READING_MAX_ITEMS)
 }
 
 export const ProgressServiceLive = Layer.effect(
@@ -637,7 +754,7 @@ export const ProgressServiceLive = Layer.effect(
         Effect.gen(function* () {
           const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-          const [recentSubmissions, masteryRecords, userReadingSubmissions] =
+          const [recentSubmissions, masteryRecords, userReadingSubmissions, allConcepts] =
             yield* Effect.tryPromise({
               try: () =>
                 Promise.all([
@@ -650,21 +767,59 @@ export const ProgressServiceLive = Layer.effect(
                   }),
                   db.query.conceptMastery.findMany({
                     where: eq(conceptMastery.userId, userId),
-                    columns: { conceptId: true, exercisesCompleted: true, exercisesTotal: true },
+                    columns: {
+                      conceptId: true,
+                      exercisesCompleted: true,
+                      exercisesTotal: true,
+                      masteryLevel: true,
+                      lastPracticedAt: true,
+                    },
                   }),
                   db.query.readingSubmissions.findMany({
                     where: eq(readingSubmissions.userId, userId),
-                    columns: { rubricResults: true },
+                    columns: {
+                      rubricResults: true,
+                      readingExerciseId: true,
+                      score: true,
+                      maxScore: true,
+                    },
+                  }),
+                  db.query.concepts.findMany({
+                    columns: { id: true, slug: true, name: true },
+                    with: { track: { columns: { slug: true } } },
                   }),
                 ]),
               catch: () => new NotFoundError({ resource: 'WeakSpots', id: userId }),
             })
 
           const masteryByConceptId = new Map(masteryRecords.map((m) => [m.conceptId, m]))
+          const conceptsById = new Map(
+            allConcepts.map((concept) => [
+              concept.id,
+              { slug: concept.slug, name: concept.name, trackSlug: concept.track.slug },
+            ])
+          )
+
+          // The reading titles, only for the exercises the user attempted.
+          const attemptedIds = [...new Set(userReadingSubmissions.map((s) => s.readingExerciseId))]
+          const readingMeta = attemptedIds.length
+            ? yield* Effect.tryPromise({
+                try: () =>
+                  db.query.readingExercises.findMany({
+                    columns: { id: true, slug: true, title: true },
+                  }),
+                catch: () => new NotFoundError({ resource: 'WeakSpots', id: userId }),
+              })
+            : []
+          const readingById = new Map(
+            readingMeta.map((row) => [row.id, { slug: row.slug, title: row.title }])
+          )
 
           return {
             concepts: aggregateConceptWeakSpots(recentSubmissions, masteryByConceptId),
             readingGaps: aggregateReadingGaps(userReadingSubmissions),
+            rusting: aggregateRustingConcepts(masteryRecords, conceptsById),
+            weakReadings: aggregateWeakReadings(userReadingSubmissions, readingById),
           }
         }),
     })

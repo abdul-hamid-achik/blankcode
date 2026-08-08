@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import CodeView from '~/components/reading/code-view.vue'
 import FileTree from '~/components/reading/file-tree.vue'
 import RubricLedger from '~/components/reading/rubric-ledger.vue'
@@ -89,9 +89,33 @@ if (!data.value) {
 const exercise = computed(() => data.value?.exercise)
 const files = computed<ReadingFile[]>(() => exercise.value?.files ?? [])
 
-const activePath = ref(files.value[0]?.path ?? '')
-const visited = ref<string[]>(activePath.value ? [activePath.value] : [])
-const activeFile = computed(() => files.value.find((file) => file.path === activePath.value))
+/**
+ * The brief lives where a brief lives in a real repo: a README at the top of
+ * the tree, open by default. The page header carries only the title and the
+ * mono meta — the instructions ARE part of the codebase you are reading.
+ */
+const README_PATH = 'README.md'
+
+const readme = computed(() => {
+  const doc = exercise.value
+  if (!doc) return ''
+  return [
+    `# ${doc.title}`,
+    '',
+    doc.brief,
+    '',
+    `— ${doc.language} · ${doc.difficulty} · ${files.value.length} files · graded against a hidden rubric`,
+  ].join('\n')
+})
+
+const allFiles = computed<ReadingFile[]>(() => [
+  { path: README_PATH, content: readme.value },
+  ...files.value,
+])
+
+const activePath = ref(README_PATH)
+const visited = ref<string[]>([README_PATH])
+const activeFile = computed(() => allFiles.value.find((file) => file.path === activePath.value))
 
 function openFile(path: string): void {
   activePath.value = path
@@ -99,6 +123,19 @@ function openFile(path: string): void {
 }
 
 const unopened = computed(() => files.value.filter((file) => !visited.value.includes(file.path)))
+
+/**
+ * Full screen is a real mode, not a bigger box: the tree and the file take
+ * the viewport, everything else waits. Esc leaves.
+ */
+const expanded = ref(false)
+
+function onWorkspaceKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && expanded.value) expanded.value = false
+}
+
+onMounted(() => window.addEventListener('keydown', onWorkspaceKeydown))
+onUnmounted(() => window.removeEventListener('keydown', onWorkspaceKeydown))
 
 const explanation = ref('')
 const submitting = ref(false)
@@ -196,28 +233,50 @@ useSeoMeta({
 <template>
   <div v-if="exercise" class="container max-w-5xl py-8 md:py-12">
     <p class="eyebrow mb-2">reading</p>
-    <h1 class="display text-xl md:text-2xl mb-3">{{ exercise.title }}</h1>
-    <p class="mb-2 max-w-2xl leading-relaxed text-muted-foreground">{{ exercise.brief }}</p>
-    <p class="mb-8 font-mono text-xs text-muted-foreground">
-      {{ exercise.language }} · {{ exercise.difficulty }} · {{ files.length }} files
+    <h1 class="display text-xl md:text-2xl mb-2">{{ exercise.title }}</h1>
+    <p class="mb-6 font-mono text-xs text-muted-foreground">
+      {{ exercise.language }} · {{ exercise.difficulty }} · {{ files.length }} files · the brief is
+      in the README
     </p>
 
-    <!-- The codebase. Tree beside the file on wide screens, chips above it otherwise. -->
-    <div class="grid gap-6 lg:grid-cols-[12rem_minmax(0,1fr)]">
-      <aside class="hidden lg:block">
-        <FileTree :files="files" :active-path="activePath" :visited="visited" @select="openFile" />
+    <!-- The codebase. Tree beside the file on wide screens, chips above it
+         otherwise; expanded, the workspace takes the whole viewport. -->
+    <div
+      class="grid gap-6"
+      :class="
+        expanded
+          ? 'fixed inset-0 z-50 grid-cols-1 content-start overflow-y-auto bg-background p-4 md:p-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:content-stretch'
+          : 'lg:grid-cols-[12rem_minmax(0,1fr)]'
+      "
+    >
+      <aside :class="expanded ? 'hidden lg:block' : 'hidden lg:block'">
+        <FileTree
+          :files="allFiles"
+          :active-path="activePath"
+          :visited="visited"
+          @select="openFile"
+        />
       </aside>
 
       <div class="min-w-0">
         <FileTree
           class="mb-4 lg:hidden"
           chips
-          :files="files"
+          :files="allFiles"
           :active-path="activePath"
           :visited="visited"
           @select="openFile"
         />
-        <CodeView v-if="activeFile" :path="activeFile.path" :content="activeFile.content" />
+        <CodeView
+          v-if="activeFile"
+          :path="activeFile.path"
+          :content="activeFile.content"
+          :language="exercise.language"
+          :plain="activeFile.path === README_PATH"
+          expandable
+          :expanded="expanded"
+          @toggle-expand="expanded = !expanded"
+        />
       </div>
     </div>
 

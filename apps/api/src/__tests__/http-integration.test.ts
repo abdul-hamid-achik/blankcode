@@ -405,6 +405,8 @@ const MockProgressService = Layer.succeed(ProgressService, {
         },
       ],
       readingGaps: [{ point: 'explains the trade-off', misses: 2 }],
+      rusting: [],
+      weakReadings: [],
     }),
 })
 

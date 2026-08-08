@@ -2,6 +2,7 @@
 import { computed, watch } from 'vue'
 import EmptyState from '~/components/error/empty-state.vue'
 import ProgressCard from '~/components/progress/progress-card.vue'
+import WeakSpots from '~/components/progress/weak-spots.vue'
 import TrackProgressCard from '~/components/progress/track-progress-card.vue'
 import Button from '~/components/ui/button.vue'
 import { useProgressStore } from '~/stores/progress'
@@ -94,6 +95,8 @@ const stats = computed(() => [
           :strip="stat.strip"
         />
       </dl>
+
+      <WeakSpots class="mb-12" />
 
       <template v-if="progressStore.trackProgress.length > 0">
         <!-- One horizontal bar reads faster than a radial dial, and it sits on

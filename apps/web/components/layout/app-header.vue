@@ -6,11 +6,11 @@ import { usePreferencesStore } from '~/stores/preferences'
 import { useReviewStore } from '~/stores/review'
 
 /**
- * Signed in, this is a strip: wordmark, drawer toggle, the review badge, the
- * user's own controls. Everything else — Tracks, Paths, Challenges, Reading,
- * Tutorials, Blog, Connect, Progress, Achievements, Settings, Admin — lives
- * in the sidebar now. The header used to fold all of that into a "More"
- * dropdown; a sidebar can hold all of it in view at once instead.
+ * Signed in, this is a strip of controls, not a nav: wordmark, the sidebar
+ * toggle (drawer below lg, collapse at lg+), theme, and two shortcuts —
+ * settings and account. Navigation lives in the sidebar, whole; the header
+ * used to duplicate Review here and that duplicate is gone, as is the
+ * Sign out button, which now lives with the account section it belongs to.
  *
  * Signed out there is no sidebar, so the marketing nav stays here in full.
  */
@@ -58,10 +58,6 @@ const marketingLinks = [
   { to: '/blog', label: 'Blog' },
 ]
 
-const dueLabel = computed(() =>
-  reviewStore.dueCount > 0 ? `Review — ${reviewStore.dueCount} due` : 'Review — nothing due'
-)
-
 function closeMobileMenu() {
   mobileMenuOpen.value = false
 }
@@ -77,10 +73,10 @@ function closeMobileMenu() {
 
       <template v-if="authStore.isAuthenticated">
         <button
-          class="rounded p-2 text-muted-foreground transition-colors hover:text-foreground lg:hidden"
+          class="rounded p-2 text-muted-foreground transition-colors hover:text-foreground"
           :aria-expanded="props.drawerOpen"
           aria-controls="app-sidebar-drawer"
-          aria-label="Toggle navigation menu"
+          aria-label="Toggle sidebar"
           @click="emit('toggle-drawer')"
         >
           <svg
@@ -102,16 +98,6 @@ function closeMobileMenu() {
         </button>
 
         <div class="flex-1" />
-
-        <NuxtLink to="/review" class="nav-link" :aria-label="dueLabel">
-          Review
-          <span
-            v-if="reviewStore.dueCount > 0"
-            class="ml-1.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-signal px-1 font-mono text-[10px] font-semibold text-signal-foreground"
-          >
-            {{ reviewStore.dueCount > 99 ? '99+' : reviewStore.dueCount }}
-          </span>
-        </NuxtLink>
 
         <button
           class="rounded p-2 text-muted-foreground transition-colors hover:text-foreground"
@@ -150,7 +136,55 @@ function closeMobileMenu() {
           </svg>
         </button>
 
-        <Button variant="ghost" size="sm" @click="authStore.logout">Sign out</Button>
+        <!-- Two shortcuts, not a menu: where your account lives, and where
+             it is configured. Everything else is one hamburger away. -->
+        <NuxtLink
+          to="/progress"
+          class="rounded p-2 text-muted-foreground transition-colors hover:text-foreground"
+          aria-label="Your progress"
+          title="Progress"
+        >
+          <svg
+            class="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+            />
+          </svg>
+        </NuxtLink>
+        <NuxtLink
+          to="/settings"
+          class="rounded p-2 text-muted-foreground transition-colors hover:text-foreground"
+          aria-label="Settings"
+          title="Settings"
+        >
+          <svg
+            class="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+            />
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+          </svg>
+        </NuxtLink>
       </template>
 
       <template v-else>

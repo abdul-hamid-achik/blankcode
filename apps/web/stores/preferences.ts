@@ -6,6 +6,8 @@ interface EditorPreferences {
   tabSize: number
   wordWrap: boolean
   minimap: boolean
+  /** Desktop sidebar hidden by choice. The drawer below lg is unaffected. */
+  sidebarCollapsed: boolean
 }
 
 const defaultPreferences: EditorPreferences = {
@@ -14,6 +16,7 @@ const defaultPreferences: EditorPreferences = {
   tabSize: 2,
   wordWrap: false,
   minimap: false,
+  sidebarCollapsed: false,
 }
 
 export const usePreferencesStore = defineStore('preferences', () => {
@@ -45,9 +48,21 @@ export const usePreferencesStore = defineStore('preferences', () => {
   function toggleMinimap() {
     preferences.value.minimap = !preferences.value.minimap
   }
+  function toggleSidebar() {
+    preferences.value.sidebarCollapsed = !preferences.value.sidebarCollapsed
+  }
   function reset() {
     preferences.value = { ...defaultPreferences }
   }
 
-  return { preferences, setTheme, setFontSize, setTabSize, toggleWordWrap, toggleMinimap, reset }
+  return {
+    preferences,
+    setTheme,
+    setFontSize,
+    setTabSize,
+    toggleWordWrap,
+    toggleMinimap,
+    toggleSidebar,
+    reset,
+  }
 })

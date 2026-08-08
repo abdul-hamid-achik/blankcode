@@ -221,6 +221,14 @@ export function useApi() {
             total: number
           }>
           readingGaps: Array<{ point: string; misses: number }>
+          rusting: Array<{
+            conceptSlug: string
+            conceptName: string
+            trackSlug: string
+            decayedMastery: number
+            idleDays: number
+          }>
+          weakReadings: Array<{ slug: string; title: string; bestScore: number; maxScore: number }>
         }>('/progress/weak-spots'),
     },
     paths: {
