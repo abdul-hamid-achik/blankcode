@@ -1,0 +1,5 @@
+slug: context
+name: Give It What It Needs
+description: 'A model with the wrong context invents confidently. A model with too much gets worse and costs more. You are given a question it cannot answer alone and a menu of things you could show it, each with a price — being right is the floor, being right cheaply is the exercise.'
+order: 140
+isPublished: true
