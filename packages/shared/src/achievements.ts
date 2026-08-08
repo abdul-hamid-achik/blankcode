@@ -338,6 +338,43 @@ export const LEARNING_PATHS = [
       'ts-turn-001', // Three messages: a retry that has to give up
       'ts-context-001', // Give it what it needs
       'ts-tool-001', // Build the model a tool
+      'ts-review-003', // The async defect that survives junior review
+      'ts-turn-002', // Three messages: refusals a model never volunteers
+      'ts-context-002', // The guessable endpoint that runs and is wrong
+      'ts-tool-002', // The rule that finds the hydration-breaking template
+    ],
+    isPublished: true,
+  },
+  {
+    id: 'path-polyglot-vibecoding',
+    slug: 'polyglot-vibecoding',
+    name: 'Polyglot Vibecoding',
+    // The same craft, out of TypeScript's comfort zone: each language gets
+    // the full loop — find the seeded defect, steer in three messages, buy
+    // exactly the context the model needs. The defects are the ones models
+    // actually produce in each language, not translations of one bug.
+    description:
+      'Review, prompt, and context-budget across Python, Go, Rust, React, and Vue — every language has its own ways for generated code to be wrong',
+    icon: '🗺️',
+    color: '#8b5cf6',
+    order: 12,
+    challengeIds: [
+      'py-review-002', // The default argument with a memory
+      'py-turn-001', // Three messages: a slugify that survives truncation
+      'py-context-001', // Column names you cannot guess
+      'py-tool-002', // The rule that finds the fence nobody closed
+      'go-review-001', // The truncate that corrupts text
+      'go-turn-001', // Three messages: one slash exactly
+      'go-context-001', // Struct fields you cannot guess
+      'ru-review-002', // The budget that explodes at zero
+      'ru-turn-001', // Three messages: a parser that counts its commas
+      'ru-context-001', // The error variant that is not NotFound
+      're-review-002', // The countdown stuck one second in
+      're-turn-001', // Three messages: a debounce that keeps the last word
+      're-context-001', // Props the training data cannot supply
+      'vue-review-001', // The cart total that never moves
+      'vue-turn-001', // Three messages: pagination that survives shrinking
+      'vue-context-001', // The toast API that is not the famous one
     ],
     isPublished: true,
   },
