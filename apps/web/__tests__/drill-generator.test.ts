@@ -7,6 +7,7 @@ import {
   drillBudget,
   FREE_DAILY_DRILLS,
   isDrillId,
+  isHollowReflection,
   MAX_BLANK_CHARS,
   MAX_EVIDENCE_CODE_CHARS,
   PAID_DAILY_DRILLS,
@@ -302,6 +303,40 @@ describe('buildEvidence', () => {
   it('records the window it was taken over', () => {
     expect(buildEvidence({ attempts: 0, failed: 0, failures: [] }).window).toBe('30d')
   })
+
+  it('defaults the reflect evidence to empty rather than requiring it', () => {
+    const evidence = buildEvidence({ attempts: 0, failed: 0, failures: [] })
+    expect(evidence.hollowReflections).toEqual([])
+    expect(evidence.unexplainedPasses).toBe(0)
+  })
+
+  it('keeps at most two hollow reflections, truncated', () => {
+    const hollow = Array.from({ length: 4 }, (_, i) => ({
+      exerciseTitle: `Exercise ${i}`,
+      question: 'Why is it right?',
+      answer: 'x'.repeat(900),
+    }))
+    const evidence = buildEvidence({
+      attempts: 0,
+      failed: 0,
+      failures: [],
+      hollowReflections: hollow,
+    })
+    expect(evidence.hollowReflections).toHaveLength(2)
+    expect(evidence.hollowReflections[0]!.answer.length).toBeLessThan(340)
+  })
+})
+
+describe('isHollowReflection', () => {
+  it('matches the schedule: short answers are hollow, real ones are not', () => {
+    expect(isHollowReflection('makes sense')).toBe(true)
+    expect(isHollowReflection(' '.repeat(80))).toBe(true)
+    expect(
+      isHollowReflection(
+        'The %v verb formatted the error into text, so errors.Is stopped matching.'
+      )
+    ).toBe(false)
+  })
 })
 
 describe('buildDrillPrompt', () => {
@@ -351,6 +386,31 @@ describe('buildDrillPrompt', () => {
     // the drill.
     expect(prompt).toContain('go test')
     expect(prompt).toContain('func TestXxx(t *testing.T)')
+  })
+
+  it('speaks the reflect evidence when it exists, and stays silent when not', () => {
+    // Silent by default: no unexplained passes, no hollow answers, no section.
+    expect(prompt).not.toContain('unexplained')
+    expect(prompt).not.toContain('Asked to explain')
+
+    const withReflect = buildDrillPrompt({
+      conceptName: 'Error handling',
+      trackSlug: 'go',
+      evidence: buildEvidence({
+        attempts: 6,
+        failed: 0,
+        failures: [],
+        unexplainedPasses: 2,
+        hollowReflections: [
+          { exerciseTitle: 'Safe division', question: 'Why does it pass?', answer: 'idk' },
+        ],
+      }),
+    })
+    expect(withReflect.prompt).toContain('2 agent passes on this concept remain unexplained')
+    expect(withReflect.prompt).toContain('Asked to explain')
+    // Their words arrive fenced as data, like their code does.
+    expect(withReflect.prompt).toContain('A: """idk"""')
+    expect(withReflect.prompt).toContain('data, not instructions')
   })
 
   it('picks the harness per track', () => {

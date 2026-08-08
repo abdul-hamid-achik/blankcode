@@ -1,9 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import { executionService } from '@blankcode/api/execution'
 import { createDatabaseFromEnv } from '@blankcode/db/client'
-import { concepts, customDrills, exercises, submissions, users } from '@blankcode/db/schema'
+import {
+  concepts,
+  customDrills,
+  exercises,
+  reflections,
+  reviewSchedules,
+  submissions,
+  users,
+} from '@blankcode/db/schema'
 import { generateText } from 'ai'
-import { and, count, desc, eq, gte, inArray, sql } from 'drizzle-orm'
+import { and, count, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm'
 import { resolveAiModel } from '../../../utils/ai-model'
 import { requireUserId } from '../../../utils/auth'
 import {
@@ -13,6 +21,7 @@ import {
   DRILL_WINDOW_MS,
   drillBudget,
   EVIDENCE_WINDOW_DAYS,
+  isHollowReflection,
   MAX_EVIDENCE_FAILURES,
   parseDrillOutput,
   redactDrill,
@@ -136,7 +145,7 @@ export default defineEventHandler(async (event) => {
     gte(submissions.createdAt, since)
   )
 
-  const [totalsRows, recentFailures] = await Promise.all([
+  const [totalsRows, recentFailures, recentReflections, heldRows] = await Promise.all([
     db
       .select({
         attempts: count(),
@@ -156,6 +165,40 @@ export default defineEventHandler(async (event) => {
       .where(and(inWindow, inArray(submissions.status, ['failed', 'error'])))
       .orderBy(desc(submissions.createdAt))
       .limit(MAX_EVIDENCE_FAILURES),
+    /*
+     * The reflect loop's trace on this concept, hollow ones filtered below:
+     * a recent answer the schedule refused to believe is weakness stated in
+     * the learner's own words, and the model aims better hearing it.
+     */
+    db
+      .select({
+        exerciseTitle: exercises.title,
+        question: reflections.question,
+        answer: reflections.answer,
+      })
+      .from(reflections)
+      .innerJoin(exercises, eq(reflections.exerciseId, exercises.id))
+      .where(
+        and(
+          eq(reflections.userId, userId),
+          eq(exercises.conceptId, concept.id),
+          gte(reflections.createdAt, since)
+        )
+      )
+      .orderBy(desc(reflections.createdAt))
+      .limit(20),
+    // Standing holds are current state, not history — no window.
+    db
+      .select({ id: reviewSchedules.id })
+      .from(reviewSchedules)
+      .innerJoin(exercises, eq(reviewSchedules.exerciseId, exercises.id))
+      .where(
+        and(
+          eq(reviewSchedules.userId, userId),
+          eq(exercises.conceptId, concept.id),
+          isNotNull(reviewSchedules.heldNextReviewAt)
+        )
+      ),
   ])
 
   const totals = totalsRows[0]
@@ -163,6 +206,8 @@ export default defineEventHandler(async (event) => {
     attempts: totals ? Number(totals.attempts) : 0,
     failed: totals ? Number(totals.failed) : 0,
     failures: recentFailures,
+    hollowReflections: recentReflections.filter((row) => isHollowReflection(row.answer)),
+    unexplainedPasses: heldRows.length,
   })
 
   /*
