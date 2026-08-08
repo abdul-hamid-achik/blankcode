@@ -1,0 +1,140 @@
+slug: session-heartbeat
+title: A session client with a keep-alive heartbeat
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about which token each kind of network call
+  carries in the minutes after the first refresh — and which code can tell
+  that anything went wrong.
+language: typescript
+difficulty: intermediate
+isPublished: true
+
+files:
+  - path: src/session.ts
+    content: |
+      export class Session {
+        /** The bearer token every call must present. */
+        token: string
+
+        constructor(initial: string) {
+          this.token = initial
+        }
+
+        /**
+         * Trades the current token for a fresh one. The server revokes the
+         * old token the moment the new one is issued.
+         */
+        async refresh(): Promise<void> {
+          const response = await fetch('/api/session/refresh', {
+            method: 'POST',
+            headers: { authorization: `Bearer ${this.token}` },
+          })
+          const body = (await response.json()) as { token: string }
+          this.token = body.token
+        }
+      }
+
+  - path: src/api.ts
+    content: |
+      import type { Session } from './session'
+
+      export async function post(path: string, token: string): Promise<Response> {
+        return fetch(path, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${token}` },
+        })
+      }
+
+      /** A user-triggered call: reads the session's token when the call happens. */
+      export async function request(session: Session, path: string): Promise<Response> {
+        return post(path, session.token)
+      }
+
+  - path: src/heartbeat.ts
+    content: |
+      import { post } from './api'
+      import type { Session } from './session'
+
+      /**
+       * Tells the server this tab is still alive, every `everyMs`
+       * milliseconds. Returns a function that stops the heartbeat.
+       */
+      export function startHeartbeat(session: Session, everyMs: number): () => void {
+        const token = session.token
+        const timer = setInterval(() => {
+          void post('/api/heartbeat', token)
+        }, everyMs)
+        return () => clearInterval(timer)
+      }
+
+  - path: src/main.ts
+    content: |
+      import { request } from './api'
+      import { startHeartbeat } from './heartbeat'
+      import { Session } from './session'
+
+      export function boot(initialToken: string): void {
+        const session = new Session(initialToken)
+        startHeartbeat(session, 30_000)
+
+        // Tokens are short-lived; rotate well before they expire.
+        setInterval(() => void session.refresh(), 15 * 60 * 1000)
+
+        document.querySelector('#save')?.addEventListener('click', () => {
+          void request(session, '/api/projects/save')
+        })
+      }
+
+rubric:
+  - id: session-owns-rotation
+    weight: 1
+    point: >-
+      Session holds the mutable token; refresh() presents the old token,
+      stores the replacement in this.token, and from that moment the old
+      token is revoked server-side.
+
+  - id: capture-happens-once
+    weight: 2
+    point: >-
+      startHeartbeat copies session.token into a local const exactly once, at
+      start time. The interval callback closes over that local — no beat ever
+      reads the session object again.
+
+  - id: copy-vs-live-read
+    weight: 3
+    point: >-
+      The decisive distinction is where the property read happens: `const
+      token = session.token` freezes the string as it was at start, while
+      session.token inside the callback would be read at send time. A closure
+      keeps variables alive — it does not subscribe to the object a value was
+      copied from.
+
+  - id: correct-until-first-refresh
+    weight: 3
+    point: >-
+      The timeline: every beat in the first fifteen minutes carries a valid
+      token; from the first refresh onward, every beat carries the revoked
+      one. The code is correct in any run shorter than the rotation period —
+      which is why tests pass and production fails an hour in.
+
+  - id: requests-stay-fresh
+    weight: 2
+    point: >-
+      request() reads session.token per call, so saves keep succeeding while
+      beats fail — the same session looks alive to one endpoint and expired
+      to another. And nothing surfaces it: the beat's Response is discarded
+      with void, so only the server notices the tab go quiet.
+
+  - id: restart-is-a-bandaid
+    weight: 1
+    point: >-
+      Restarting the heartbeat after each refresh merely re-captures sooner
+      and leaves the trap armed. The fix is moving the read inside the
+      callback — pass the session and read session.token at send time.
+
+  - id: stop-clears-timer-only
+    weight: 1
+    point: >-
+      The function startHeartbeat returns clears the interval and nothing
+      else: a beat already dispatched is not recalled, and main.ts ignores
+      the stopper anyway, so this heartbeat runs for the life of the page.

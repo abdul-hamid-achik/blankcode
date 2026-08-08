@@ -1,0 +1,125 @@
+slug: inbox-unread-badge
+title: An SSR inbox bar with a client-only unread badge
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what the badge span contains — its text
+  AND its class — right after hydration finishes with 7 unread in
+  localStorage, and whether either of them ever corrects itself.
+language: vue
+difficulty: advanced
+isPublished: true
+
+files:
+  - path: src/env.ts
+    content: |
+      /** True when this bundle is being evaluated in a browser. */
+      export const isBrowser = typeof window !== 'undefined'
+
+  - path: src/unread.ts
+    content: |
+      import { isBrowser } from './env'
+
+      const KEY = 'inbox:unread'
+
+      /** The locally cached unread count. Only the browser has one. */
+      export function unreadCount(): number {
+        if (!isBrowser) return 0
+        return Number(window.localStorage.getItem(KEY) ?? '0')
+      }
+
+  - path: components/inbox-bar.vue
+    content: |
+      <script setup lang="ts">
+      import { isBrowser } from '../src/env'
+      import { unreadCount } from '../src/unread'
+
+      const unread = unreadCount()
+      </script>
+
+      <template>
+        <header class="bar">
+          <span class="title">Inbox</span>
+          <span v-if="isBrowser" class="badge">{{ unread }} unread</span>
+          <span v-else class="badge placeholder">&mdash;</span>
+        </header>
+      </template>
+
+  - path: src/server.ts
+    content: |
+      import { createSSRApp } from 'vue'
+      import { renderToString } from 'vue/server-renderer'
+      import InboxBar from '../components/inbox-bar.vue'
+
+      /** One request: the app rendered to the HTML the shell embeds. */
+      export async function renderPage(): Promise<string> {
+        const html = await renderToString(createSSRApp(InboxBar))
+        return `<div id="app">${html}</div>`
+      }
+
+  - path: src/client.ts
+    content: |
+      import { createSSRApp } from 'vue'
+      import InboxBar from '../components/inbox-bar.vue'
+
+      // createSSRApp + mount over server HTML hydrates: the app adopts the
+      // existing DOM instead of replacing it.
+      createSSRApp(InboxBar).mount('#app')
+
+rubric:
+  - id: isbrowser-fixed-per-bundle
+    weight: 2
+    point: >-
+      isBrowser is a module-scope constant, evaluated once per bundle: false
+      wherever server.ts runs, true wherever client.ts runs. The same line of
+      source yields two different constants — it is environment detection, not
+      reactive state.
+
+  - id: server-ships-placeholder
+    weight: 1
+    point: >-
+      renderToString takes the v-else branch, so the HTML the server delivers
+      — what a crawler and the first paint see — contains the em-dash
+      placeholder and never a count.
+
+  - id: hydration-pairs-not-replaces
+    weight: 2
+    point: >-
+      Mounting a createSSRApp over server HTML hydrates: each client vnode is
+      paired with an existing server DOM node instead of being rendered fresh.
+      The client's first render takes the v-if branch, so the paired trees
+      disagree on the badge span.
+
+  - id: warns-and-completes
+    weight: 2
+    point: >-
+      Vue does not throw on the disagreement: it logs mismatch warnings plus
+      "Hydration completed but contains mismatches" and keeps the page
+      working — which is exactly why this ships and only the console knows.
+
+  - id: text-patched-class-not
+    weight: 3
+    point: >-
+      Hydration repairs text but not attributes: the span's text is patched to
+      "7 unread", while the class mismatch is only warned about — the element
+      keeps class="badge placeholder", live text inside placeholder styling.
+
+  - id: class-stale-forever
+    weight: 3
+    point: >-
+      No later re-render repairs the class, because updates diff the client
+      vdom against the client vdom — both sides say class="badge", so the
+      attribute is never touched. The count updates in place while the
+      placeholder class persists for the life of the component.
+
+  - id: setup-read-not-reactive
+    weight: 1
+    point: >-
+      unread is a plain const read once during setup, not a ref: a change to
+      localStorage after mount never moves the number either.
+
+  - id: fix-agree-then-flip
+    weight: 2
+    point: >-
+      The fix is to make both first renders agree: render the placeholder
+      unconditionally, flip a ref in onMounted (reading localStorage there),
+      and let the badge arrive as an ordinary client update after hydration.

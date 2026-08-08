@@ -1,0 +1,140 @@
+slug: profile-loader-error-chain
+title: A profile loader whose 404s arrive as 500s
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about which HTTP status a missing user
+  produces, what the log line for it says, and why those two facts point at
+  different layers.
+language: go
+difficulty: intermediate
+isPublished: true
+
+files:
+  - path: errs.go
+    content: |
+      package profiles
+
+      import "errors"
+
+      // ErrNotFound is the sentinel a missing user is reported through.
+      var ErrNotFound = errors.New("user not found")
+
+      // ErrInvalidID reports a malformed id before any lookup happens.
+      var ErrInvalidID = errors.New("invalid user id")
+
+  - path: store.go
+    content: |
+      package profiles
+
+      import "fmt"
+
+      var users = map[string]string{
+      	"u1": "Ada Lovelace",
+      	"u2": "Grace Hopper",
+      }
+
+      // lookup finds the stored name for an id.
+      func lookup(id string) (string, error) {
+      	name, ok := users[id]
+      	if !ok {
+      		return "", fmt.Errorf("lookup %s: %w", id, ErrNotFound)
+      	}
+      	return name, nil
+      }
+
+  - path: service.go
+    content: |
+      package profiles
+
+      import (
+      	"fmt"
+      	"strings"
+      )
+
+      // Load validates the id and fetches the profile name.
+      func Load(id string) (string, error) {
+      	if !strings.HasPrefix(id, "u") {
+      		return "", fmt.Errorf("load profile: %w", ErrInvalidID)
+      	}
+      	name, err := lookup(id)
+      	if err != nil {
+      		return "", fmt.Errorf("load profile: %v", err)
+      	}
+      	return name, nil
+      }
+
+  - path: handler.go
+    content: |
+      package profiles
+
+      import (
+      	"errors"
+      	"log"
+      )
+
+      // StatusFor maps a Load error to the HTTP status the route responds with.
+      func StatusFor(err error) int {
+      	if err == nil {
+      		return 200
+      	}
+      	log.Printf("profile: %v", err)
+      	switch {
+      	case errors.Is(err, ErrInvalidID):
+      		return 400
+      	case errors.Is(err, ErrNotFound):
+      		return 404
+      	default:
+      		return 500
+      	}
+      }
+
+rubric:
+  - id: sentinels-and-layers
+    weight: 1
+    point: >-
+      errs.go declares the two sentinels, store.go wraps a miss around
+      ErrNotFound, service.go validates and then fetches, and handler.go maps
+      whatever Load returns onto 400, 404, or 500 with errors.Is.
+
+  - id: errors-is-walks-the-chain
+    weight: 2
+    point: >-
+      errors.Is is not a text comparison: it matches identity by walking the
+      unwrap chain that %w builds, link by link, from the outermost error down.
+
+  - id: one-verb-severs-the-chain
+    weight: 3
+    point: >-
+      The %v in Load's lookup branch formats the store error into the message
+      string of a brand-new error with no unwrap link. The words survive; the
+      chain does not — errors.Unwrap on Load's not-found error returns nil.
+
+  - id: missing-user-is-500
+    weight: 2
+    point: >-
+      Consequently errors.Is(err, ErrNotFound) is false in the handler for a
+      missing user, so every miss returns 500. The 404 arm is unreachable from
+      that path — not sometimes wrong, structurally dead.
+
+  - id: log-reads-correct
+    weight: 3
+    point: >-
+      The log line for a miss still reads "load profile: lookup u9: user not
+      found" — %v preserved the text while discarding identity. The log makes
+      the 500 look impossible and sends whoever reads it to the wrong layer,
+      because the layer that logs is not the layer that broke.
+
+  - id: invalid-id-path-works
+    weight: 2
+    point: >-
+      The 400 path works: Load wraps ErrInvalidID with %w, the chain is
+      intact, and errors.Is matches. The handler's switch is fine — the
+      contrast between the two paths localizes the defect to one verb in one
+      branch.
+
+  - id: fix-is-percent-w
+    weight: 1
+    point: >-
+      The fix is %w in that branch — or translating into a sentinel the
+      service owns — after which the status table works without touching the
+      handler.
