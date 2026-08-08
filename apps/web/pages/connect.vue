@@ -237,7 +237,7 @@ async function copyText(text: string, key: string) {
 
 /** The one prompt that turns a connected harness into a self-paced course. */
 const coursePrompt =
-  "Connect to BlankCode. Call whoami, then get_progress. Walk me through the 'Working with Models' path: list the exercises, and for each one, fetch it and discuss the approach with me before anything is submitted. Check work in progress with run_tests — it records nothing — and only call submit_solution when we believe in it. Never claim a pass the sandbox did not return."
+  'Connect to BlankCode. Call whoami, then list_paths and let me pick one. Walk it in order: fetch each exercise, discuss the approach with me before anything is submitted, check work in progress with run_tests (it records nothing), and only call submit_solution when we believe in it. After every verdict, ask me the reflect questions it returns and wait for my answers — if I cannot explain the pass, we redo it together. Never claim a pass the sandbox did not return.'
 
 usePageSeo({
   title: 'Connect your agent — BlankCode',

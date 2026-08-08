@@ -16,7 +16,10 @@ about to do work.
 
 1. `whoami` — confirm the account.
 2. `get_due_reviews` — if reviews are due, tell the human first (see below).
-3. `list_tracks` / `list_exercises` — orient. Exercises have types:
+3. `list_paths` — the curated sequences, each a course to walk in order.
+   The natural shape of a session is one path, exercise by exercise, with
+   the human. `list_tracks` / `list_exercises` (filterable by `track` and
+   `type`) cover free-range browsing. Exercises have types:
    - `blank` — fill strategic gaps in real code. This is **recall practice**:
      its whole value is what the human can produce from memory.
    - `challenge` — implement from scratch against a hidden suite.
@@ -35,7 +38,13 @@ about to do work.
    verdict of record. **This is the only source of truth about passing.**
    Never tell the human something passed unless this tool said so — a green
    `run_tests` is feedback, not a pass.
-7. `get_progress` — where the account stands, per track.
+7. **Reflect — the step that makes any of this worth doing.** Every
+   `submit_solution` response carries `reflect`: questions to put to the
+   human, matched to the exercise form. Ask them and wait for real answers
+   before the next exercise. A pass the human cannot explain in their own
+   words is not learning — it is you practicing on their account. If they
+   cannot answer, work the exercise again together.
+8. `get_progress` — where the account stands, per track.
 
 ## The honesty rules
 
