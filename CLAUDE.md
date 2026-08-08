@@ -16,9 +16,11 @@ Three rules worth repeating because they were learned the expensive way:
 - **Verify by executing, not by reading.** This codebase's history is a list of
   things that passed every static check and failed when run: exercises whose
   reference solutions did not compile, a validator that approved unparseable
-  YAML, a demo that reported results nothing had computed. `content:verify`
-  runs reference solutions in the real sandbox; use it before trusting new
-  exercises.
+  YAML, a demo that reported results nothing had computed, and a hydration
+  mismatch on /progress that no static review caught. `content:verify` runs
+  reference solutions in the real sandbox; UI regressions get a real browser
+  (a Playwright sweep from the scratchpad — hard-load pages, grep the console
+  for `hydrat|mismatch`; see AGENTS.md Common Pitfall 7).
 
 Operator basics: secrets live in tvault (`blankcode`, `blankcode-preview`) and
 are pushed with `bun run seed` (`-- --live` for production). Local development
