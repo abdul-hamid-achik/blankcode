@@ -41,7 +41,12 @@ const { data: page } = await useAsyncData('progress-page', async () => {
     $fetch<TrackProgressRow[]>('/api/progress/summary', { headers }),
   ])
   const value = <T>(r: PromiseSettledResult<T>) => (r.status === 'fulfilled' ? r.value : null)
-  return { stats: value(statsR), tracks: value(tracksR) ?? [] }
+  return {
+    // A total failure says so instead of dressing up as a fresh account.
+    loadFailed: [statsR, tracksR].every((r) => r.status === 'rejected'),
+    stats: value(statsR),
+    tracks: value(tracksR) ?? [],
+  }
 })
 
 watch(
@@ -81,6 +86,11 @@ const stats = computed(() => [
 <template>
   <div class="container max-w-3xl py-10 md:py-14">
     <p class="eyebrow mb-2">progress</p>
+    <!-- A failed load says so; silence dressed as emptiness lies. -->
+    <p v-if="page?.loadFailed" class="mb-8 border-l-2 border-fail bg-fail/5 py-2 pl-3 text-sm">
+      Your data could not be loaded just now — this is not what your account looks like. Refresh to
+      try again.
+    </p>
     <h1 class="display text-2xl md:text-3xl mb-10">Where the reps have gone.</h1>
 
     <!-- No loading branch: the data arrives with the render. -->

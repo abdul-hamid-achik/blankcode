@@ -12,9 +12,15 @@ function includesOneDark(extension: unknown): boolean {
 describe('EDITOR_THEMES registry', () => {
   const entries = Object.entries(EDITOR_THEMES)
 
-  it('is not empty and stays within the curated 6-8 range', () => {
+  it('is a curated set, not a dump — and it includes Nord by name', () => {
+    // The owner asked for Nord specifically; a registry regression that
+    // drops it should fail loudly, not silently reflow the swatch grid.
     expect(entries.length).toBeGreaterThanOrEqual(6)
-    expect(entries.length).toBeLessThanOrEqual(8)
+    expect(entries.length).toBeLessThanOrEqual(20)
+    expect(EDITOR_THEMES['nord']?.label).toBe('Nord')
+    // Both appearances stay represented.
+    const appearances = new Set(entries.map(([, theme]) => theme.appearance))
+    expect(appearances).toEqual(new Set(['dark', 'light']))
   })
 
   it.each(entries)('%s has a label, an appearance, and a working extension', (_id, theme) => {

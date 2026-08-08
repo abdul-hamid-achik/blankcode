@@ -26,12 +26,16 @@ const pricingPlans = readFileSync(
 
 describe('useCheckout', () => {
   it('posts to the checkout endpoint', () => {
-    expect(composable).toContain("$fetch<{ url: string }>('/api/billing/checkout'")
+    expect(composable).toContain("'/api/billing/checkout'")
+    expect(composable).toContain('currency?: string | null')
     expect(composable).toContain("method: 'POST'")
   })
 
-  it('counts the attempt with the event the analytics module already defines', () => {
-    expect(composable).toContain("useAnalytics().emit('checkout-started', { currency: 'mxn' })")
+  it('reports the currency the server chose, never a hardcoded guess', () => {
+    // The review caught the old event always saying 'mxn' — wrong for every
+    // non-Mexican visitor, on the one dimension the event exists to carry.
+    expect(composable).toContain("emit('checkout-started', { currency: currency ?? 'auto' })")
+    expect(composable).not.toContain("currency: 'mxn'")
   })
 
   it('counts before leaving the page, not after', () => {

@@ -20,17 +20,55 @@ import { and, count, eq, gte } from 'drizzle-orm'
  * write. Recording them here as well would create two numbers that can disagree
  * about the same fact.
  */
-export type UsageKind = 'ai_explain' | 'drill_generate'
+export type UsageKind = 'ai_explain' | 'drill_generate' | 'reading_grade'
 
 type Db = ReturnType<typeof createDatabaseFromEnv>
 
 /** Records the action. Never throws — metering must not break the feature. */
-export async function record(db: Db, userId: string, kind: UsageKind): Promise<void> {
+export async function record(db: Db, userId: string, kind: UsageKind): Promise<string | null> {
   try {
-    await db.insert(usageEvents).values({ userId, kind })
+    const [row] = await db.insert(usageEvents).values({ userId, kind }).returning({
+      id: usageEvents.id,
+    })
+    return row?.id ?? null
   } catch (error) {
     console.error(`[usage] failed to record ${kind} for ${userId}:`, String(error))
+    return null
   }
+}
+
+/**
+ * Un-charges a recorded action. For the one honest case: the spend FAILED
+ * through no fault of the caller (the grader answered garbage, the sandbox
+ * died), so the attempt should not count against them. Never throws.
+ */
+export async function refund(db: Db, ticketId: string | null): Promise<void> {
+  if (!ticketId) return
+  try {
+    await db.delete(usageEvents).where(eq(usageEvents.id, ticketId))
+  } catch (error) {
+    console.error(`[usage] failed to refund ${ticketId}:`, String(error))
+  }
+}
+
+/**
+ * Meter-then-spend, made explicit. Records the charge BEFORE the caller
+ * spends anything, which closes the review's finding: the old
+ * check-…-60-seconds-…-record shape let N concurrent requests all read
+ * "0 used" and all spend, and a failure path that never recorded let a
+ * deliberately-derailed grader burn gateway money forever at zero cost.
+ * The ticket is what a failure path refunds.
+ */
+export async function takeTicket(
+  db: Db,
+  userId: string,
+  kind: UsageKind,
+  limit: number,
+  windowMs: number
+): Promise<{ allowed: boolean; ticketId: string | null }> {
+  const used = await countSince(db, userId, kind, windowMs)
+  if (used !== null && used >= limit) return { allowed: false, ticketId: null }
+  return { allowed: true, ticketId: await record(db, userId, kind) }
 }
 
 /**

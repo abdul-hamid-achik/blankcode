@@ -942,6 +942,10 @@ describe('HTTP Integration Tests', () => {
           const body = (yield* response.json) as any
           expect(body.concepts[0].conceptSlug).toBe('basics')
           expect(body.readingGaps[0].misses).toBe(2)
+          // The schema silently dropped these two once — dead UI fed by
+          // discarded queries. The body must carry them.
+          expect(Array.isArray(body.rusting)).toBe(true)
+          expect(Array.isArray(body.weakReadings)).toBe(true)
         })
       ))
   })

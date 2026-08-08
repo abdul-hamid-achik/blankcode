@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const minted = mintPracticeToken()
+  const minted = await mintPracticeToken()
   const [row] = await db
     .insert(apiTokens)
     .values({

@@ -5,6 +5,7 @@ import FileTree from '~/components/reading/file-tree.vue'
 import RubricLedger from '~/components/reading/rubric-ledger.vue'
 import Button from '~/components/ui/button.vue'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
+import { failureStatus } from '~/utils/http-error'
 
 /**
  * One reading exercise: the tree, the file, and the box you write in.
@@ -65,6 +66,8 @@ interface Grade {
   score: number
   maxScore: number
   rubricResults: RubricResult[]
+  /** Present instead of the ledger when a zero-score read earns no key. */
+  ledgerWithheld?: string
   attempts: number
   bestScore: number
   quota: Quota
@@ -234,7 +237,9 @@ async function submit(): Promise<void> {
     ]
   } catch (caught) {
     error.value = failureMessage(caught)
-    if (/limit|a day|429/i.test(error.value)) {
+    // By status, not by matching the sentence — the hourly wall's copy
+    // never contained the words the old regex looked for.
+    if (failureStatus(caught) === 429) {
       analytics.emit('limit-reached', { kind: 'reading' })
     }
   } finally {
@@ -354,7 +359,14 @@ useSeoMeta({
 
     <!-- The grade. -->
     <section v-else class="mt-10 max-w-2xl">
+      <p
+        v-if="grade.ledgerWithheld"
+        class="border-l-2 border-rule-strong pl-4 text-sm leading-relaxed text-muted-foreground"
+      >
+        {{ grade.ledgerWithheld }}
+      </p>
       <RubricLedger
+        v-else
         :results="grade.rubricResults"
         :score="grade.score"
         :max-score="grade.maxScore"

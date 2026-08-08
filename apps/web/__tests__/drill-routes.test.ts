@@ -191,24 +191,24 @@ describe('the drill generate endpoint', () => {
     expect(body).toContain('repair')
   })
 
-  it('records nothing when no drill passed', () => {
-    // Order is the assertion again: the 502 has to be thrown before the insert
-    // and before the meter, or a generator that failed still costs the day.
+  it('charges BEFORE spending, and refunds a generator failure', () => {
+    // The review inverted the old invariant: recording only after success
+    // left a minute-wide race where concurrent requests all read "0 used",
+    // and a deliberately-derailed generator burned gateway calls and
+    // sandbox boots forever at zero cost. The charge now lands before the
+    // first gateway call; a genuine failure hands the ticket back.
+    const ticket = body.indexOf('takeTicket(')
+    const refundCall = body.indexOf('refund(db, ticket.ticketId)')
     const refusal = body.indexOf('statusCode: 502')
-    const insert = body.indexOf('db\n    .insert(customDrills)')
-    const meter = body.indexOf('record(db, userId')
-    expect(refusal).toBeGreaterThan(-1)
-    expect(insert).toBeGreaterThan(refusal)
-    expect(meter).toBeGreaterThan(refusal)
+    expect(ticket).toBeGreaterThan(-1)
+    // No gateway call may precede the charge (the import line does not count).
+    expect(body.slice(0, ticket)).not.toContain('await generateText')
+    expect(body.indexOf('await generateText', ticket)).toBeGreaterThan(ticket)
+    expect(refundCall).toBeGreaterThan(-1)
+    expect(refundCall).toBeLessThan(refusal)
     expect(source).toContain(
       'The generator did not produce a drill that passes its own tests — nothing was saved'
     )
-  })
-
-  it('meters only once a drill exists', () => {
-    const insert = body.indexOf('db\n    .insert(customDrills)')
-    const meter = body.indexOf('record(db, userId')
-    expect(meter).toBeGreaterThan(insert)
   })
 
   it('stores the offsets that index the starter', () => {

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildGraderPrompt,
-  GRADE_HOURLY_LIMIT,
   gradeBudget,
   MAX_EXPLANATION_CHARS,
   maxScoreOf,
@@ -310,10 +309,10 @@ describe('gradeBudget', () => {
     expect(verdict.remainingToday).toBeNull()
   })
 
-  it('still holds a paid account to the hourly ceiling the explain route uses', () => {
-    const verdict = gradeBudget(PAID, { usedThisHour: GRADE_HOURLY_LIMIT, usedToday: 40 }, NOW)
-    expect(verdict.allowed).toBe(false)
-    expect(verdict.message).toBe('Too many explanations, try later')
+  it('does not meter a paid account — that is the sentence on the pricing page', () => {
+    // The review caught the hourly wall contradicting "unmetered" for Pro.
+    const verdict = gradeBudget(PAID, { usedThisHour: 999, usedToday: 999 }, NOW)
+    expect(verdict.allowed).toBe(true)
   })
 
   it('honours a cancelled subscription that is still paid up', () => {

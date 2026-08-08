@@ -1,4 +1,5 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { randomBytes } from 'node:crypto'
+import { hashPracticeToken, isPracticeToken, PRACTICE_TOKEN_PREFIX } from '@blankcode/shared'
 
 /**
  * Minting and recognising practice tokens — the credential a coding agent
@@ -15,7 +16,7 @@ import { createHash, randomBytes } from 'node:crypto'
  * shown twice.
  */
 
-export const PRACTICE_TOKEN_PREFIX = 'bck_'
+export { PRACTICE_TOKEN_PREFIX, isPracticeToken, hashPracticeToken }
 
 export interface MintedToken {
   /** The full secret. Shown once, then only its hash survives. */
@@ -26,19 +27,11 @@ export interface MintedToken {
   displayPrefix: string
 }
 
-export function mintPracticeToken(): MintedToken {
+export async function mintPracticeToken(): Promise<MintedToken> {
   const token = `${PRACTICE_TOKEN_PREFIX}${randomBytes(32).toString('base64url')}`
   return {
     token,
-    lookupHash: hashPracticeToken(token),
+    lookupHash: await hashPracticeToken(token),
     displayPrefix: token.slice(0, 12),
   }
-}
-
-export function isPracticeToken(bearer: string): boolean {
-  return bearer.startsWith(PRACTICE_TOKEN_PREFIX)
-}
-
-export function hashPracticeToken(token: string): string {
-  return createHash('sha256').update(token).digest('hex')
 }

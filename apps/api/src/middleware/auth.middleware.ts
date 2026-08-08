@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto'
 import { Drizzle } from '@blankcode/db/client'
 import { apiTokens, users } from '@blankcode/db/schema'
+import { hashPracticeToken, PRACTICE_TOKEN_PREFIX } from '@blankcode/shared'
 import { HttpApiMiddleware, HttpApiSecurity, HttpServerRequest } from '@effect/platform'
 import { and, eq, isNull } from 'drizzle-orm'
 import { Context, Effect, Layer, Redacted } from 'effect'
@@ -38,9 +38,6 @@ const USER_COLUMNS = {
   displayName: true,
   avatarUrl: true,
 } as const
-
-/** Practice tokens are prefixed so a leaked one is findable by a grep. */
-const PRACTICE_TOKEN_PREFIX = 'bck_'
 
 /** How stale lastUsedAt may get before it is worth a write. */
 const LAST_USED_REFRESH_MS = 5 * 60 * 1000
@@ -81,11 +78,13 @@ export const AuthorizationLive = Layer.effect(
               )
             }
 
-            const lookupHash = createHash('sha256').update(raw).digest('hex')
             const tokenRow = yield* Effect.tryPromise({
-              try: () =>
+              try: async () =>
                 db.query.apiTokens.findFirst({
-                  where: and(eq(apiTokens.token, lookupHash), isNull(apiTokens.revokedAt)),
+                  where: and(
+                    eq(apiTokens.token, await hashPracticeToken(raw)),
+                    isNull(apiTokens.revokedAt)
+                  ),
                   columns: { id: true, userId: true, lastUsedAt: true },
                 }),
               catch: () => new UnauthorizedError({ message: 'Failed to validate token' }),

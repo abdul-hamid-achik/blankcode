@@ -18,9 +18,30 @@ const ReadingGapSchema = Schema.Struct({
   misses: Schema.Number,
 })
 
+const RustingConceptSchema = Schema.Struct({
+  conceptSlug: Schema.String,
+  conceptName: Schema.String,
+  trackSlug: Schema.String,
+  decayedMastery: Schema.Number,
+  idleDays: Schema.Number,
+})
+
+const WeakReadingSchema = Schema.Struct({
+  slug: Schema.String,
+  title: Schema.String,
+  bestScore: Schema.Number,
+  maxScore: Schema.Number,
+})
+
+// The review caught this schema silently DROPPING two lists the service
+// returns — Schema.encode strips unknown keys, so the rusting and
+// weak-readings UI sections were dead templates fed by discarded queries.
+// The schema is the contract; it has to say everything the service means.
 const WeakSpotsSchema = Schema.Struct({
   concepts: Schema.Array(WeakSpotConceptSchema),
   readingGaps: Schema.Array(ReadingGapSchema),
+  rusting: Schema.Array(RustingConceptSchema),
+  weakReadings: Schema.Array(WeakReadingSchema),
 })
 
 export class ProgressApi extends HttpApiGroup.make('progress')

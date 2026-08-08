@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { failureMessage } from '~/utils/http-error'
 import { useAnalytics } from '~/composables/useAnalytics'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
@@ -22,20 +23,23 @@ export function useCheckout() {
 
     try {
       const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
-      const { url } = await $fetch<{ url: string }>('/api/billing/checkout', {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
+      const { url, currency } = await $fetch<{ url: string; currency?: string | null }>(
+        '/api/billing/checkout',
+        {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }
+      )
 
       // Counted right before the redirect, not after: the browser is about to
       // leave this page, and a call placed after `window.location` is a call
-      // that may never run.
-      useAnalytics().emit('checkout-started', { currency: 'mxn' })
+      // that may never run. The currency is whatever the server actually
+      // chose from the visitor's country — 'auto' when Adaptive Pricing
+      // decides at Stripe — never a hardcoded guess.
+      useAnalytics().emit('checkout-started', { currency: currency ?? 'auto' })
       window.location.href = url
     } catch (e) {
-      error.value =
-        (e as { statusMessage?: string })?.statusMessage ??
-        (e instanceof Error ? e.message : 'Could not start checkout')
+      error.value = failureMessage(e, 'Could not start checkout')
       busy.value = false
     }
   }

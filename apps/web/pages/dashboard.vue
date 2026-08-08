@@ -67,6 +67,12 @@ const { data: page } = await useAsyncData('dashboard', async () => {
 
   const value = <T>(r: PromiseSettledResult<T>) => (r.status === 'fulfilled' ? r.value : null)
   return {
+    // The review: a total API failure rendered as "you have no data" —
+    // indistinguishable from a new account, and nothing said so. Now the
+    // page knows when NOTHING loaded and says that instead.
+    loadFailed: [submissionsR, statsR, dueR, upcomingR, continueR].every(
+      (r) => r.status === 'rejected'
+    ),
     submissions: value(submissionsR) ?? [],
     stats: value(statsR),
     dueCount: value(dueR)?.count ?? 0,
@@ -136,6 +142,11 @@ function statusTone(status: string): string {
 <template>
   <div class="container max-w-4xl py-10 md:py-14">
     <p class="eyebrow mb-2">signed in as {{ name }}</p>
+    <!-- A failed load says so; silence dressed as emptiness lies. -->
+    <p v-if="page?.loadFailed" class="mb-8 border-l-2 border-fail bg-fail/5 py-2 pl-3 text-sm">
+      Your data could not be loaded just now — this is not what your account looks like. Refresh to
+      try again.
+    </p>
 
     <!-- The one decision on this page, stated as a heading. -->
     <h1 v-if="dueCount > 0" class="display text-2xl md:text-3xl mb-6">

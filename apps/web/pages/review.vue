@@ -43,6 +43,8 @@ const { data: page, pending } = await useAsyncData('review-queue', async () => {
   const dueRaw = value(dueR)
   const due = Array.isArray(dueRaw) ? dueRaw : ((dueRaw as { data?: unknown[] })?.data ?? [])
   return {
+    // A total failure says so instead of dressing up as an empty queue.
+    loadFailed: [dueR, upcomingR, continueR].every((r) => r.status === 'rejected'),
     due,
     upcoming: value(upcomingR),
     continueTarget: value(continueR)?.next ?? null,
@@ -103,6 +105,11 @@ function lastSeen(iso: string | null | undefined): string {
 <template>
   <div class="container max-w-3xl py-10 md:py-14">
     <p class="eyebrow mb-2">review</p>
+    <!-- A failed load says so; silence dressed as emptiness lies. -->
+    <p v-if="page?.loadFailed" class="mb-8 border-l-2 border-fail bg-fail/5 py-2 pl-3 text-sm">
+      Your data could not be loaded just now — this is not what your account looks like. Refresh to
+      try again.
+    </p>
 
     <div v-if="pending" role="status">
       <div class="h-8 w-64 animate-pulse rounded bg-muted" aria-hidden="true" />

@@ -4,6 +4,7 @@ import Button from '~/components/ui/button.vue'
 import Card from '~/components/ui/card.vue'
 import { useCheckout } from '~/composables/useCheckout'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
+import { failureMessage } from '~/utils/http-error'
 
 /**
  * The "Plan" card on /settings.
@@ -54,9 +55,7 @@ async function openPortal() {
     })
     window.location.href = url
   } catch (e) {
-    portalError.value =
-      (e as { statusMessage?: string })?.statusMessage ??
-      (e instanceof Error ? e.message : 'Could not open the billing portal')
+    portalError.value = failureMessage(e, 'Could not open the billing portal')
     portalBusy.value = false
   }
 }

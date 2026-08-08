@@ -20,7 +20,7 @@ import {
   validateDrill,
   type ValidatedDrill,
 } from '../../../utils/drill-generator'
-import { countSince, record } from '../../../utils/usage'
+import { countSince, refund, takeTicket } from '../../../utils/usage'
 
 /**
  * Generates one drill from the caller's own weak spot, and refuses to store it
@@ -88,6 +88,21 @@ export default defineEventHandler(async (event) => {
     usedToday
   )
   if (!budget.allowed) {
+    throw createError({ statusCode: 429, statusMessage: budget.message ?? 'Budget reached' })
+  }
+
+  // Charge before spending — the review's finding: the old check-then-record
+  // shape left a minute-wide window where concurrent requests all read
+  // "0 used", and a generation that failed both rounds cost gateway calls
+  // AND sandbox boots while recording nothing. A genuine failure refunds.
+  const ticket = await takeTicket(
+    db,
+    userId,
+    DRILL_USAGE_KIND,
+    budget.dailyLimit ?? Number.MAX_SAFE_INTEGER,
+    DRILL_WINDOW_MS
+  )
+  if (!ticket.allowed) {
     throw createError({ statusCode: 429, statusMessage: budget.message ?? 'Budget reached' })
   }
 
@@ -237,8 +252,9 @@ export default defineEventHandler(async (event) => {
   }
 
   if (drill === null) {
-    // Nothing written: no drill, no usage event. Two gateway calls and up to
-    // two sandbox boots were ours to waste, not theirs.
+    // Nothing written, and the pre-taken charge returned: the failure was
+    // the generator's, not theirs.
+    await refund(db, ticket.ticketId)
     throw createError({
       statusCode: 502,
       statusMessage:
@@ -273,8 +289,6 @@ export default defineEventHandler(async (event) => {
   if (!row) {
     throw createError({ statusCode: 500, statusMessage: 'Could not save the drill' })
   }
-
-  await record(db, userId, DRILL_USAGE_KIND)
 
   return {
     drill: redactDrill(row),

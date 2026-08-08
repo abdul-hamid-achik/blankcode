@@ -98,5 +98,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 502, statusMessage: 'Stripe returned no checkout URL' })
   }
 
-  return { url: session.url }
+  // The currency the server actually chose (null when Adaptive Pricing
+  // decides at Stripe) — so the analytics event reports truth, not a guess.
+  return { url: session.url, currency: currency ?? null }
 })

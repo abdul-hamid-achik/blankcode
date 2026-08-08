@@ -1,7 +1,7 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import * as schema from '@blankcode/db/schema'
-import { hasPaidAccess } from '@blankcode/shared'
-import { withinBudget } from '../../../utils/usage'
+import { hasPaidAccess, limitsFor, mayUse } from '@blankcode/shared'
+import { countSince, record, withinBudget } from '../../../utils/usage'
 import { resolveAiModel } from '../../../utils/ai-model'
 import { streamText } from 'ai'
 import { eq } from 'drizzle-orm'
@@ -58,10 +58,6 @@ export default defineEventHandler(async (event) => {
 
   const db = createDatabaseFromEnv()
 
-  if (!(await withinBudget(db, userId, 'ai_explain', MAX_PER_WINDOW, WINDOW_MS))) {
-    throw createError({ statusCode: 429, statusMessage: 'Too many explanations, try later' })
-  }
-
   // The caller's tier, entitlement-checked: `resolveAiModel` falls back to
   // Standard when `advanced` is stored without a paid plan, so a lapsed
   // subscription degrades the explanation rather than breaking the route.
@@ -69,13 +65,36 @@ export default defineEventHandler(async (event) => {
     where: eq(schema.users.id, userId),
     columns: { aiModel: true, subscriptionStatus: true, subscriptionEndsAt: true },
   })
-  const paid = hasPaidAccess(
-    {
-      subscriptionStatus: explainer?.subscriptionStatus ?? null,
-      subscriptionEndsAt: explainer?.subscriptionEndsAt ?? null,
-    },
-    new Date()
-  )
+  const billing = {
+    subscriptionStatus: explainer?.subscriptionStatus ?? null,
+    subscriptionEndsAt: explainer?.subscriptionEndsAt ?? null,
+  }
+  const paid = hasPaidAccess(billing, new Date())
+
+  /*
+   * The caps the plan actually advertises. The review found this route
+   * enforced only the hourly abuse wall — the "3 AI explanations a day"
+   * printed on the pricing page had no enforcement anywhere, while paid
+   * accounts (promised "unmetered") were hitting the hourly wall. Free:
+   * daily plan limit AND the hourly wall. Paid: recorded for operations,
+   * never refused.
+   */
+  if (!paid) {
+    const usedToday = await countSince(db, userId, 'ai_explain', 24 * 60 * 60 * 1000)
+    const limits = limitsFor(billing, new Date())
+    if (!mayUse(limits, 'explanation', usedToday)) {
+      throw createError({
+        statusCode: 429,
+        statusMessage: `The free plan explains ${limits.explanationsPerDay} failures a day, and this day is spent.`,
+      })
+    }
+    if (!(await withinBudget(db, userId, 'ai_explain', MAX_PER_WINDOW, WINDOW_MS))) {
+      throw createError({ statusCode: 429, statusMessage: 'Too many explanations, try later' })
+    }
+  } else {
+    await record(db, userId, 'ai_explain')
+  }
+
   const model = resolveAiModel(explainer?.aiModel, paid)
 
   const body = await readBody<{ submissionId?: string }>(event)

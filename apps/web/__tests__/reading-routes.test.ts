@@ -122,22 +122,28 @@ describe('the reading submit endpoint', () => {
     expect(source).toContain('parseGraderOutput')
   })
 
-  it('records nothing when the grader never answered cleanly', () => {
-    // Source order is the assertion: the 502 has to be thrown before anything
-    // is written, or a failed grade still costs an attempt.
+  it('charges BEFORE the gateway, and refunds a grader failure', () => {
+    // Inverted from the first version on the adversarial review's finding:
+    // record-on-success let a derailed grader spend two gateway calls per
+    // request forever at zero cost. The charge lands first; the 502 path
+    // hands the ticket back, so a genuine failure still costs nothing.
+    const ticket = body.indexOf('takeTicket(')
+    const refundCall = body.indexOf('refund(db, ticket.ticketId)')
     const refusal = body.indexOf('statusCode: 502')
-    const insert = body.indexOf('db.insert(readingSubmissions)')
-    const meter = body.indexOf('record(db, userId')
-    expect(refusal).toBeGreaterThan(-1)
-    expect(insert).toBeGreaterThan(refusal)
-    expect(meter).toBeGreaterThan(refusal)
+    expect(ticket).toBeGreaterThan(-1)
+    // No gateway call may precede the charge (the import line does not count).
+    expect(body.slice(0, ticket)).not.toContain('await generateText')
+    expect(body.indexOf('await generateText', ticket)).toBeGreaterThan(ticket)
+    expect(refundCall).toBeGreaterThan(-1)
+    expect(refundCall).toBeLessThan(refusal)
     expect(source).toContain('The grader did not answer cleanly — try again')
   })
 
-  it('meters the call only once it produced a grade', () => {
-    const insert = body.indexOf('db.insert(readingSubmissions)')
-    const meter = body.indexOf('record(db, userId')
-    expect(meter).toBeGreaterThan(insert)
+  it('the ledger is withheld from a zero-score read', () => {
+    // The rubric is the answer key; the review showed a 120-character probe
+    // bought it whole. Nothing matched means nothing to discuss.
+    expect(body).toContain('revealLedger')
+    expect(body).toContain('score > 0')
   })
 })
 

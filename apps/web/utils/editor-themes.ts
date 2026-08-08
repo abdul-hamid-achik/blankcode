@@ -1,15 +1,24 @@
 import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import type { Extension } from '@codemirror/state'
 import { oneDark } from '@codemirror/theme-one-dark'
+import { tags } from '@lezer/highlight'
 import {
   amy,
   ayuLight,
+  barf,
+  bespin,
+  birdsOfParadise,
+  clouds,
   cobalt,
   coolGlow,
+  createTheme,
   dracula,
+  espresso,
   noctisLilac,
   rosePineDawn,
+  smoothy,
   solarizedLight,
+  tomorrow,
 } from 'thememirror'
 
 /**
@@ -36,7 +45,44 @@ function withFallback(theme: Extension): Extension {
   return [theme, syntaxHighlighting(defaultHighlightStyle, { fallback: true })]
 }
 
+/**
+ * Nord, hand-built from the official palette (nordtheme.com) with
+ * thememirror's own `createTheme`. The published @uiw Nord package drags a
+ * broken @babel/runtime resolution into this workspace; sixteen hex values
+ * we control beat a dependency we have to apologize for.
+ */
+const nord: Extension = createTheme({
+  variant: 'dark',
+  settings: {
+    background: '#2e3440',
+    foreground: '#d8dee9',
+    caret: '#d8dee9',
+    selection: '#434c5e',
+    lineHighlight: '#3b4252',
+    gutterBackground: '#2e3440',
+    gutterForeground: '#4c566a',
+  },
+  styles: [
+    { tag: tags.comment, color: '#616e88' },
+    { tag: [tags.keyword, tags.operator, tags.modifier], color: '#81a1c1' },
+    { tag: [tags.string, tags.special(tags.string)], color: '#a3be8c' },
+    { tag: [tags.number, tags.bool, tags.null], color: '#b48ead' },
+    { tag: [tags.function(tags.variableName), tags.function(tags.propertyName)], color: '#88c0d0' },
+    { tag: [tags.typeName, tags.className, tags.namespace], color: '#8fbcbb' },
+    { tag: [tags.definition(tags.variableName), tags.propertyName], color: '#d8dee9' },
+    { tag: [tags.attributeName, tags.tagName], color: '#81a1c1' },
+    { tag: tags.invalid, color: '#bf616a' },
+  ],
+})
+
 export const EDITOR_THEMES: Record<string, EditorThemeDefinition> = {
+  nord: {
+    label: 'Nord',
+    appearance: 'dark',
+    background: '#2e3440',
+    foreground: '#d8dee9',
+    extension: () => withFallback(nord),
+  },
   dracula: {
     label: 'Dracula',
     appearance: 'dark',
@@ -92,6 +138,55 @@ export const EDITOR_THEMES: Record<string, EditorThemeDefinition> = {
     background: '#f2f1f8',
     foreground: '#0c006b',
     extension: () => withFallback(noctisLilac),
+  },
+  barf: {
+    label: 'Barf',
+    appearance: 'dark',
+    background: '#15191e',
+    foreground: '#a4b1cd',
+    extension: () => withFallback(barf),
+  },
+  bespin: {
+    label: 'Bespin',
+    appearance: 'dark',
+    background: '#28211c',
+    foreground: '#9d9b97',
+    extension: () => withFallback(bespin),
+  },
+  birdsOfParadise: {
+    label: 'Birds of Paradise',
+    appearance: 'dark',
+    background: '#3b2627',
+    foreground: '#e6e1c4',
+    extension: () => withFallback(birdsOfParadise),
+  },
+  clouds: {
+    label: 'Clouds',
+    appearance: 'light',
+    background: '#ffffff',
+    foreground: '#000000',
+    extension: () => withFallback(clouds),
+  },
+  espresso: {
+    label: 'Espresso',
+    appearance: 'light',
+    background: '#ffffff',
+    foreground: '#000000',
+    extension: () => withFallback(espresso),
+  },
+  smoothy: {
+    label: 'Smoothy',
+    appearance: 'light',
+    background: '#ffffff',
+    foreground: '#000000',
+    extension: () => withFallback(smoothy),
+  },
+  tomorrow: {
+    label: 'Tomorrow',
+    appearance: 'light',
+    background: '#ffffff',
+    foreground: '#4d4d4c',
+    extension: () => withFallback(tomorrow),
   },
 }
 

@@ -262,7 +262,10 @@ export function parseGraderOutput(
  * already exists in `@blankcode/shared` and had no caller: free accounts get
  * FREE_DAILY_EXPLANATIONS a day, paid accounts have none.
  */
-export const GRADE_USAGE_KIND = 'ai_explain' as const
+// Its own kind, not 'ai_explain': sharing the counter meant three failed-
+// submission explanations locked reading practice for the day, and reading
+// probes silently ate the explanation budget. Two products, two meters.
+export const GRADE_USAGE_KIND = 'reading_grade' as const
 export const GRADE_HOURLY_LIMIT = 20
 export const GRADE_HOURLY_WINDOW_MS = 60 * 60 * 1000
 export const GRADE_DAILY_WINDOW_MS = 24 * 60 * 60 * 1000
@@ -305,8 +308,10 @@ export function gradeBudget(
 
   const base = { remainingToday, dailyLimit, paid: limits.paid }
 
-  if (usage.usedThisHour !== null && usage.usedThisHour >= GRADE_HOURLY_LIMIT) {
-    return { ...base, allowed: false, message: 'Too many explanations, try later' }
+  // The hourly wall is a free-tier abuse guard. Paid is unmetered here —
+  // that is the sentence printed on the pricing page, so it is the behavior.
+  if (!limits.paid && usage.usedThisHour !== null && usage.usedThisHour >= GRADE_HOURLY_LIMIT) {
+    return { ...base, allowed: false, message: 'Too many gradings this hour — try again later' }
   }
 
   if (!mayUse(limits, 'explanation', usage.usedToday)) {

@@ -16,7 +16,7 @@ import {
   scoreOf,
   validateExplanation,
 } from '../../../../utils/reading-grader'
-import { countSince, record } from '../../../../utils/usage'
+import { countSince, refund, takeTicket } from '../../../../utils/usage'
 
 /**
  * Grades an explanation against the authored rubric.
@@ -79,6 +79,24 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 429, statusMessage: budget.message ?? 'Budget reached' })
   }
 
+  /*
+   * The charge lands BEFORE the gateway is called — the review found the
+   * old shape (record only after success) let a deliberately-derailed
+   * grader spend two gateway calls per request forever at zero cost, and
+   * left a sixty-second window where concurrent requests all read "none
+   * used". A genuine grader failure refunds the ticket below.
+   */
+  const ticket = await takeTicket(
+    db,
+    userId,
+    GRADE_USAGE_KIND,
+    budget.paid ? Number.MAX_SAFE_INTEGER : (budget.dailyLimit ?? Number.MAX_SAFE_INTEGER),
+    GRADE_DAILY_WINDOW_MS
+  )
+  if (!ticket.allowed) {
+    throw createError({ statusCode: 429, statusMessage: budget.message ?? 'Budget reached' })
+  }
+
   const model = resolveAiModel(user?.aiModel, budget.paid)
 
   /*
@@ -118,8 +136,9 @@ export default defineEventHandler(async (event) => {
   }
 
   if (results === null) {
-    // Nothing written: no submission, no usage event. The attempt was ours to
-    // lose, not theirs.
+    // Nothing written, and the pre-taken charge is returned: the failure was
+    // ours, not theirs.
+    await refund(db, ticket.ticketId)
     throw createError({
       statusCode: 502,
       statusMessage: 'The grader did not answer cleanly — try again',
@@ -128,6 +147,16 @@ export default defineEventHandler(async (event) => {
 
   const score = scoreOf(results)
   const maxScore = maxScoreOf(exercise.rubric)
+
+  /*
+   * The rubric is the answer key, and the review showed the old shape sold
+   * it for one 120-character probe: score 0, full ledger with every missed
+   * point spelled out, paraphrase, 100%. A zero-score explanation gets no
+   * ledger — nothing in it matched, so there is no evidence to discuss,
+   * only the key to leak. The grader's live calibration showed a genuine
+   * reading lands at least one low-weight point, which unlocks everything.
+   */
+  const revealLedger = score > 0
 
   await db.insert(readingSubmissions).values({
     userId,
@@ -138,8 +167,6 @@ export default defineEventHandler(async (event) => {
     rubricResults: results.map((result) => ({ ...result })),
     model,
   })
-
-  await record(db, userId, GRADE_USAGE_KIND)
 
   const [totals] = await db
     .select({ attempts: count(), bestScore: max(readingSubmissions.score) })
@@ -154,7 +181,13 @@ export default defineEventHandler(async (event) => {
   return {
     score,
     maxScore,
-    rubricResults: results,
+    rubricResults: revealLedger ? results : [],
+    ...(revealLedger
+      ? {}
+      : {
+          ledgerWithheld:
+            'Nothing in this explanation matched the rubric, so there is no ledger to show — only the answer key, which a zero does not buy. Read the code again; one landed point unlocks the full report.',
+        }),
     attempts: totals ? Number(totals.attempts) : 1,
     bestScore:
       totals?.bestScore === null || totals === undefined ? score : Number(totals.bestScore),

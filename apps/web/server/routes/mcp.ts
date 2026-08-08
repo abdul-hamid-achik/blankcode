@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
 
   const db = createDatabaseFromEnv()
   const tokenRow = await db.query.apiTokens.findFirst({
-    where: and(eq(apiTokens.token, hashPracticeToken(bearer)), isNull(apiTokens.revokedAt)),
+    where: and(eq(apiTokens.token, await hashPracticeToken(bearer)), isNull(apiTokens.revokedAt)),
     columns: { id: true, userId: true },
   })
 
@@ -69,32 +69,46 @@ export default defineEventHandler(async (event) => {
       ? (body?.params?.clientInfo as { name?: string; version?: string } | undefined)
       : undefined
 
+  /*
+   * The wall is checked BEFORE the window is touched. The review found the
+   * old order incremented toolCalls and refreshed lastSeenAt first, then
+   * 429'd — so every rejected retry re-armed the 30-minute window and the
+   * "resets in 30 minutes" promise was false: only total silence recovered
+   * a session. A rejected call now leaves the row exactly as it found it.
+   */
   const windowStart = new Date(Date.now() - SESSION_WINDOW_MS)
-  const [session] = await db
-    .update(harnessSessions)
-    .set({
-      lastSeenAt: new Date(),
-      toolCalls: sql`${harnessSessions.toolCalls} + 1`,
-      ...(clientInfo?.name ? { clientName: clientInfo.name } : {}),
-      ...(clientInfo?.version ? { clientVersion: clientInfo.version } : {}),
-    })
-    .where(
-      and(eq(harnessSessions.apiTokenId, tokenRow.id), gt(harnessSessions.lastSeenAt, windowStart))
-    )
-    .returning({ toolCalls: harnessSessions.toolCalls })
+  const existing = await db.query.harnessSessions.findFirst({
+    where: and(
+      eq(harnessSessions.apiTokenId, tokenRow.id),
+      gt(harnessSessions.lastSeenAt, windowStart)
+    ),
+    columns: { id: true, toolCalls: true },
+  })
 
-  if (!session) {
+  if (existing && existing.toolCalls >= MAX_CALLS_PER_WINDOW) {
+    throw createError({
+      statusCode: 429,
+      statusMessage: 'Too many calls this session. Take a breath; the window resets in 30 minutes.',
+    })
+  }
+
+  if (existing) {
+    await db
+      .update(harnessSessions)
+      .set({
+        lastSeenAt: new Date(),
+        toolCalls: sql`${harnessSessions.toolCalls} + 1`,
+        ...(clientInfo?.name ? { clientName: clientInfo.name } : {}),
+        ...(clientInfo?.version ? { clientVersion: clientInfo.version } : {}),
+      })
+      .where(eq(harnessSessions.id, existing.id))
+  } else {
     await db.insert(harnessSessions).values({
       userId: tokenRow.userId,
       apiTokenId: tokenRow.id,
       clientName: clientInfo?.name ?? null,
       clientVersion: clientInfo?.version ?? null,
       toolCalls: 1,
-    })
-  } else if (session.toolCalls > MAX_CALLS_PER_WINDOW) {
-    throw createError({
-      statusCode: 429,
-      statusMessage: 'Too many calls this session. Take a breath; the window resets in 30 minutes.',
     })
   }
 

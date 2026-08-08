@@ -257,6 +257,8 @@ export const submissions = pgTable(
   },
   (table) => [
     index('submissions_user_id_idx').on(table.userId),
+    // Covers the per-user windowed reads (weak spots, drill evidence).
+    index('submissions_user_created_idx').on(table.userId, table.createdAt),
     index('submissions_exercise_id_idx').on(table.exerciseId),
     index('submissions_user_exercise_idx').on(table.userId, table.exerciseId),
     index('submissions_status_idx').on(table.status),
