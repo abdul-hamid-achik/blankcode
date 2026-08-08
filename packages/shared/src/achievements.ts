@@ -368,18 +368,22 @@ export const LEARNING_PATHS = [
       'go-spec-001', // The cases that make card masking unambiguous
       'go-turn-001', // Three messages: one slash exactly
       'go-context-001', // Struct fields you cannot guess
+      'go-tool-001', // The rule that finds the broken error chain
       'ru-review-002', // The budget that explodes at zero
       'ru-spec-001', // The cases that make a duration formatter unambiguous
       'ru-turn-001', // Three messages: a parser that counts its commas
       'ru-context-001', // The error variant that is not NotFound
+      'ru-tool-001', // The rule that finds the unwrap waiting for production
       're-review-002', // The countdown stuck one second in
       're-spec-001', // The cases that make a classnames helper unambiguous
       're-turn-001', // Three messages: a debounce that keeps the last word
       're-context-001', // Props the training data cannot supply
+      're-tool-001', // The rule that holds usages to the props table
       'vue-review-001', // The cart total that never moves
       'vue-spec-001', // The cases that make a relative timestamp unambiguous
       'vue-turn-001', // Three messages: pagination that survives shrinking
       'vue-context-001', // The toast API that is not the famous one
+      'vue-tool-001', // The rule that finds the watcher that watched a value
     ],
     isPublished: true,
   },
