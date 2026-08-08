@@ -23,7 +23,7 @@ const masteryPercent = computed(() => Math.round(props.masteryLevel * 100))
     class="block bg-background px-4 py-4 transition-colors hover:bg-muted/60"
   >
     <div class="flex items-baseline justify-between gap-4">
-      <h3 class="display text-base">{{ trackName }}</h3>
+      <h3 class="min-w-0 flex-1 truncate display text-base">{{ trackName }}</h3>
       <span class="shrink-0 font-mono text-xs text-muted-foreground">
         {{ completedExercises }}/{{ totalExercises }}
       </span>

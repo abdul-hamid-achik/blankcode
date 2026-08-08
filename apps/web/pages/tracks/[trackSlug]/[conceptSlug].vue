@@ -101,9 +101,9 @@ const exerciseTypeBadges: Record<string, { label: string; icon: string; color: s
       <div v-if="exercises?.length" class="grid gap-4">
         <NuxtLink v-for="exercise in exercises" :key="exercise.id" :to="`/exercise/${exercise.id}`">
           <Card class="hover:border-rule-strong transition-colors cursor-pointer">
-            <div class="flex items-center justify-between">
-              <div>
-                <div class="flex items-center gap-2 mb-1">
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
                   <!-- The mark that you have been here and won. -->
                   <span
                     v-if="isDone(exercise.id)"

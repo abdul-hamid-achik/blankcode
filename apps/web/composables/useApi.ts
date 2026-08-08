@@ -209,6 +209,19 @@ export function useApi() {
           totalSubmissions: number
           lastActivityDate: string | null
         }>('/progress/stats'),
+      weakSpots: () =>
+        request<{
+          concepts: Array<{
+            conceptSlug: string
+            conceptName: string
+            trackSlug: string
+            attempts: number
+            failedShare: number
+            completed: number
+            total: number
+          }>
+          readingGaps: Array<{ point: string; misses: number }>
+        }>('/progress/weak-spots'),
     },
     paths: {
       getAll: () => request<LearningPath[]>('/paths'),

@@ -3,6 +3,26 @@ import { Schema } from 'effect'
 import { Authorization } from '../middleware/auth.middleware.js'
 import { NotFoundError } from './errors.js'
 
+const WeakSpotConceptSchema = Schema.Struct({
+  conceptSlug: Schema.String,
+  conceptName: Schema.String,
+  trackSlug: Schema.String,
+  attempts: Schema.Number,
+  failedShare: Schema.Number,
+  completed: Schema.Number,
+  total: Schema.Number,
+})
+
+const ReadingGapSchema = Schema.Struct({
+  point: Schema.String,
+  misses: Schema.Number,
+})
+
+const WeakSpotsSchema = Schema.Struct({
+  concepts: Schema.Array(WeakSpotConceptSchema),
+  readingGaps: Schema.Array(ReadingGapSchema),
+})
+
 export class ProgressApi extends HttpApiGroup.make('progress')
   .add(
     HttpApiEndpoint.get('summary', '/progress/summary')
@@ -47,6 +67,13 @@ export class ProgressApi extends HttpApiGroup.make('progress')
   .add(
     HttpApiEndpoint.get('activity', '/progress/activity')
       .addSuccess(Schema.Array(Schema.Unknown))
+      .addError(NotFoundError)
+  )
+  .add(
+    // The seed of per-user content generation: concepts a user keeps failing
+    // and reading rubric points they keep missing, both over recent history.
+    HttpApiEndpoint.get('weakSpots', '/progress/weak-spots')
+      .addSuccess(WeakSpotsSchema)
       .addError(NotFoundError)
   )
   .middleware(Authorization) {}

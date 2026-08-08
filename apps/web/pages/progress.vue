@@ -88,6 +88,7 @@ const stats = computed(() => [
         <ProgressCard
           v-for="stat in stats"
           :key="stat.label"
+          :class="stat.strip ? 'col-span-2 sm:col-span-1' : ''"
           :label="stat.label"
           :value="stat.value"
           :strip="stat.strip"

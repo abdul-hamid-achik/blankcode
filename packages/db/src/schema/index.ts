@@ -89,6 +89,12 @@ export const users = pgTable(
      * exact failure the mechanism exists to remove. The email itself says how
      * to turn it off, which is the honest version of a default.
      */
+    /**
+     * Preferred AI tier ('fast' | 'standard' | 'advanced') for model-backed
+     * features. A tier name, never a raw gateway id — the mapping lives in
+     * code so models rotate without a migration. Null means the default.
+     */
+    aiModel: varchar('ai_model', { length: 20 }),
     reviewRemindersEnabled: boolean('review_reminders_enabled').notNull().default(true),
     /** When the last reminder went out, so one bad cron cannot double-send. */
     lastReminderAt: timestamp('last_reminder_at', { withTimezone: true }),
@@ -645,6 +651,67 @@ export const learningPaths = pgTable('learning_paths', {
  * random secret. Scope is recorded but 'practice' is the only value cut so
  * far; the API enforces it as a route allowlist.
  */
+/**
+ * Reading practice (form R): a small codebase you read in full, then explain
+ * in prose; an AI grades the explanation against an authored rubric. Its own
+ * tables — the shape shares nothing with a code submission (no starter, no
+ * suite, no sandbox), and forcing it into `exercises` would leave most
+ * columns lying.
+ */
+export const readingExercises = pgTable(
+  'reading_exercises',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    slug: varchar('slug', { length: 100 }).notNull(),
+    title: varchar('title', { length: 200 }).notNull(),
+    /** What to explain, and for whom ("explain this to a new teammate"). */
+    brief: text('brief').notNull(),
+    language: varchar('language', { length: 20 }).notNull(),
+    difficulty: difficultyEnum('difficulty').notNull(),
+    /** The codebase: every file the reader can open. */
+    files: jsonb('files').$type<Array<{ path: string; content: string }>>().notNull(),
+    /**
+     * What a complete explanation must cover. Authored, weighted, and never
+     * served to the client before a submission is graded — the rubric IS the
+     * answer key.
+     */
+    rubric: jsonb('rubric').$type<Array<{ id: string; point: string; weight: number }>>().notNull(),
+    isPublished: boolean('is_published').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex('reading_exercises_slug_idx').on(table.slug)]
+)
+
+/**
+ * One row per attempt, kept forever: the rubric points a person keeps
+ * missing are the seed of per-user content generation.
+ */
+export const readingSubmissions = pgTable(
+  'reading_submissions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    readingExerciseId: uuid('reading_exercise_id')
+      .notNull()
+      .references(() => readingExercises.id, { onDelete: 'cascade' }),
+    explanation: text('explanation').notNull(),
+    score: integer('score').notNull(),
+    maxScore: integer('max_score').notNull(),
+    rubricResults: jsonb('rubric_results')
+      .$type<Array<{ id: string; point: string; weight: number; hit: boolean; note: string }>>()
+      .notNull(),
+    /** Which AI tier graded it — part of the record, not trivia. */
+    model: varchar('model', { length: 60 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('reading_submissions_user_exercise_idx').on(table.userId, table.readingExerciseId),
+  ]
+)
+
 export const apiTokens = pgTable(
   'api_tokens',
   {

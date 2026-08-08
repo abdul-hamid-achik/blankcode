@@ -391,6 +391,21 @@ const MockProgressService = Layer.succeed(ProgressService, {
   markExerciseCompleted: () => Effect.void,
   incrementAttempts: () => Effect.void,
   updateConceptMastery: () => Effect.void,
+  getWeakSpots: () =>
+    Effect.succeed({
+      concepts: [
+        {
+          conceptSlug: 'basics',
+          conceptName: 'Basics',
+          trackSlug: 'typescript',
+          attempts: 4,
+          failedShare: 0.5,
+          completed: 1,
+          total: 4,
+        },
+      ],
+      readingGaps: [{ point: 'explains the trade-off', misses: 2 }],
+    }),
 })
 
 // Mock Drizzle — used by the auth and admin middleware to look up users by JWT sub
@@ -903,6 +918,28 @@ describe('HTTP Integration Tests', () => {
           const body = (yield* response.json) as any[]
           expect(Array.isArray(body)).toBe(true)
           expect(body.length).toBeGreaterThanOrEqual(1)
+        })
+      ))
+
+    it('GET /progress/weak-spots without token returns 401', () =>
+      runTest(
+        Effect.gen(function* () {
+          const response = yield* HttpClient.get('/progress/weak-spots')
+          expect(response.status).toBe(401)
+        })
+      ))
+
+    it('GET /progress/weak-spots with valid token returns 200', () =>
+      runTest(
+        Effect.gen(function* () {
+          const token = yield* getAuthToken()
+          const response = yield* HttpClient.get('/progress/weak-spots', {
+            headers: { authorization: `Bearer ${token}` },
+          })
+          expect(response.status).toBe(200)
+          const body = (yield* response.json) as any
+          expect(body.concepts[0].conceptSlug).toBe('basics')
+          expect(body.readingGaps[0].misses).toBe(2)
         })
       ))
   })

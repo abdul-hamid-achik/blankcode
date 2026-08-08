@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { Exercise, Submission } from '@blankcode/shared'
 import { computed, watch } from 'vue'
+import HarnessActivity from '~/components/agent/harness-activity.vue'
 import EmptyState from '~/components/error/empty-state.vue'
+import WeakSpots from '~/components/progress/weak-spots.vue'
 import Button from '~/components/ui/button.vue'
 import { useAuthStore } from '~/stores/auth'
 import { useProgressStore } from '~/stores/progress'
@@ -163,7 +165,12 @@ function statusTone(status: string): string {
 
     <!-- Numbers are context, not the headline. One dense strip. -->
     <dl class="grid grid-cols-2 gap-px border border-rule bg-rule sm:grid-cols-3 mb-12">
-      <div v-for="stat in stats" :key="stat.label" class="bg-background px-4 py-3">
+      <div
+        v-for="stat in stats"
+        :key="stat.label"
+        class="bg-background px-4 py-3"
+        :class="stat.strip ? 'col-span-2 sm:col-span-1' : ''"
+      >
         <dt class="eyebrow">{{ stat.label }}</dt>
         <dd class="display mt-1" :class="stat.strip ? 'text-sm' : 'text-xl'">
           {{ stat.value }}
@@ -179,6 +186,10 @@ function statusTone(status: string): string {
         </div>
       </div>
     </dl>
+
+    <!-- Both render nothing until there is something true to say. -->
+    <WeakSpots class="mb-12" />
+    <HarnessActivity class="mb-12" />
 
     <div class="mb-4 flex items-center justify-between gap-4">
       <h2 class="eyebrow">recent submissions</h2>

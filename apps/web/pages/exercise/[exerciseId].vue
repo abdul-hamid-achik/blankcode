@@ -483,7 +483,7 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
 
           <div
             v-if="explanation"
-            class="border-l-2 border-rule-strong pl-4 text-sm text-muted-foreground whitespace-pre-wrap"
+            class="border-l-2 border-rule-strong pl-4 text-sm text-muted-foreground whitespace-pre-wrap break-words"
           >
             {{ explanation }}
           </div>
@@ -609,7 +609,7 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
 
         <div
           v-if="exerciseStore.submissionError"
-          class="mt-5 border-l-2 border-fail bg-fail/5 p-4 text-sm text-fail"
+          class="mt-5 border-l-2 border-fail bg-fail/5 p-4 text-sm text-fail break-words"
           role="alert"
         >
           {{ exerciseStore.submissionError }}

@@ -1,0 +1,192 @@
+slug: paged-client-cache
+title: A paginated API client with retries and a cache
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, which failures are retried and which are not, and what a
+  caller can and cannot assume about the freshness of what it gets back.
+language: typescript
+difficulty: advanced
+isPublished: true
+
+files:
+  - path: src/types.ts
+    content: |
+      export interface Project {
+        id: string
+        name: string
+        archived: boolean
+      }
+
+      export interface Page<T> {
+        items: T[]
+        /** Cursor for the following page, or null at the end. */
+        next: string | null
+      }
+
+  - path: src/http.ts
+    content: |
+      export class HttpError extends Error {
+        constructor(readonly status: number) {
+          super(`HTTP ${status}`)
+          this.name = 'HttpError'
+        }
+      }
+
+      const RETRYABLE = new Set([502, 503, 504])
+      const ATTEMPTS = 3
+
+      function sleep(ms: number): Promise<void> {
+        return new Promise((resolve) => {
+          setTimeout(resolve, ms)
+        })
+      }
+
+      export async function fetchJson<T>(url: string): Promise<T> {
+        let last: unknown = new Error('no attempt was made')
+
+        for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+          try {
+            const response = await fetch(url)
+            if (response.ok) return (await response.json()) as T
+            if (!RETRYABLE.has(response.status)) throw new HttpError(response.status)
+            last = new HttpError(response.status)
+          } catch (error) {
+            if (error instanceof HttpError && !RETRYABLE.has(error.status)) throw error
+            last = error
+          }
+          await sleep(100 * 2 ** attempt)
+        }
+
+        throw last
+      }
+
+  - path: src/cache.ts
+    content: |
+      interface Entry<Value> {
+        value: Value
+        expiresAt: number
+      }
+
+      export class TtlCache<Value> {
+        private readonly entries = new Map<string, Entry<Value>>()
+
+        constructor(private readonly ttlMs: number) {}
+
+        get(key: string): Value | undefined {
+          const entry = this.entries.get(key)
+          if (!entry) return undefined
+          if (Date.now() > entry.expiresAt) {
+            this.entries.delete(key)
+            return undefined
+          }
+          entry.expiresAt = Date.now() + this.ttlMs
+          return entry.value
+        }
+
+        set(key: string, value: Value): void {
+          this.entries.set(key, { value, expiresAt: Date.now() + this.ttlMs })
+        }
+
+        delete(key: string): void {
+          this.entries.delete(key)
+        }
+      }
+
+  - path: src/client.ts
+    content: |
+      import { TtlCache } from './cache'
+      import { fetchJson } from './http'
+      import type { Page, Project } from './types'
+
+      const PAGE_SIZE = 50
+
+      export class Projects {
+        private readonly cache = new TtlCache<Page<Project>>(60_000)
+
+        constructor(private readonly baseUrl: string) {}
+
+        async page(cursor: string | null): Promise<Page<Project>> {
+          const key = cursor ?? 'first'
+          const cached = this.cache.get(key)
+          if (cached) return cached
+
+          const query = cursor === null ? '' : `&cursor=${encodeURIComponent(cursor)}`
+          const page = await fetchJson<Page<Project>>(
+            `${this.baseUrl}/projects?limit=${PAGE_SIZE}${query}`
+          )
+          this.cache.set(key, page)
+          return page
+        }
+
+        /** Every project, walking the cursor to the end. */
+        async all(): Promise<Project[]> {
+          const projects: Project[] = []
+          let cursor: string | null = null
+
+          do {
+            const page = await this.page(cursor)
+            projects.push(...page.items)
+            cursor = page.next
+          } while (cursor !== null)
+
+          return projects
+        }
+
+        invalidateFirstPage(): void {
+          this.cache.delete('first')
+        }
+      }
+
+rubric:
+  - id: cursor-keys
+    weight: 1
+    point: >-
+      Projects.page caches one page per cursor, using the literal key 'first'
+      for the null cursor that starts the walk.
+
+  - id: all-walks-cursors
+    weight: 1
+    point: >-
+      all() loops from the null cursor, appending each page's items and
+      following page.next until it is null.
+
+  - id: retry-status-set
+    weight: 3
+    point: >-
+      fetchJson retries only network failures and the statuses 502, 503 and 504;
+      every other non-OK status throws HttpError on the first response, so a 429
+      or a 500 is never retried.
+
+  - id: backoff-after-last
+    weight: 2
+    point: >-
+      Backoff is 100ms doubling per attempt, and the sleep sits at the end of the
+      loop body, so even the final failing attempt waits before the error is
+      thrown.
+
+  - id: sliding-expiry
+    weight: 3
+    point: >-
+      TtlCache.get renews expiresAt on every read rather than only on write, so
+      the TTL measures time since last read, not time since the data was
+      fetched.
+
+  - id: poller-never-refreshes
+    weight: 3
+    point: >-
+      Consequently anything calling page or all more often than every 60 seconds
+      keeps renewing the same entries and never refetches, so the data it serves
+      can be arbitrarily old.
+
+  - id: invalidate-first-only
+    weight: 2
+    point: >-
+      invalidateFirstPage drops only the 'first' key; the deeper pages stay
+      cached under cursors that were issued against the older listing.
+
+  - id: cached-by-reference
+    weight: 2
+    point: >-
+      page returns the cached object itself rather than a copy, so a caller that
+      sorts or splices page.items mutates what the cache hands to the next
+      caller.

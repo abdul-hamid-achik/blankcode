@@ -169,8 +169,8 @@ const startChallenge = () => {
                   </div>
 
                   <!-- Content -->
-                  <div class="flex-1">
-                    <div class="flex items-center gap-3 mb-2">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-3 mb-2">
                       <h3 class="display text-base">{{ exercise.title }}</h3>
                       <DifficultyTag :difficulty="exercise.difficulty" show-rank />
                     </div>
@@ -179,7 +179,9 @@ const startChallenge = () => {
                       {{ exercise.description }}
                     </p>
 
-                    <div class="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div
+                      class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"
+                    >
                       <span class="flex items-center gap-1">
                         <span>🏆</span>
                         Challenge

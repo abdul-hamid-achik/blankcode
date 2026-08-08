@@ -15,6 +15,7 @@ async function main() {
     console.log(`  Concepts: ${result.concepts}`)
     console.log(`  Exercises: ${result.exercises}`)
     console.log(`  Paths: ${result.paths}`)
+    console.log(`  Reading: ${result.reading}`)
   } catch (error) {
     console.error('Import failed:', error)
     process.exit(1)

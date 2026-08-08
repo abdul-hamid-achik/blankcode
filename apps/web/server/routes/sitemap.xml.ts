@@ -25,6 +25,7 @@ function staticRoutes(trackSlugs: string[]): Entry[] {
     { loc: '/', changefreq: 'weekly', priority: '1.0' },
     { loc: '/blog', changefreq: 'weekly', priority: '0.8' },
     { loc: '/tutorials', changefreq: 'weekly', priority: '0.8' },
+    { loc: '/reading', changefreq: 'weekly', priority: '0.8' },
     { loc: '/tracks', changefreq: 'weekly', priority: '0.7' },
     // Each track page renders its name and concepts on the server, so these are
     // real content rather than shells — worth listing. Only tracks that have

@@ -6,12 +6,14 @@ import { LEARNING_PATHS } from '@blankcode/shared'
 import { notInArray } from 'drizzle-orm'
 import { glob } from 'glob'
 import { parse as parseYaml } from 'yaml'
+import { importReading } from './reading.js'
 
 export interface ImportResult {
   tracks: number
   concepts: number
   exercises: number
   paths: number
+  reading: number
 }
 
 type Db = ReturnType<typeof createDatabaseFromEnv>
@@ -206,7 +208,7 @@ async function importPaths(db: Db): Promise<number> {
 
 export async function importContent(contentDir: string): Promise<ImportResult> {
   const db = createDatabaseFromEnv()
-  const result: ImportResult = { tracks: 0, concepts: 0, exercises: 0, paths: 0 }
+  const result: ImportResult = { tracks: 0, concepts: 0, exercises: 0, paths: 0, reading: 0 }
 
   const trackFiles = await glob('*/_track.yaml', { cwd: join(contentDir, 'tracks') })
 
@@ -254,6 +256,11 @@ export async function importContent(contentDir: string): Promise<ImportResult> {
 
   // After the exercises: a path resolves slugs to ids, so the ids have to exist.
   result.paths = await importPaths(db)
+
+  // Reading exercises hang off nothing — no track, no concept — so their order
+  // in here is arbitrary. Last, because they are the newest thing and a failure
+  // in them should not stop the rest of the corpus from landing.
+  result.reading = await importReading(db, contentDir)
 
   return result
 }

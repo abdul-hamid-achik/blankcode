@@ -16,7 +16,15 @@ export default defineEventHandler(async (event) => {
 
   const { generateReply } = await import('../../../../utils/turn-model')
 
-  const result = await takeTurn(databaseStore(), generateReply, id, userId, body?.message ?? '')
+  // The route composes the closure so the session service's Generate type
+  // stays user-blind while the model still resolves per user (tier + plan).
+  const result = await takeTurn(
+    databaseStore(),
+    (messages) => generateReply(messages, userId),
+    id,
+    userId,
+    body?.message ?? ''
+  )
 
   if (!result.ok) {
     throw createError({ statusCode: result.status, statusMessage: result.reason })

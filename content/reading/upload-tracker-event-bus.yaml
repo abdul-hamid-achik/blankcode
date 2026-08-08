@@ -1,0 +1,151 @@
+slug: upload-tracker-event-bus
+title: An upload tracker on a hand-rolled event bus
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, how the pieces are wired together, and what actually happens
+  when an upload emits progress and then finishes.
+language: typescript
+difficulty: intermediate
+isPublished: true
+
+files:
+  - path: src/emitter.ts
+    content: |
+      export type Handler<Payload> = (payload: Payload) => void
+
+      type HandlerMap<Events> = { [K in keyof Events]?: Array<Handler<Events[K]>> }
+
+      /**
+       * A minimal typed event bus. `on` hands back its own unsubscribe, so a
+       * caller never has to keep a reference to the function it registered.
+       */
+      export class Emitter<Events extends Record<string, unknown>> {
+        private readonly handlers: HandlerMap<Events> = {}
+
+        on<K extends keyof Events>(event: K, handler: Handler<Events[K]>): () => void {
+          const list = this.handlers[event] ?? []
+          list.push(handler)
+          this.handlers[event] = list
+          return () => {
+            this.off(event, handler)
+          }
+        }
+
+        off<K extends keyof Events>(event: K, handler: Handler<Events[K]>): void {
+          const list = this.handlers[event]
+          if (!list) return
+          const index = list.indexOf(handler)
+          if (index !== -1) list.splice(index, 1)
+        }
+
+        once<K extends keyof Events>(event: K, handler: Handler<Events[K]>): () => void {
+          const wrapped: Handler<Events[K]> = (payload) => {
+            this.off(event, wrapped)
+            handler(payload)
+          }
+          return this.on(event, wrapped)
+        }
+
+        emit<K extends keyof Events>(event: K, payload: Events[K]): void {
+          const list = this.handlers[event]
+          if (!list) return
+          for (let index = 0; index < list.length; index++) {
+            list[index]?.(payload)
+          }
+        }
+      }
+
+  - path: src/report.ts
+    content: |
+      /** `40% (2/5)`. A zero-length upload reports as finished, not as NaN. */
+      export function formatLine(sent: number, total: number): string {
+        const percent = total === 0 ? 100 : Math.floor((sent / total) * 100)
+        return `${percent}% (${sent}/${total})`
+      }
+
+  - path: src/upload.ts
+    content: |
+      import { Emitter } from './emitter'
+      import { formatLine } from './report'
+
+      export interface UploadEvents extends Record<string, unknown> {
+        progress: { sent: number; total: number }
+        done: { url: string }
+      }
+
+      /**
+       * Writes an upload's story into `log`. The returned handle stops the
+       * progress lines.
+       */
+      export function trackUpload(uploads: Emitter<UploadEvents>, log: string[]): () => void {
+        const stopProgress = uploads.on('progress', (event) => {
+          log.push(formatLine(event.sent, event.total))
+        })
+
+        uploads.once('done', (event) => {
+          log.push(`stored ${event.url}`)
+        })
+
+        uploads.on('done', () => {
+          stopProgress()
+        })
+
+        return stopProgress
+      }
+
+  - path: src/index.ts
+    content: |
+      export { Emitter, type Handler } from './emitter'
+      export { formatLine } from './report'
+      export { trackUpload, type UploadEvents } from './upload'
+
+rubric:
+  - id: bus-shape
+    weight: 1
+    point: >-
+      Emitter is a typed event bus keeping one array of handlers per event name,
+      and `on` returns a closure that unsubscribes that handler.
+
+  - id: off-identity
+    weight: 2
+    point: >-
+      `off` removes by function identity with indexOf and splice, so it only
+      matches the exact reference that was registered, and removes one entry.
+
+  - id: once-wrapper
+    weight: 2
+    point: >-
+      `once` has no storage of its own: it registers a wrapper through `on`, and
+      the wrapper calls `off` on itself before invoking the real handler.
+
+  - id: emit-live-array
+    weight: 3
+    point: >-
+      `emit` walks the live handler array by index instead of a copy, so a
+      handler that unsubscribes during the emission changes what the loop sees.
+
+  - id: skipped-neighbour
+    weight: 3
+    point: >-
+      Because the `once` wrapper splices itself out while emit is at its index,
+      the next handler shifts into an index the loop has already passed and is
+      skipped for that emission.
+
+  - id: stop-progress-never-runs
+    weight: 3
+    point: >-
+      In trackUpload the `on('done')` that calls stopProgress is registered
+      directly after the `once('done')`, so it never runs on the first done and
+      progress lines keep being appended after the upload has finished.
+
+  - id: returned-handle
+    weight: 1
+    point: >-
+      trackUpload returns stopProgress so the caller can unsubscribe by hand,
+      which is currently the only reliable way to stop the progress lines.
+
+  - id: format-zero
+    weight: 1
+    point: >-
+      formatLine special-cases a total of zero as 100 percent rather than
+      dividing by zero.

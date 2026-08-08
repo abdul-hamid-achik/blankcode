@@ -93,17 +93,21 @@ const snippets = computed<Snippet[]>(() => [
   },
 ])
 
-async function copySnippet(snippet: Snippet) {
+async function copyText(text: string, key: string) {
   try {
-    await navigator.clipboard.writeText(snippet.body)
-    copiedKey.value = snippet.key
+    await navigator.clipboard.writeText(text)
+    copiedKey.value = key
     setTimeout(() => {
-      if (copiedKey.value === snippet.key) copiedKey.value = null
+      if (copiedKey.value === key) copiedKey.value = null
     }, 2000)
   } catch {
     // Selection by hand still works.
   }
 }
+
+/** The one prompt that turns a connected harness into a self-paced course. */
+const coursePrompt =
+  "Connect to BlankCode. Call whoami, then get_progress. Walk me through the 'Working with Models' path: list the exercises, and for each one, fetch it and discuss the approach with me before anything is submitted. Never claim a pass the sandbox did not return."
 
 usePageSeo({
   title: 'Connect your agent — BlankCode',
@@ -181,7 +185,7 @@ usePageSeo({
             <p class="text-sm font-medium">{{ snippet.label }}</p>
             <button
               class="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
-              @click="copySnippet(snippet)"
+              @click="copyText(snippet.body, snippet.key)"
             >
               {{ copiedKey === snippet.key ? 'copied' : 'copy' }}
             </button>
@@ -197,7 +201,7 @@ usePageSeo({
     </Card>
 
     <!-- Step 3: the etiquette -->
-    <Card>
+    <Card class="mb-6">
       <h2 class="display text-lg mb-1">3 · Teach it the etiquette</h2>
       <p class="mb-4 max-w-lg text-xs leading-relaxed text-muted-foreground">
         A skill file that explains the loop to your agent: confirm whose work it is, never claim a
@@ -208,6 +212,88 @@ usePageSeo({
       <a href="/skills/blankcode-practice.md" download>
         <Button variant="outline" size="sm">Download the skill file</Button>
       </a>
+    </Card>
+
+    <!-- Step 4: what it actually looks like -->
+    <Card class="mb-6">
+      <h2 class="display text-lg mb-1">4 · What a session looks like</h2>
+      <p class="mb-4 max-w-lg text-xs leading-relaxed text-muted-foreground">
+        Four calls from a real sitting, in order, and exactly what came back — nothing smoothed
+        over.
+      </p>
+      <ol class="border border-rule">
+        <li class="border-b border-rule px-4 py-3 last:border-b-0">
+          <p class="eyebrow mb-1.5">whoami</p>
+          <p class="font-mono text-sm leading-relaxed">→ practicing as you</p>
+        </li>
+        <li class="border-b border-rule px-4 py-3 last:border-b-0">
+          <p class="eyebrow mb-1.5">get_due_reviews</p>
+          <p class="font-mono text-sm leading-relaxed">
+            → 3 due — these are yours; an agent pass on recall leaves the review owed
+          </p>
+        </li>
+        <li class="border-b border-rule px-4 py-3 last:border-b-0">
+          <p class="eyebrow mb-1.5">get_exercise</p>
+          <p class="font-mono text-sm leading-relaxed">
+            → description, starter code, hints — solution and hidden tests redacted
+          </p>
+        </li>
+        <li class="border-b border-rule px-4 py-3 last:border-b-0">
+          <p class="eyebrow mb-1.5">submit_solution</p>
+          <p class="font-mono text-sm leading-relaxed">
+            → the sandbox's verdict is the only verdict · labeled via agent
+          </p>
+        </li>
+      </ol>
+    </Card>
+
+    <!-- Step 5: the prompt that turns it into a course -->
+    <Card class="mb-6">
+      <h2 class="display text-lg mb-1">5 · Run a course from your agent</h2>
+      <p class="mb-4 max-w-lg text-xs leading-relaxed text-muted-foreground">
+        Paste this into the harness you just connected. It reads the path, walks it exercise by
+        exercise, and stops to talk before anything is submitted.
+      </p>
+      <div class="mb-1.5 flex items-baseline justify-between gap-3">
+        <p class="text-sm font-medium">Prompt</p>
+        <button
+          class="font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+          @click="copyText(coursePrompt, 'course-prompt')"
+        >
+          {{ copiedKey === 'course-prompt' ? 'copied' : 'copy' }}
+        </button>
+      </div>
+      <pre
+        class="overflow-x-auto rounded border border-rule bg-muted/40 p-3 font-mono text-xs leading-relaxed"
+      ><code>{{ coursePrompt }}</code></pre>
+      <p class="mt-3 text-xs text-muted-foreground">
+        Paths and tracks are all walkable this way — the catalogue is the course.
+      </p>
+    </Card>
+
+    <!-- Step 6: the questions people actually have -->
+    <Card>
+      <h2 class="display text-lg mb-1">6 · What people ask first</h2>
+      <dl class="border border-rule">
+        <div class="border-b border-rule px-4 py-3 last:border-b-0">
+          <dt class="text-sm">Does agent work move my review schedule?</dt>
+          <dd class="mt-1 text-xs text-muted-foreground">
+            The vibecoding forms, yes — recall stays owed.
+          </dd>
+        </div>
+        <div class="border-b border-rule px-4 py-3 last:border-b-0">
+          <dt class="text-sm">Where do I see agent activity?</dt>
+          <dd class="mt-1 text-xs text-muted-foreground">
+            Your dashboard, labeled — never merged silently.
+          </dd>
+        </div>
+        <div class="border-b border-rule px-4 py-3 last:border-b-0">
+          <dt class="text-sm">What can a leaked token do?</dt>
+          <dd class="mt-1 text-xs text-muted-foreground">
+            Practice as you, nothing else. Revoke it in Settings.
+          </dd>
+        </div>
+      </dl>
     </Card>
   </div>
 </template>

@@ -1,7 +1,12 @@
 import { Drizzle } from '@blankcode/db/client'
 import { Cause, Effect, Exit, Layer } from 'effect'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ProgressService, ProgressServiceLive } from '../modules/progress/progress.service.js'
+import {
+  aggregateConceptWeakSpots,
+  aggregateReadingGaps,
+  ProgressService,
+  ProgressServiceLive,
+} from '../modules/progress/progress.service.js'
 
 function createMockDb() {
   const onConflictDoUpdate = vi.fn().mockResolvedValue([])
@@ -13,6 +18,7 @@ function createMockDb() {
       concepts: { findMany: vi.fn() },
       exercises: { findFirst: vi.fn(), findMany: vi.fn() },
       conceptMastery: { findFirst: vi.fn(), findMany: vi.fn() },
+      readingSubmissions: { findMany: vi.fn() },
     },
     insert: vi.fn().mockReturnValue({
       values: vi.fn().mockReturnValue({
@@ -38,6 +44,24 @@ async function runService<A, E>(
     throw cause.error
   }
   throw new Error('Unexpected effect failure')
+}
+
+/** A submission row shaped like `aggregateConceptWeakSpots` expects. */
+function submission(
+  status: string,
+  concept: { id: string; slug: string; name: string; trackSlug: string }
+) {
+  return {
+    status,
+    exercise: {
+      concept: {
+        id: concept.id,
+        slug: concept.slug,
+        name: concept.name,
+        track: { slug: concept.trackSlug },
+      },
+    },
+  }
 }
 
 describe('ProgressService', () => {
@@ -447,6 +471,260 @@ describe('ProgressService', () => {
 
       expect(mockDb.insert).toHaveBeenCalledTimes(1)
       expect(mockDb._onConflictDoUpdate).toHaveBeenCalled()
+    })
+  })
+
+  // Pure aggregation helpers — no DB, same style as the presence tests above.
+  describe('aggregateConceptWeakSpots', () => {
+    const closures = {
+      id: 'concept-1',
+      slug: 'closures',
+      name: 'Closures',
+      trackSlug: 'typescript',
+    }
+
+    it('surfaces a concept with 3+ attempts and a high failed share', () => {
+      const result = aggregateConceptWeakSpots(
+        [
+          submission('failed', closures),
+          submission('failed', closures),
+          submission('passed', closures),
+        ],
+        new Map()
+      )
+
+      expect(result).toEqual([
+        {
+          conceptSlug: 'closures',
+          conceptName: 'Closures',
+          trackSlug: 'typescript',
+          attempts: 3,
+          failedShare: 2 / 3,
+          completed: 0,
+          total: 0,
+        },
+      ])
+    })
+
+    it('treats error the same as failed', () => {
+      const result = aggregateConceptWeakSpots(
+        [
+          submission('error', closures),
+          submission('error', closures),
+          submission('passed', closures),
+        ],
+        new Map()
+      )
+
+      expect(result[0]?.failedShare).toBeCloseTo(2 / 3)
+    })
+
+    it('drops concepts with fewer than 3 attempts even at 100% failed', () => {
+      const result = aggregateConceptWeakSpots(
+        [submission('failed', closures), submission('failed', closures)],
+        new Map()
+      )
+
+      expect(result).toEqual([])
+    })
+
+    it('keeps a low-failure concept when completion trails the total', () => {
+      const result = aggregateConceptWeakSpots(
+        [
+          submission('passed', closures),
+          submission('passed', closures),
+          submission('passed', closures),
+        ],
+        new Map([
+          ['concept-1', { conceptId: 'concept-1', exercisesCompleted: 1, exercisesTotal: 4 }],
+        ])
+      )
+
+      expect(result).toEqual([
+        {
+          conceptSlug: 'closures',
+          conceptName: 'Closures',
+          trackSlug: 'typescript',
+          attempts: 3,
+          failedShare: 0,
+          completed: 1,
+          total: 4,
+        },
+      ])
+    })
+
+    it('drops a concept with a low failed share and no completion gap', () => {
+      const result = aggregateConceptWeakSpots(
+        [
+          submission('passed', closures),
+          submission('passed', closures),
+          submission('passed', closures),
+        ],
+        new Map([
+          ['concept-1', { conceptId: 'concept-1', exercisesCompleted: 4, exercisesTotal: 4 }],
+        ])
+      )
+
+      expect(result).toEqual([])
+    })
+
+    it('sorts by failedShare descending and caps at 5', () => {
+      // 7 concepts, each 10 attempts, failedShare stepping from 0.4 to 1.0 —
+      // all clear the 0.4 threshold, so the cap is what trims the list, and
+      // it must keep the 5 highest shares (0.6 through 1.0), dropping 0.4/0.5.
+      const submissions = Array.from({ length: 7 }, (_, i) => {
+        const concept = {
+          id: `concept-${i}`,
+          slug: `concept-${i}`,
+          name: `Concept ${i}`,
+          trackSlug: 'typescript',
+        }
+        const failedCount = 4 + i
+        return [
+          ...Array.from({ length: failedCount }, () => submission('failed', concept)),
+          ...Array.from({ length: 10 - failedCount }, () => submission('passed', concept)),
+        ]
+      }).flat()
+
+      const result = aggregateConceptWeakSpots(submissions, new Map())
+
+      expect(result).toHaveLength(5)
+      expect(result.map((r) => r.failedShare)).toEqual([1.0, 0.9, 0.8, 0.7, 0.6])
+      expect(result.map((r) => r.conceptSlug)).toEqual([
+        'concept-6',
+        'concept-5',
+        'concept-4',
+        'concept-3',
+        'concept-2',
+      ])
+    })
+  })
+
+  describe('aggregateReadingGaps', () => {
+    it('counts misses per point across submissions', () => {
+      const result = aggregateReadingGaps([
+        {
+          rubricResults: [
+            { point: 'explains the cache invalidation', hit: false },
+            { point: 'names the race condition', hit: true },
+          ],
+        },
+        {
+          rubricResults: [{ point: 'explains the cache invalidation', hit: false }],
+        },
+      ])
+
+      expect(result).toEqual([{ point: 'explains the cache invalidation', misses: 2 }])
+    })
+
+    it('excludes points with fewer than 2 misses', () => {
+      const result = aggregateReadingGaps([
+        { rubricResults: [{ point: 'one-off miss', hit: false }] },
+      ])
+
+      expect(result).toEqual([])
+    })
+
+    it('returns [] for no reading submissions', () => {
+      expect(aggregateReadingGaps([])).toEqual([])
+    })
+
+    it('sorts by misses descending and caps at 5', () => {
+      const rows = Array.from({ length: 6 }, (_, i) =>
+        Array.from({ length: i + 2 }, () => ({ point: `point-${i}`, hit: false }))
+      ).map((rubricResults) => ({ rubricResults }))
+
+      const result = aggregateReadingGaps(rows)
+
+      expect(result).toHaveLength(5)
+      const misses = result.map((r) => r.misses)
+      expect(misses).toEqual(misses.toSorted((a, b) => b - a))
+      // point-5 has the most misses (7) and must survive the cap.
+      expect(result[0]).toEqual({ point: 'point-5', misses: 7 })
+    })
+  })
+
+  describe('getWeakSpots', () => {
+    it('joins submissions, mastery, and reading submissions into one payload', async () => {
+      mockDb.query.submissions.findMany.mockResolvedValue([
+        {
+          status: 'failed',
+          exercise: {
+            concept: {
+              id: 'concept-1',
+              slug: 'closures',
+              name: 'Closures',
+              track: { slug: 'typescript' },
+            },
+          },
+        },
+        {
+          status: 'failed',
+          exercise: {
+            concept: {
+              id: 'concept-1',
+              slug: 'closures',
+              name: 'Closures',
+              track: { slug: 'typescript' },
+            },
+          },
+        },
+        {
+          status: 'passed',
+          exercise: {
+            concept: {
+              id: 'concept-1',
+              slug: 'closures',
+              name: 'Closures',
+              track: { slug: 'typescript' },
+            },
+          },
+        },
+      ])
+      mockDb.query.conceptMastery.findMany.mockResolvedValue([
+        { conceptId: 'concept-1', exercisesCompleted: 1, exercisesTotal: 4 },
+      ])
+      mockDb.query.readingSubmissions.findMany.mockResolvedValue([
+        { rubricResults: [{ point: 'explains the trade-off', hit: false }] },
+        { rubricResults: [{ point: 'explains the trade-off', hit: false }] },
+      ])
+
+      const result = await runService(
+        Effect.gen(function* () {
+          const svc = yield* ProgressService
+          return yield* svc.getWeakSpots('user-1')
+        }),
+        testLayer
+      )
+
+      expect(result.concepts).toEqual([
+        {
+          conceptSlug: 'closures',
+          conceptName: 'Closures',
+          trackSlug: 'typescript',
+          attempts: 3,
+          failedShare: 2 / 3,
+          completed: 1,
+          total: 4,
+        },
+      ])
+      expect(result.readingGaps).toEqual([{ point: 'explains the trade-off', misses: 2 }])
+    })
+
+    it('returns empty lists when there is no history', async () => {
+      mockDb.query.submissions.findMany.mockResolvedValue([])
+      mockDb.query.conceptMastery.findMany.mockResolvedValue([])
+      mockDb.query.readingSubmissions.findMany.mockResolvedValue([])
+
+      const result = await runService(
+        Effect.gen(function* () {
+          const svc = yield* ProgressService
+          return yield* svc.getWeakSpots('user-1')
+        }),
+        testLayer
+      )
+
+      expect(result).toEqual({ concepts: [], readingGaps: [] })
     })
   })
 })

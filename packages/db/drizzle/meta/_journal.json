@@ -92,6 +92,13 @@
       "when": 1771470555759,
       "tag": "0012_add_api_tokens_and_submission_via",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1771470555760,
+      "tag": "0013_add_reading_practice_and_ai_model",
+      "breakpoints": true
     }
   ]
 }

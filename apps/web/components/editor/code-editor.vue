@@ -314,7 +314,7 @@ onUnmounted(() => {
   <div class="relative rounded-lg border border-rule overflow-hidden h-full min-h-[300px]">
     <div ref="editorContainer" class="h-full" />
     <div
-      class="absolute bottom-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded"
+      class="absolute bottom-2 right-2 max-w-[calc(100%-1rem)] truncate text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded"
     >
       {{ language }}{{ isBlankMode ? ' | Tab to navigate' : '' }} | Ctrl+Enter to submit
     </div>

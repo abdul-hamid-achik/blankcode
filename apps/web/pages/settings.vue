@@ -206,6 +206,51 @@ function tokenLastUsed(iso: string | null): string {
   return `used ${days}d ago`
 }
 
+/** AI model tier: which one is selected, and whether it's earned honestly. */
+interface AiTierOption {
+  id: string
+  label: string
+  blurb: string
+  paidOnly: boolean
+}
+
+interface AiModelState {
+  tier: string
+  paid: boolean
+  tiers: AiTierOption[]
+}
+
+const aiModelState = ref<AiModelState | null>(null)
+const aiModelBusy = ref(false)
+
+onMounted(async () => {
+  try {
+    aiModelState.value = await $fetch<AiModelState>('/api/account/ai-model', {
+      headers: reminderHeaders(),
+    })
+  } catch {
+    // The section just does not render; nothing was chosen wrongly.
+  }
+})
+
+async function selectAiModel(tier: string) {
+  if (!aiModelState.value || aiModelBusy.value || aiModelState.value.tier === tier) return
+  const previous = aiModelState.value
+  aiModelBusy.value = true
+  try {
+    const saved = await $fetch<{ tier: string }>('/api/account/ai-model', {
+      method: 'POST',
+      headers: reminderHeaders(),
+      body: { tier },
+    })
+    aiModelState.value = { ...previous, tier: saved.tier }
+  } catch {
+    // Selection stays where it was; the click simply did not take.
+  } finally {
+    aiModelBusy.value = false
+  }
+}
+
 function increaseFontSize() {
   preferencesStore.setFontSize(preferencesStore.preferences.fontSize + 1)
 }
@@ -380,6 +425,50 @@ function decreaseFontSize() {
               </Button>
             </div>
             <p v-if="tokenError" class="text-xs text-fail">{{ tokenError }}</p>
+          </div>
+        </Card>
+
+        <!-- AI model -->
+        <Card v-if="aiModelState">
+          <h2 class="display text-lg mb-1">AI model</h2>
+          <p class="text-xs text-muted-foreground leading-relaxed mb-4 max-w-sm">
+            What reads your code for the failed-test explanation and turn-based hints. Faster tiers
+            answer sooner; slower ones read more carefully.
+          </p>
+          <div class="space-y-3">
+            <div
+              v-for="tier in aiModelState.tiers"
+              :key="tier.id"
+              class="flex items-start justify-between gap-4"
+            >
+              <div>
+                <p class="text-sm font-medium">
+                  {{ tier.label }}
+                  <span v-if="tier.paidOnly" class="ml-1 font-mono text-xs text-muted-foreground"
+                    >Pro</span
+                  >
+                </p>
+                <p class="text-xs text-muted-foreground leading-relaxed max-w-sm">
+                  {{ tier.blurb }}
+                </p>
+                <p
+                  v-if="
+                    tier.id === 'advanced' && aiModelState.tier === 'advanced' && !aiModelState.paid
+                  "
+                  class="text-xs text-muted-foreground mt-1"
+                >
+                  resolves to Standard until Pro
+                </p>
+              </div>
+              <Button
+                :variant="aiModelState.tier === tier.id ? 'primary' : 'outline'"
+                size="sm"
+                :disabled="aiModelBusy"
+                @click="selectAiModel(tier.id)"
+              >
+                {{ aiModelState.tier === tier.id ? 'Selected' : 'Choose' }}
+              </Button>
+            </div>
           </div>
         </Card>
 

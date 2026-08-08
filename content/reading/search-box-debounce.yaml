@@ -1,0 +1,181 @@
+slug: search-box-debounce
+title: A search box wired to a debounced client
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what happens between the last keystroke
+  and the results appearing — including when the box is cleared mid-flight.
+language: typescript
+difficulty: intermediate
+isPublished: true
+
+files:
+  - path: src/timing.ts
+    content: |
+      export interface Debounced<Args extends unknown[]> {
+        (...args: Args): void
+        /** Drops the pending call, if there is one. */
+        cancel(): void
+        /** Runs the pending call now instead of on the timer. */
+        flush(): void
+      }
+
+      export function debounce<Args extends unknown[]>(
+        fn: (...args: Args) => void,
+        waitMs: number
+      ): Debounced<Args> {
+        let timer: ReturnType<typeof setTimeout> | null = null
+        let pending: Args | null = null
+
+        const cancel = (): void => {
+          if (timer !== null) clearTimeout(timer)
+          timer = null
+          pending = null
+        }
+
+        const flush = (): void => {
+          const queued = pending
+          cancel()
+          if (queued) fn(...queued)
+        }
+
+        const call = (...args: Args): void => {
+          pending = args
+          if (timer !== null) clearTimeout(timer)
+          timer = setTimeout(() => {
+            timer = null
+            const queued = pending
+            pending = null
+            if (queued) fn(...queued)
+          }, waitMs)
+        }
+
+        return Object.assign(call, { cancel, flush })
+      }
+
+      export function throttle<Args extends unknown[]>(
+        fn: (...args: Args) => void,
+        everyMs: number
+      ): (...args: Args) => void {
+        let last = 0
+        return (...args: Args): void => {
+          const now = Date.now()
+          if (now - last < everyMs) return
+          last = now
+          fn(...args)
+        }
+      }
+
+  - path: src/api.ts
+    content: |
+      export interface Hit {
+        id: string
+        title: string
+      }
+
+      export async function search(query: string): Promise<Hit[]> {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`)
+        if (!response.ok) return []
+        return (await response.json()) as Hit[]
+      }
+
+  - path: src/search-box.ts
+    content: |
+      import { search, type Hit } from './api'
+      import { debounce, throttle } from './timing'
+
+      export interface SearchBox {
+        type(query: string): void
+        clear(): void
+      }
+
+      export function createSearchBox(
+        render: (hits: Hit[]) => void,
+        track: (query: string) => void
+      ): SearchBox {
+        let latest = 0
+
+        const trackTyping = throttle(track, 1000)
+
+        const run = debounce(async (query: string) => {
+          const ticket = ++latest
+          const hits = await search(query)
+          if (ticket !== latest) return
+          render(hits)
+        }, 250)
+
+        return {
+          type(query: string): void {
+            trackTyping(query)
+            if (query.trim() === '') {
+              run.cancel()
+              render([])
+              return
+            }
+            run(query)
+          },
+
+          clear(): void {
+            run.cancel()
+            render([])
+          },
+        }
+      }
+
+  - path: src/index.ts
+    content: |
+      export { search, type Hit } from './api'
+      export { createSearchBox, type SearchBox } from './search-box'
+      export { debounce, type Debounced, throttle } from './timing'
+
+rubric:
+  - id: debounce-single-timer
+    weight: 1
+    point: >-
+      debounce keeps one timer and one set of pending arguments, restarting the
+      timer on every call, so only the last call inside the wait window runs.
+
+  - id: flush-semantics
+    weight: 2
+    point: >-
+      flush runs the pending call immediately and clears the timer, and does
+      nothing at all when no call is pending.
+
+  - id: throttle-leading-edge
+    weight: 2
+    point: >-
+      throttle fires on the leading edge using a Date.now timestamp; calls made
+      inside the window are dropped outright, not deferred to the end of it.
+
+  - id: ticket-guard
+    weight: 2
+    point: >-
+      createSearchBox guards against out-of-order responses with the `latest`
+      counter: each run takes a ticket and only renders if its ticket is still
+      the newest.
+
+  - id: cancel-not-abort
+    weight: 3
+    point: >-
+      run.cancel only clears a pending timer. A request that has already been
+      dispatched is not aborted, and cancelling does not advance `latest`, so
+      that request's ticket is still current when it resolves.
+
+  - id: stale-render
+    weight: 3
+    point: >-
+      That makes clear (or typing whitespace) after the debounce has fired
+      render an empty list and then, moments later, render the in-flight hits
+      over it, refilling the box for a query no longer on screen.
+
+  - id: empty-query-path
+    weight: 2
+    point: >-
+      An empty or whitespace query never reaches search: it cancels, renders an
+      empty list and returns — but the throttled tracking call has already run,
+      so it is still reported as typing.
+
+  - id: search-swallows-errors
+    weight: 1
+    point: >-
+      api.search turns any non-OK response into an empty hit list, so a failing
+      backend is indistinguishable from a query with no matches.

@@ -1,6 +1,8 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import * as schema from '@blankcode/db/schema'
+import { hasPaidAccess } from '@blankcode/shared'
 import { withinBudget } from '../../../utils/usage'
+import { resolveAiModel } from '../../../utils/ai-model'
 import { streamText } from 'ai'
 import { eq } from 'drizzle-orm'
 import * as jose from 'jose'
@@ -21,8 +23,6 @@ import * as jose from 'jose'
  * the hint is the answer, so the model is given the learner's code and the
  * failure, never `solutionCode`.
  */
-
-const MODEL = process.env['LLM_MODEL'] ?? 'deepseek/deepseek-v4-flash'
 
 /**
  * Per-user budget. Generation is the only part of a submission that costs money.
@@ -62,6 +62,22 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 429, statusMessage: 'Too many explanations, try later' })
   }
 
+  // The caller's tier, entitlement-checked: `resolveAiModel` falls back to
+  // Standard when `advanced` is stored without a paid plan, so a lapsed
+  // subscription degrades the explanation rather than breaking the route.
+  const explainer = await db.query.users.findFirst({
+    where: eq(schema.users.id, userId),
+    columns: { aiModel: true, subscriptionStatus: true, subscriptionEndsAt: true },
+  })
+  const paid = hasPaidAccess(
+    {
+      subscriptionStatus: explainer?.subscriptionStatus ?? null,
+      subscriptionEndsAt: explainer?.subscriptionEndsAt ?? null,
+    },
+    new Date()
+  )
+  const model = resolveAiModel(explainer?.aiModel, paid)
+
   const body = await readBody<{ submissionId?: string }>(event)
   if (!body?.submissionId) {
     throw createError({ statusCode: 400, statusMessage: 'submissionId is required' })
@@ -90,7 +106,7 @@ export default defineEventHandler(async (event) => {
     .join('\n')
 
   const result = streamText({
-    model: MODEL,
+    model,
     // The exercise's own description is included; its solution never is.
     system: [
       'You explain why a piece of code failed its tests, to someone practising a',

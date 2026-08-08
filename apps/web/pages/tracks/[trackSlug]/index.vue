@@ -105,41 +105,43 @@ useSeoMeta({
           :to="`/tracks/${trackSlug}/${concept.slug}`"
         >
           <Card class="hover:border-rule-strong transition-colors cursor-pointer">
-            <div class="flex items-center justify-between">
-              <div>
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0 flex-1">
                 <h3 class="font-semibold">{{ concept.name }}</h3>
                 <p class="text-sm text-muted-foreground">{{ concept.description }}</p>
               </div>
-              <!-- Your marks on the paper: real counts, or nothing. -->
-              <span
-                v-if="conceptProgress(concept.slug)"
-                class="mr-3 shrink-0 font-mono text-xs"
-                :class="
-                  (conceptProgress(concept.slug)?.completed ?? 0) >=
-                    (conceptProgress(concept.slug)?.total ?? 1) &&
-                  (conceptProgress(concept.slug)?.total ?? 0) > 0
-                    ? 'text-pass'
-                    : 'text-muted-foreground'
-                "
-              >
-                {{ conceptProgress(concept.slug)?.completed }}/{{
-                  conceptProgress(concept.slug)?.total
-                }}
-              </span>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="text-muted-foreground"
-              >
-                <path d="m9 18 6-6-6-6" />
-              </svg>
+              <div class="flex shrink-0 items-center gap-3">
+                <!-- Your marks on the paper: real counts, or nothing. -->
+                <span
+                  v-if="conceptProgress(concept.slug)"
+                  class="font-mono text-xs"
+                  :class="
+                    (conceptProgress(concept.slug)?.completed ?? 0) >=
+                      (conceptProgress(concept.slug)?.total ?? 1) &&
+                    (conceptProgress(concept.slug)?.total ?? 0) > 0
+                      ? 'text-pass'
+                      : 'text-muted-foreground'
+                  "
+                >
+                  {{ conceptProgress(concept.slug)?.completed }}/{{
+                    conceptProgress(concept.slug)?.total
+                  }}
+                </span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="shrink-0 text-muted-foreground"
+                >
+                  <path d="m9 18 6-6-6-6" />
+                </svg>
+              </div>
             </div>
           </Card>
         </NuxtLink>

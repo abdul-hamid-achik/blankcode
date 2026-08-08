@@ -55,4 +55,11 @@ export const ProgressHandlers = HttpApiBuilder.group(BlankCodeApi, 'progress', (
         return yield* svc.getActivityTimeline(user.id)
       })
     )
+    .handle('weakSpots', () =>
+      Effect.gen(function* () {
+        const user = yield* CurrentUser
+        const svc = yield* ProgressService
+        return yield* svc.getWeakSpots(user.id)
+      })
+    )
 )

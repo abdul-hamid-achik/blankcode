@@ -208,9 +208,9 @@ const spareLine = computed(() => {
   <div class="min-h-0 flex-1 overflow-auto p-5 md:p-6">
     <div class="mx-auto max-w-3xl">
       <!-- The budget, always in view. -->
-      <div class="mb-6 flex items-center gap-3">
+      <div class="mb-6 flex flex-wrap items-center gap-3">
         <span class="eyebrow">budget</span>
-        <div class="flex gap-1.5" aria-label="Turns used">
+        <div class="flex flex-wrap gap-1.5" aria-label="Turns used">
           <span
             v-for="(spent, i) in slots"
             :key="i"
@@ -255,7 +255,9 @@ const spareLine = computed(() => {
             <p class="eyebrow mb-1.5">
               {{ message.role === 'user' ? `turn ${Math.floor(i / 2) + 1} — you` : 'the model' }}
             </p>
-            <p class="whitespace-pre-wrap text-sm leading-relaxed">{{ message.content }}</p>
+            <p class="whitespace-pre-wrap break-words text-sm leading-relaxed">
+              {{ message.content }}
+            </p>
           </li>
         </ol>
 
@@ -271,7 +273,7 @@ const spareLine = computed(() => {
             class="w-full rounded-lg border border-rule bg-background px-3 py-2 font-mono text-sm"
             :disabled="busy"
           />
-          <div class="mt-2 flex items-center justify-between gap-3">
+          <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
             <p class="font-mono text-xs text-muted-foreground">
               sending spends 1 of {{ turnsRemaining }} remaining
             </p>
@@ -285,7 +287,7 @@ const spareLine = computed(() => {
           decide the code is right, and submit it.
         </p>
 
-        <div class="mb-3 flex items-baseline justify-between">
+        <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           <p class="eyebrow">the code you will submit</p>
           <p class="font-mono text-xs text-muted-foreground">
             edit freely — turns buy messages, not keystrokes

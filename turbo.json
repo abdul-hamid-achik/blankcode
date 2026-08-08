@@ -48,6 +48,8 @@
         "composables/**",
         "utils/**",
         "stores/**",
+        "server/**",
+        "pages/**",
         "vitest.config.ts",
         "../../content/**",
         "../../docker/**",

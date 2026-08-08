@@ -3,6 +3,7 @@ import {
   conceptMastery,
   concepts,
   exercises,
+  readingSubmissions,
   submissions,
   tracks,
   userProgress,
@@ -64,6 +65,26 @@ export interface ActivityDay {
   exercisesCompleted: number
 }
 
+export interface WeakSpotConcept {
+  conceptSlug: string
+  conceptName: string
+  trackSlug: string
+  attempts: number
+  failedShare: number
+  completed: number
+  total: number
+}
+
+export interface ReadingGap {
+  point: string
+  misses: number
+}
+
+export interface WeakSpots {
+  concepts: WeakSpotConcept[]
+  readingGaps: ReadingGap[]
+}
+
 interface ProgressServiceShape {
   readonly getExerciseProgress: (
     userId: string,
@@ -94,6 +115,7 @@ interface ProgressServiceShape {
     userId: string,
     exerciseId: string
   ) => Effect.Effect<void, BadRequestError>
+  readonly getWeakSpots: (userId: string) => Effect.Effect<WeakSpots, NotFoundError>
 }
 
 export class ProgressService extends Context.Tag('ProgressService')<
@@ -116,6 +138,124 @@ function applyMasteryDecay(level: number, lastPracticedAt: Date | null | undefin
   if (days < 1) return level
   const decayed = level * 2 ** (-days / MASTERY_HALF_LIFE_DAYS)
   return Math.max(MASTERY_DECAY_FLOOR * level, decayed)
+}
+
+// A submission counts against a concept only once it fails outright or errors
+// — 'pending'/'running' rows are mid-flight, not evidence of struggle.
+const FAILING_SUBMISSION_STATUSES = new Set(['failed', 'error'])
+
+// Thresholds are deliberately conservative: a concept only surfaces once
+// there is enough evidence (3+ attempts in the window) that it is a real
+// pattern rather than one bad afternoon.
+const WEAK_SPOT_MIN_ATTEMPTS = 3
+const WEAK_SPOT_MIN_FAILED_SHARE = 0.4
+const WEAK_SPOT_MAX_CONCEPTS = 5
+const READING_GAP_MIN_MISSES = 2
+const READING_GAP_MAX_POINTS = 5
+
+/** The slice of a joined submission row `aggregateConceptWeakSpots` needs. */
+export interface WeakSpotSubmissionInput {
+  status: string
+  exercise: {
+    concept: {
+      id: string
+      slug: string
+      name: string
+      track: { slug: string }
+    }
+  }
+}
+
+export interface WeakSpotMasteryInput {
+  conceptId: string
+  exercisesCompleted: number
+  exercisesTotal: number
+}
+
+/**
+ * Pure aggregation: groups a window of submissions by concept and keeps only
+ * the ones worth surfacing — practiced enough to mean something (3+
+ * attempts), where either failures dominate or completion still trails the
+ * concept's total exercise count. No DB access, so it is unit-tested directly.
+ */
+export function aggregateConceptWeakSpots(
+  recentSubmissions: readonly WeakSpotSubmissionInput[],
+  masteryByConceptId: ReadonlyMap<string, WeakSpotMasteryInput>
+): WeakSpotConcept[] {
+  interface Accumulator {
+    conceptSlug: string
+    conceptName: string
+    trackSlug: string
+    attempts: number
+    failed: number
+  }
+
+  const byConceptId = new Map<string, Accumulator>()
+
+  for (const submission of recentSubmissions) {
+    const concept = submission.exercise.concept
+    const entry = byConceptId.get(concept.id) ?? {
+      conceptSlug: concept.slug,
+      conceptName: concept.name,
+      trackSlug: concept.track.slug,
+      attempts: 0,
+      failed: 0,
+    }
+    entry.attempts += 1
+    if (FAILING_SUBMISSION_STATUSES.has(submission.status)) entry.failed += 1
+    byConceptId.set(concept.id, entry)
+  }
+
+  return Array.from(byConceptId.entries())
+    .map(([conceptId, entry]) => {
+      const mastery = masteryByConceptId.get(conceptId)
+      const completed = mastery?.exercisesCompleted ?? 0
+      const total = mastery?.exercisesTotal ?? 0
+      return {
+        conceptSlug: entry.conceptSlug,
+        conceptName: entry.conceptName,
+        trackSlug: entry.trackSlug,
+        attempts: entry.attempts,
+        failedShare: entry.failed / entry.attempts,
+        completed,
+        total,
+      }
+    })
+    .filter(
+      (row) =>
+        row.attempts >= WEAK_SPOT_MIN_ATTEMPTS &&
+        (row.failedShare >= WEAK_SPOT_MIN_FAILED_SHARE || row.completed < row.total)
+    )
+    .toSorted((a, b) => b.failedShare - a.failedShare)
+    .slice(0, WEAK_SPOT_MAX_CONCEPTS)
+}
+
+export interface WeakSpotRubricRow {
+  rubricResults: readonly { point: string; hit: boolean }[]
+}
+
+/**
+ * Pure aggregation: unnests rubric results client-side and counts misses per
+ * point text. Reading submissions are few per user and rubricResults is
+ * already fetched whole, so grouping in JS avoids a jsonb-unnest query for a
+ * shape that will change as rubrics are authored. No DB access, unit-tested
+ * directly. Empty input (no reading submissions yet) yields [].
+ */
+export function aggregateReadingGaps(rows: readonly WeakSpotRubricRow[]): ReadingGap[] {
+  const missesByPoint = new Map<string, number>()
+
+  for (const row of rows) {
+    for (const result of row.rubricResults) {
+      if (result.hit) continue
+      missesByPoint.set(result.point, (missesByPoint.get(result.point) ?? 0) + 1)
+    }
+  }
+
+  return Array.from(missesByPoint.entries())
+    .map(([point, misses]) => ({ point, misses }))
+    .filter((gap) => gap.misses >= READING_GAP_MIN_MISSES)
+    .toSorted((a, b) => b.misses - a.misses)
+    .slice(0, READING_GAP_MAX_POINTS)
 }
 
 export const ProgressServiceLive = Layer.effect(
@@ -492,6 +632,41 @@ export const ProgressServiceLive = Layer.effect(
         }),
 
       updateConceptMastery: (userId, exerciseId) => updateConceptMasteryFn(userId, exerciseId),
+
+      getWeakSpots: (userId) =>
+        Effect.gen(function* () {
+          const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+
+          const [recentSubmissions, masteryRecords, userReadingSubmissions] =
+            yield* Effect.tryPromise({
+              try: () =>
+                Promise.all([
+                  db.query.submissions.findMany({
+                    where: and(
+                      eq(submissions.userId, userId),
+                      gte(submissions.createdAt, thirtyDaysAgo)
+                    ),
+                    with: { exercise: { with: { concept: { with: { track: true } } } } },
+                  }),
+                  db.query.conceptMastery.findMany({
+                    where: eq(conceptMastery.userId, userId),
+                    columns: { conceptId: true, exercisesCompleted: true, exercisesTotal: true },
+                  }),
+                  db.query.readingSubmissions.findMany({
+                    where: eq(readingSubmissions.userId, userId),
+                    columns: { rubricResults: true },
+                  }),
+                ]),
+              catch: () => new NotFoundError({ resource: 'WeakSpots', id: userId }),
+            })
+
+          const masteryByConceptId = new Map(masteryRecords.map((m) => [m.conceptId, m]))
+
+          return {
+            concepts: aggregateConceptWeakSpots(recentSubmissions, masteryByConceptId),
+            readingGaps: aggregateReadingGaps(userReadingSubmissions),
+          }
+        }),
     })
   })
 )

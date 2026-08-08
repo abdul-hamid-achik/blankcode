@@ -185,7 +185,7 @@ const verdictLine = computed(() => {
   <div class="min-h-0 flex-1 overflow-auto p-5 md:p-6">
     <div class="mx-auto max-w-3xl">
       <!-- The running total, always in view. -->
-      <div class="mb-6 flex items-center gap-3">
+      <div class="mb-6 flex flex-wrap items-center gap-3">
         <span class="eyebrow">spent</span>
         <span class="font-mono text-sm">{{ runningTotal }} tokens</span>
         <span class="font-mono text-xs text-muted-foreground">
@@ -222,8 +222,13 @@ const verdictLine = computed(() => {
             :key="source.id"
             class="border-b border-rule last:border-b-0"
           >
-            <div class="flex items-center justify-between gap-4 px-4 py-3">
-              <p class="text-sm" :class="held.has(source.id) ? '' : 'text-muted-foreground'">
+            <div
+              class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+            >
+              <p
+                class="min-w-0 flex-1 break-words text-sm"
+                :class="held.has(source.id) ? '' : 'text-muted-foreground'"
+              >
                 {{ source.label }}
               </p>
               <div class="flex shrink-0 items-center gap-3">
@@ -306,7 +311,9 @@ const verdictLine = computed(() => {
 
         <p v-if="report.unnecessary.length" class="mb-6 text-sm text-muted-foreground">
           Bought and never needed:
-          <span class="font-mono text-xs">{{ report.unnecessary.map(labelOf).join(' · ') }}</span>
+          <span class="break-words font-mono text-xs">{{
+            report.unnecessary.map(labelOf).join(' · ')
+          }}</span>
         </p>
 
         <div class="flex flex-wrap gap-3">
