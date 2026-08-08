@@ -146,7 +146,12 @@ function onWorkspaceKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape' && expanded.value) expanded.value = false
 }
 
-onMounted(() => window.addEventListener('keydown', onWorkspaceKeydown))
+const analytics = useAnalytics()
+
+onMounted(() => {
+  window.addEventListener('keydown', onWorkspaceKeydown)
+  analytics.emit('reading-opened', { reading: slug.value })
+})
 onUnmounted(() => window.removeEventListener('keydown', onWorkspaceKeydown))
 
 const explanation = ref('')
@@ -208,6 +213,16 @@ async function submit(): Promise<void> {
     })
     grade.value = result
     quota.value = result.quota
+    // Five buckets, not raw scores — enough for the curve, nothing per-person.
+    analytics.emit('reading-graded', {
+      reading: slug.value,
+      band: (Math.round((result.score / Math.max(1, result.maxScore)) * 4) * 25) as
+        | 0
+        | 25
+        | 50
+        | 75
+        | 100,
+    })
     attempts.value = [
       {
         id: `attempt-${result.attempts}`,
@@ -219,6 +234,9 @@ async function submit(): Promise<void> {
     ]
   } catch (caught) {
     error.value = failureMessage(caught)
+    if (/limit|a day|429/i.test(error.value)) {
+      analytics.emit('limit-reached', { kind: 'reading' })
+    }
   } finally {
     submitting.value = false
   }

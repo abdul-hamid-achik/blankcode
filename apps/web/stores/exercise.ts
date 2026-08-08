@@ -1,5 +1,6 @@
 import type { BlankRegionInStarter, Exercise, Submission } from '@blankcode/shared'
 import { defineStore } from 'pinia'
+import { useAnalytics } from '~/composables/useAnalytics'
 import { extractDraftBlankValues, reconstructCode } from '~/composables/useBlankEditor'
 
 export const useExerciseStore = defineStore('exercise', () => {
@@ -119,6 +120,20 @@ export const useExerciseStore = defineStore('exercise', () => {
     isSubmitting.value = false
     if (isBlankMode.value) {
       computeBlankFeedback()
+    }
+
+    // The chart that matters: which exercises pass and which eat people.
+    // Slugs only — low cardinality, nobody identified.
+    const status = latestSubmission.value?.status
+    const doc = exercise.value as
+      | (typeof exercise.value & { concept?: { track?: { slug?: string } } })
+      | null
+    if (doc && (status === 'passed' || status === 'failed')) {
+      useAnalytics().emit('submission-graded', {
+        track: doc.concept?.track?.slug ?? 'unknown',
+        exercise: doc.slug,
+        passed: status === 'passed',
+      })
     }
   }
 
@@ -294,6 +309,10 @@ export const useExerciseStore = defineStore('exercise', () => {
     } catch (e) {
       isSubmitting.value = false
       submissionError.value = e instanceof Error ? e.message : 'Submission failed'
+      // The cap doing its work is a signal, not an error to hide.
+      if (/limit|429/i.test(submissionError.value)) {
+        useAnalytics().emit('limit-reached', { kind: 'submission' })
+      }
     }
   }
 

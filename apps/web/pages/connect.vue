@@ -2,6 +2,7 @@
 import Button from '~/components/ui/button.vue'
 import Card from '~/components/ui/card.vue'
 import { usePageSeo } from '~/composables/usePageSeo'
+import { useAnalytics } from '~/composables/useAnalytics'
 import { useAuthStore } from '~/stores/auth'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
@@ -14,6 +15,7 @@ import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 definePageMeta({ requiresAuth: false })
 
+const analytics = useAnalytics()
 const auth = useAuthStore()
 const site = (useRuntimeConfig().public['siteUrl'] as string).replace(/\/+$/, '')
 const mcpUrl = computed(() => `${site}/mcp`)
@@ -41,6 +43,7 @@ async function mint() {
     })
     minted.value = { token: created.token, name: created.name }
     tokenName.value = ''
+    analytics.emit('agent-token-minted', { from: 'connect' })
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Could not create the token'
   } finally {
@@ -94,6 +97,7 @@ const snippets = computed<Snippet[]>(() => [
 ])
 
 async function copyText(text: string, key: string) {
+  analytics.emit('snippet-copied', { harness: key })
   try {
     await navigator.clipboard.writeText(text)
     copiedKey.value = key
@@ -209,7 +213,11 @@ usePageSeo({
         exercise is recorded as assisted and leaves the review owed. Your schedule models
         <em>your</em> memory; that is the whole product.
       </p>
-      <a href="/skills/blankcode-practice.md" download>
+      <a
+        href="/skills/blankcode-practice.md"
+        download
+        @click="analytics.emit('skill-downloaded', { page: 'connect' })"
+      >
         <Button variant="outline" size="sm">Download the skill file</Button>
       </a>
     </Card>

@@ -24,9 +24,22 @@ function resolveSecret(envVar: string, fallback: string): string {
   return process.env[envVar] ?? fallback
 }
 
-const DATABASE_URL = resolveSecret(
-  'DATABASE_URL',
-  'postgresql://postgres:postgres@localhost:5432/blankcode'
+/**
+ * Pins the SSL mode the driver already enforces.
+ *
+ * pg treats 'require' as an alias for 'verify-full' today and warns on every
+ * boot that pg v9 will downgrade it to real libpq semantics (no certificate
+ * verification). The Neon connection strings say 'require'; rewriting them to
+ * 'verify-full' here keeps the strict behavior we are actually relying on
+ * across that major bump, silences the warning, and means no stored secret
+ * (Vercel, tvault, CI artifacts) has to be re-cut for a query-string detail.
+ */
+function pinSslMode(url: string): string {
+  return url.replace(/\bsslmode=(require|prefer|verify-ca)\b/, 'sslmode=verify-full')
+}
+
+const DATABASE_URL = pinSslMode(
+  resolveSecret('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/blankcode')
 )
 
 // ---------------------------------------------------------------------------
@@ -64,7 +77,7 @@ export function createDatabase(config: {
   connectTimeout?: number
 }) {
   const pool = new pg.Pool({
-    connectionString: config.connectionString,
+    connectionString: pinSslMode(config.connectionString),
     max: config.max ?? 10,
     idleTimeoutMillis: (config.idleTimeout ?? 20) * 1000,
     connectionTimeoutMillis: (config.connectTimeout ?? 10) * 1000,

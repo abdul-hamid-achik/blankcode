@@ -1,5 +1,6 @@
 import type { User } from '@blankcode/shared'
 import { defineStore } from 'pinia'
+import { useAnalytics } from '~/composables/useAnalytics'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -52,6 +53,8 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = response.accessToken
     refreshToken.value = response.refreshToken
     user.value = response.user as User
+    // The funnel's one real conversion. Counted only after the server said yes.
+    useAnalytics().emit('signup', { method: 'password' })
   }
 
   /*

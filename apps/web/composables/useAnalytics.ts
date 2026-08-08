@@ -33,7 +33,35 @@ interface Events {
   /** Checkout started. Paired with the Stripe webhook, this gives drop-off. */
   'checkout-started': { currency: string }
   /** A free account hit its daily cap — the signal the limit is doing work. */
-  'limit-reached': { kind: 'submission' | 'explanation' }
+  'limit-reached': { kind: 'submission' | 'explanation' | 'reading' }
+
+  // ── Reading practice ──
+  /** A reading codebase was opened. */
+  'reading-opened': { reading: string }
+  /** A reading was graded. The band keeps cardinality at five buckets. */
+  'reading-graded': { reading: string; band: 0 | 25 | 50 | 75 | 100 }
+
+  // ── Tutorials ──
+  /** An inline checkpoint was checked. The tutorial funnel's one signal. */
+  'checkpoint-checked': { solved: boolean }
+
+  // ── Bring-your-own-agent ──
+  /** A practice token was minted, and from which door. */
+  'agent-token-minted': { from: 'connect' | 'settings' }
+  /** A harness snippet or the course prompt was copied on /connect. */
+  'snippet-copied': { harness: string }
+  /** The skill file was downloaded. */
+  'skill-downloaded': { page: 'connect' }
+
+  // ── Session forms ──
+  'turn-session-started': { exercise: string }
+  'turn-session-submitted': { exercise: string; passed: boolean; spared: number }
+  'context-session-started': { exercise: string }
+  'context-session-answered': { exercise: string; correct: boolean; sufficient: boolean }
+
+  // ── Preferences that shape cost ──
+  /** The AI tier changed. Cost forecasting wants this curve. */
+  'ai-tier-changed': { tier: string }
 }
 
 /**

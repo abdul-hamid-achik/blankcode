@@ -85,11 +85,15 @@ function widthFor(solution: string): string {
   return `${Math.max(3, Math.min(24, solution.length + 1))}ch`
 }
 
+const analytics = useAnalytics()
+
 function check() {
   verdicts.value = blanks.value.map((blank, i) =>
     (answers.value[i] ?? '').trim() === blank.text ? 'correct' : 'incorrect'
   )
   solved.value = verdicts.value.every((v) => v === 'correct')
+  // The tutorial funnel's one signal: do readers produce the piece, or bounce.
+  analytics.emit('checkpoint-checked', { solved: solved.value })
 }
 
 function onInput(i: number, event: Event) {

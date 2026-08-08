@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import CodeEditor from '~/components/editor/code-editor.vue'
 import Button from '~/components/ui/button.vue'
+import { useAnalytics } from '~/composables/useAnalytics'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 /**
@@ -12,6 +13,8 @@ import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
  * before you pay it; and the hidden suite appears only after the session is
  * closed and stamped, as the reward for finishing rather than an appendix.
  */
+
+const analytics = useAnalytics()
 
 const props = defineProps<{
   exercise: {
@@ -107,6 +110,7 @@ async function start() {
       finalCode: null,
     }
     phase.value = 'live'
+    analytics.emit('turn-session-started', { exercise: props.exercise.id })
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Could not start the session'
   } finally {
@@ -172,6 +176,11 @@ async function submit() {
       errorMessage: result.errorMessage,
     }
     phase.value = 'submitted'
+    analytics.emit('turn-session-submitted', {
+      exercise: props.exercise.id,
+      passed: result.outcome.passed,
+      spared: result.outcome.turnsSpared,
+    })
     // The suite, released now that the session has earned it. Pedagogical
     // reward, not appendix: reading the tests you were graded by is where
     // the lesson about specification lands.

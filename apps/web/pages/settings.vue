@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import Button from '~/components/ui/button.vue'
 import Card from '~/components/ui/card.vue'
+import { useAnalytics } from '~/composables/useAnalytics'
 import { useAuthStore } from '~/stores/auth'
 import { usePreferencesStore } from '~/stores/preferences'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
@@ -165,6 +166,7 @@ async function createToken() {
     })
     freshToken.value = { token: minted.token, name: minted.name }
     copied.value = false
+    useAnalytics().emit('agent-token-minted', { from: 'settings' })
     tokenName.value = ''
     await loadTokens()
   } catch (e) {
@@ -244,6 +246,7 @@ async function selectAiModel(tier: string) {
       body: { tier },
     })
     aiModelState.value = { ...previous, tier: saved.tier }
+    useAnalytics().emit('ai-tier-changed', { tier: saved.tier })
   } catch {
     // Selection stays where it was; the click simply did not take.
   } finally {

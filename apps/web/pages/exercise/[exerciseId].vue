@@ -131,9 +131,14 @@ async function loadConceptTutorial() {
   }
 }
 
+const analytics = useAnalytics()
+
 function handleExplain() {
   const id = exerciseStore.latestSubmission?.id
-  if (id) void explain(id)
+  if (id) {
+    analytics.emit('explanation-requested', { track: trackSlug.value ?? 'unknown' })
+    void explain(id)
+  }
 }
 
 const concept = computed(
@@ -616,7 +621,10 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
         </div>
 
         <div v-if="exerciseStore.exercise.hints?.length" class="mt-8 border-t border-rule pt-6">
-          <HintsPanel :hints="exerciseStore.exercise.hints" />
+          <HintsPanel
+            :exercise="exerciseStore.exercise?.slug"
+            :hints="exerciseStore.exercise.hints"
+          />
         </div>
       </aside>
     </div>

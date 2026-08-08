@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import Button from '~/components/ui/button.vue'
+import { useAnalytics } from '~/composables/useAnalytics'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 /**
@@ -11,6 +12,8 @@ import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
  * and `sufficient` apart, because a right answer produced without the model
  * being given what it needed is a lucky guess wearing a win.
  */
+
+const analytics = useAnalytics()
 
 const props = defineProps<{
   exercise: { id: string; title: string; description: string }
@@ -121,6 +124,7 @@ async function start() {
       answer: null,
     }
     phase.value = 'live'
+    analytics.emit('context-session-started', { exercise: props.exercise.id })
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Could not start the session'
   } finally {
@@ -163,6 +167,11 @@ async function submit() {
       body: { answer: answer.value },
     })
     phase.value = 'submitted'
+    analytics.emit('context-session-answered', {
+      exercise: props.exercise.id,
+      correct: report.value.correct,
+      sufficient: report.value.sufficient,
+    })
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Submitting failed'
   } finally {

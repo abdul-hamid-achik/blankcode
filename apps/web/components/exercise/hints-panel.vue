@@ -4,6 +4,8 @@ import Button from '~/components/ui/button.vue'
 
 const props = defineProps<{
   hints: string[]
+  /** Slug, for the counter that shows which exercises need clearer hints. */
+  exercise?: string
 }>()
 
 const revealedCount = ref(0)
@@ -14,7 +16,13 @@ const hasMoreHints = computed(() => revealedCount.value < props.hints.length)
 
 const remainingHints = computed(() => props.hints.length - revealedCount.value)
 
+const analytics = useAnalytics()
+
 function revealNext() {
+  // High counts on one exercise mean the exercise is unclear, not the people.
+  if (props.exercise) {
+    analytics.emit('hint-revealed', { exercise: props.exercise, index: revealedCount.value })
+  }
   if (hasMoreHints.value) {
     revealedCount.value++
   }
