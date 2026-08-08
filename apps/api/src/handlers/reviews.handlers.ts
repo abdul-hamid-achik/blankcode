@@ -28,6 +28,13 @@ export const ReviewsHandlers = HttpApiBuilder.group(BlankCodeApi, 'reviews', (ha
         return yield* svc.getUpcoming(user.id)
       })
     )
+    .handle('unexplained', () =>
+      Effect.gen(function* () {
+        const user = yield* CurrentUser
+        const svc = yield* ReviewsService
+        return yield* svc.getUnexplained(user.id)
+      })
+    )
     .handle('completeReview', ({ path, payload }) =>
       Effect.gen(function* () {
         const user = yield* CurrentUser

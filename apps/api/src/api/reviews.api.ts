@@ -35,6 +35,22 @@ export class ReviewsApi extends HttpApiGroup.make('reviews')
       .addError(NotFoundError)
   )
   .add(
+    // Agent passes the human has not explained: the schedule is holding each
+    // one a day out instead of at its earned interval. The dashboard surfaces
+    // this list because the hold is silent otherwise — a review arriving
+    // "too soon" with no visible reason reads as a scheduler bug.
+    HttpApiEndpoint.get('unexplained', '/reviews/unexplained').addSuccess(
+      Schema.Array(
+        Schema.Struct({
+          exerciseId: Schema.String,
+          title: Schema.String,
+          passedAt: Schema.NullOr(Schema.String),
+          nextReviewAt: Schema.String,
+        })
+      )
+    )
+  )
+  .add(
     HttpApiEndpoint.post(
       'completeReview'
     )`/reviews/${HttpApiSchema.param('exerciseId', Schema.String)}/complete`

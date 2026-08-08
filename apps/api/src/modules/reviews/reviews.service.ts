@@ -1,7 +1,7 @@
 import { Drizzle } from '@blankcode/db/client'
 import { reviewSchedules } from '@blankcode/db/schema'
 import type { ReviewExercise } from '@blankcode/shared'
-import { and, eq, gt, lte } from 'drizzle-orm'
+import { and, eq, gt, isNotNull, lte } from 'drizzle-orm'
 import { Context, Effect, Layer } from 'effect'
 import { redactExercise } from '../exercises/redact.js'
 import { NotFoundError } from '../../api/errors.js'
@@ -27,6 +27,17 @@ interface ReviewsServiceShape {
     { dueNow: number; next: { date: string; count: number } | null },
     NotFoundError
   >
+  readonly getUnexplained: (userId: string) => Effect.Effect<UnexplainedPass[], never>
+}
+
+/** An agent pass whose review the schedule is holding close, awaiting the human's explanation. */
+export interface UnexplainedPass {
+  exerciseId: string
+  title: string
+  /** When the agent's passing submission moved the schedule. */
+  passedAt: string | null
+  /** Where the review is parked while unexplained — at most a day out. */
+  nextReviewAt: string
 }
 
 export class ReviewsService extends Context.Tag('ReviewsService')<
@@ -82,6 +93,9 @@ export const ReviewsServiceLive = Layer.effect(
                   repetitions: result.repetitions,
                   easeFactor: result.easeFactor,
                   nextReviewAt: result.nextReviewAt,
+                  // A completed human review is recall demonstrated — any
+                  // unexplained-agent-pass hold is settled by it.
+                  heldNextReviewAt: null,
                   lastReviewedAt: new Date(),
                   updatedAt: new Date(),
                 })
@@ -200,6 +214,32 @@ export const ReviewsServiceLive = Layer.effect(
 
       recordReview: (userId, exerciseId, passed, quality) =>
         upsertSchedule(userId, exerciseId, passed, quality),
+
+      getUnexplained: (userId) =>
+        Effect.tryPromise({
+          try: () =>
+            db.query.reviewSchedules.findMany({
+              where: and(
+                eq(reviewSchedules.userId, userId),
+                isNotNull(reviewSchedules.heldNextReviewAt)
+              ),
+              with: { exercise: { columns: { title: true } } },
+              orderBy: (schedules, { desc }) => [desc(schedules.lastReviewedAt)],
+            }),
+          catch: () => [] as never[],
+        }).pipe(
+          Effect.map((rows) =>
+            rows.map((row): UnexplainedPass => ({
+              exerciseId: row.exerciseId,
+              title: row.exercise?.title ?? 'Exercise',
+              passedAt: row.lastReviewedAt?.toISOString() ?? null,
+              nextReviewAt: row.nextReviewAt.toISOString(),
+            }))
+          ),
+          // The list is a nudge, not a gate: an empty answer degrades the
+          // dashboard corner, never the page.
+          Effect.orElseSucceed(() => [] as UnexplainedPass[])
+        ),
 
       getUpcoming: (userId) =>
         Effect.gen(function* () {

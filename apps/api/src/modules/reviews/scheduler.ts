@@ -60,3 +60,45 @@ function addDays(date: Date, days: number): Date {
   result.setDate(result.getDate() + days)
   return result
 }
+
+/**
+ * The unexplained-pass hold: a pass the human cannot explain is a pass the
+ * schedule should not believe.
+ *
+ * When an agent's submission passes a non-blank exercise, the SM-2 state
+ * advances as usual — the curriculum was followed — but the DATE is not
+ * trusted yet: nextReviewAt is capped at one day out and the full computed
+ * date parks in heldNextReviewAt. A substantive reflection promotes the held
+ * date back into nextReviewAt; silence leaves the review due tomorrow, where
+ * the human's own recall settles the question the pass could not.
+ */
+export const REFLECTION_HOLD_DAYS = 1
+
+/**
+ * The floor under "the human actually explained it". One question's answer,
+ * so far lower than the reading grader's 120 — but high enough that "yes",
+ * "makes sense" and "the tests pass" stay hollow. Length is a proxy, and an
+ * imperfect one; it is also the only judge that costs nothing and cannot be
+ * flattered.
+ */
+export const MIN_SUBSTANTIVE_REFLECTION_CHARS = 40
+
+export function isSubstantiveReflection(answer: string): boolean {
+  return answer.trim().length >= MIN_SUBSTANTIVE_REFLECTION_CHARS
+}
+
+/**
+ * Caps a computed schedule while the pass awaits its explanation.
+ * heldNextReviewAt is always set — even when the cap changes nothing, the
+ * row must appear on the "passes you haven't explained" list.
+ */
+export function holdForReflection(
+  result: SM2Result,
+  now: Date = new Date()
+): { nextReviewAt: Date; heldNextReviewAt: Date } {
+  const cap = addDays(now, REFLECTION_HOLD_DAYS)
+  return {
+    nextReviewAt: result.nextReviewAt <= cap ? result.nextReviewAt : cap,
+    heldNextReviewAt: result.nextReviewAt,
+  }
+}

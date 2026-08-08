@@ -51,9 +51,10 @@ describe('runSubmission', () => {
   it('schedules the next review on both verdicts', () => {
     // Passing and failing both move the SM-2 schedule; only the interval
     // differs. Dropping the failing branch would quietly stop resurfacing
-    // the exercises the learner is worst at.
-    const passing = source.indexOf('scheduleReview(db, userId, exerciseId, true)')
-    const failing = source.indexOf('scheduleReview(db, userId, exerciseId, false)')
+    // the exercises the learner is worst at. A pass is additionally held
+    // for reflection when the agent did the passing; a fail never is.
+    const passing = source.indexOf("scheduleReview(db, userId, exerciseId, true, via === 'agent')")
+    const failing = source.indexOf('scheduleReview(db, userId, exerciseId, false, false)')
     expect(passing).toBeGreaterThan(-1)
     expect(failing).toBeGreaterThan(-1)
   })

@@ -1,6 +1,7 @@
 import * as schema from '@blankcode/db/schema'
 import type { PgRemoteDatabase } from 'drizzle-orm/pg-proxy'
 import { and, eq } from 'drizzle-orm'
+import { holdForReflection } from '../reviews/scheduler.js'
 import { executionService } from '../../services/execution/index.js'
 import { logger } from '../../services/execution/logger.js'
 
@@ -72,7 +73,13 @@ function calculateNextReview(
   }
 }
 
-async function scheduleReview(db: Db, userId: string, exerciseId: string, passed: boolean) {
+async function scheduleReview(
+  db: Db,
+  userId: string,
+  exerciseId: string,
+  passed: boolean,
+  awaitingReflection: boolean
+) {
   try {
     const existingSchedule = await db.query.reviewSchedules.findFirst({
       where: and(
@@ -93,6 +100,14 @@ async function scheduleReview(db: Db, userId: string, exerciseId: string, passed
       currentEaseFactor
     )
 
+    // An agent pass the human has not explained advances the SM-2 state but
+    // not the schedule's trust: the date stays within a day and the full one
+    // parks in heldNextReviewAt until a substantive reflection promotes it.
+    // A human submission settles the question directly and clears any hold.
+    const dates = awaitingReflection
+      ? holdForReflection(result)
+      : { nextReviewAt: result.nextReviewAt, heldNextReviewAt: null }
+
     if (existingSchedule) {
       await db
         .update(schema.reviewSchedules)
@@ -100,7 +115,8 @@ async function scheduleReview(db: Db, userId: string, exerciseId: string, passed
           intervalDays: result.intervalDays,
           repetitions: result.repetitions,
           easeFactor: result.easeFactor,
-          nextReviewAt: result.nextReviewAt,
+          nextReviewAt: dates.nextReviewAt,
+          heldNextReviewAt: dates.heldNextReviewAt,
           lastReviewedAt: new Date(),
           updatedAt: new Date(),
         })
@@ -112,7 +128,8 @@ async function scheduleReview(db: Db, userId: string, exerciseId: string, passed
         intervalDays: result.intervalDays,
         repetitions: result.repetitions,
         easeFactor: result.easeFactor,
-        nextReviewAt: result.nextReviewAt,
+        nextReviewAt: dates.nextReviewAt,
+        heldNextReviewAt: dates.heldNextReviewAt,
         lastReviewedAt: new Date(),
       })
     }
@@ -247,11 +264,13 @@ export async function runSubmission(db: Db, input: SubmissionToRun): Promise<voi
 
     if (result.status === 'passed') {
       await markExerciseCompleted(db, userId, exerciseId, submissionId)
-      if (movesSchedule) await scheduleReview(db, userId, exerciseId, true)
+      // An agent pass is held until the human explains it; a web pass is
+      // the human's own work and needs no explanation to be believed.
+      if (movesSchedule) await scheduleReview(db, userId, exerciseId, true, via === 'agent')
     } else if (result.status === 'failed') {
       await incrementAttempts(db, userId, exerciseId)
       // A failed agent attempt must not shorten the human's intervals either.
-      if (movesSchedule) await scheduleReview(db, userId, exerciseId, false)
+      if (movesSchedule) await scheduleReview(db, userId, exerciseId, false, false)
     }
 
     logger.info('submission.done', {

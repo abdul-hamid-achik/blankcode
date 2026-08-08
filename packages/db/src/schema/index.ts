@@ -469,6 +469,14 @@ export const reviewSchedules = pgTable(
     repetitions: integer('repetitions').notNull().default(0),
     easeFactor: real('ease_factor').notNull().default(2.5),
     nextReviewAt: timestamp('next_review_at', { withTimezone: true }).notNull(),
+    /**
+     * Non-null while the last advance came from an agent pass the human has
+     * not explained: holds the full SM-2 date while nextReviewAt stays capped
+     * at one day out. A substantive reflection promotes this date back into
+     * nextReviewAt; a human review clears it. A pass the human cannot explain
+     * is a pass the schedule should not believe.
+     */
+    heldNextReviewAt: timestamp('held_next_review_at', { withTimezone: true }),
     lastReviewedAt: timestamp('last_reviewed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

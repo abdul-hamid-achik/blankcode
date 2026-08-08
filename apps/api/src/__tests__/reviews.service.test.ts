@@ -260,5 +260,71 @@ describe('ReviewsService', () => {
 
       expect(mockDb.insert).toHaveBeenCalled()
     })
+
+    it('a completed human review settles any unexplained-pass hold', async () => {
+      mockDb.query.reviewSchedules.findFirst.mockResolvedValue({
+        id: 'schedule-1',
+        intervalDays: 3,
+        repetitions: 2,
+        easeFactor: 2.5,
+        heldNextReviewAt: new Date('2026-08-20T00:00:00Z'),
+      })
+
+      await runService(
+        Effect.gen(function* () {
+          const svc = yield* ReviewsService
+          yield* svc.recordReview('user-1', 'exercise-1', true)
+        }),
+        testLayer
+      )
+
+      const set = mockDb.update.mock.results[0]?.value.set
+      expect(set).toHaveBeenCalledWith(expect.objectContaining({ heldNextReviewAt: null }))
+    })
+  })
+
+  describe('getUnexplained', () => {
+    it('maps held schedules to the dashboard list', async () => {
+      mockDb.query.reviewSchedules.findMany.mockResolvedValue([
+        {
+          exerciseId: 'exercise-1',
+          exercise: { title: 'Review: a paginated fetch that drops a page' },
+          lastReviewedAt: new Date('2026-08-08T10:00:00Z'),
+          nextReviewAt: new Date('2026-08-09T10:00:00Z'),
+          heldNextReviewAt: new Date('2026-08-20T10:00:00Z'),
+        },
+      ])
+
+      const list = await runService(
+        Effect.gen(function* () {
+          const svc = yield* ReviewsService
+          return yield* svc.getUnexplained('user-1')
+        }),
+        testLayer
+      )
+
+      expect(list).toEqual([
+        {
+          exerciseId: 'exercise-1',
+          title: 'Review: a paginated fetch that drops a page',
+          passedAt: '2026-08-08T10:00:00.000Z',
+          nextReviewAt: '2026-08-09T10:00:00.000Z',
+        },
+      ])
+    })
+
+    it('degrades to an empty list when the query fails', async () => {
+      mockDb.query.reviewSchedules.findMany.mockRejectedValue(new Error('db down'))
+
+      const list = await runService(
+        Effect.gen(function* () {
+          const svc = yield* ReviewsService
+          return yield* svc.getUnexplained('user-1')
+        }),
+        testLayer
+      )
+
+      expect(list).toEqual([])
+    })
   })
 })

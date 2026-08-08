@@ -41,6 +41,14 @@ interface Stats {
   lastActivityDate: string | null
 }
 
+/** An agent pass the schedule is holding a day out, awaiting an explanation. */
+interface UnexplainedPass {
+  exerciseId: string
+  title: string
+  passedAt: string | null
+  nextReviewAt: string
+}
+
 /*
  * Everything the page needs, fetched in one useAsyncData with the requests
  * in parallel. This page used to be ssr:false and load piece by piece after
@@ -54,16 +62,19 @@ const { data: page } = await useAsyncData('dashboard', async () => {
   const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
 
-  const [submissionsR, statsR, dueR, upcomingR, continueR] = await Promise.allSettled([
-    $fetch<SubmissionWithExercise[]>('/api/submissions?limit=10', { headers }),
-    $fetch<Stats>('/api/progress/stats', { headers }),
-    $fetch<{ count: number }>('/api/reviews/due/count', { headers }),
-    $fetch<{ dueNow: number; next: { date: string; count: number } | null }>(
-      '/api/reviews/upcoming',
-      { headers }
-    ),
-    $fetch<ContinueTarget>('/api/exercises/continue', { headers }),
-  ])
+  const [submissionsR, statsR, dueR, upcomingR, continueR, unexplainedR] = await Promise.allSettled(
+    [
+      $fetch<SubmissionWithExercise[]>('/api/submissions?limit=10', { headers }),
+      $fetch<Stats>('/api/progress/stats', { headers }),
+      $fetch<{ count: number }>('/api/reviews/due/count', { headers }),
+      $fetch<{ dueNow: number; next: { date: string; count: number } | null }>(
+        '/api/reviews/upcoming',
+        { headers }
+      ),
+      $fetch<ContinueTarget>('/api/exercises/continue', { headers }),
+      $fetch<UnexplainedPass[]>('/api/reviews/unexplained', { headers }),
+    ]
+  )
 
   const value = <T>(r: PromiseSettledResult<T>) => (r.status === 'fulfilled' ? r.value : null)
   return {
@@ -78,11 +89,13 @@ const { data: page } = await useAsyncData('dashboard', async () => {
     dueCount: value(dueR)?.count ?? 0,
     upcoming: value(upcomingR),
     continueTarget: value(continueR)?.next ?? null,
+    unexplained: value(unexplainedR) ?? [],
   }
 })
 
 const submissions = computed(() => page.value?.submissions ?? [])
 const continueTarget = computed(() => page.value?.continueTarget ?? null)
+const unexplained = computed(() => page.value?.unexplained ?? [])
 
 // Keep the stores in step: the header badge reads dueCount from the review
 // store, and the progress store feeds other pages.
@@ -201,6 +214,38 @@ function statusTone(status: string): string {
     <!-- Both render nothing until there is something true to say. -->
     <WeakSpots class="mb-12" />
     <HarnessActivity class="mb-12" />
+
+    <!--
+      The unexplained-pass hold, made visible. Without this list, a review
+      arriving a day after an agent pass reads as a scheduler bug; with it,
+      the hold is a stated policy with a way out.
+    -->
+    <section v-if="unexplained.length" class="mb-12" aria-label="Passes you haven't explained">
+      <h2 class="eyebrow mb-2">passes you haven't explained</h2>
+      <p class="mb-4 max-w-[58ch] text-sm leading-relaxed text-muted-foreground">
+        An agent passed these for you. Each review is parked a day out — not at its earned interval
+        — until you can say why the code is right. Answer your agent's reflect questions, or redo
+        the exercise here yourself.
+      </p>
+      <ul class="border border-rule">
+        <li
+          v-for="pass in unexplained"
+          :key="pass.exerciseId"
+          class="border-b border-rule last:border-b-0"
+        >
+          <NuxtLink
+            :to="`/exercise/${pass.exerciseId}`"
+            class="flex items-baseline gap-4 px-4 py-3 transition-colors hover:bg-muted/60"
+          >
+            <span class="min-w-0 flex-1 truncate text-sm">{{ pass.title }}</span>
+            <span v-if="pass.passedAt" class="shrink-0 font-mono text-xs text-muted-foreground">
+              passed {{ relativeDay(pass.passedAt) }}
+            </span>
+            <span class="shrink-0 font-mono text-xs text-signal">unexplained</span>
+          </NuxtLink>
+        </li>
+      </ul>
+    </section>
 
     <div class="mb-4 flex items-center justify-between gap-4">
       <h2 class="eyebrow">recent submissions</h2>

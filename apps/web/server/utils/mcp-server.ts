@@ -71,7 +71,7 @@ function reflectQuestions(exerciseType: string, passed: boolean): { ask: string[
       ? ask
       : ['What is the failing test telling us, in one sentence, before we touch the code again?'],
     after: passed
-      ? 'Ask these before moving on and wait for real answers. If the human cannot answer, work the exercise again together — the pass is not the point.'
+      ? 'Ask these before moving on and wait for real answers. If the human cannot answer, work the exercise again together — the pass is not the point. Recording a real answer is also what the schedule is waiting for: an agent pass with no substantive reflection keeps its review due tomorrow instead of at the earned interval.'
       : 'Get the human to state the diagnosis before iterating. Their diagnosis, not yours.',
   }
 }

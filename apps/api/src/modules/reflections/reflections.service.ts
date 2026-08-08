@@ -1,8 +1,9 @@
 import { Drizzle } from '@blankcode/db/client'
-import { exercises, reflections } from '@blankcode/db/schema'
-import { and, desc, eq } from 'drizzle-orm'
+import { exercises, reflections, reviewSchedules } from '@blankcode/db/schema'
+import { and, desc, eq, isNotNull, sql } from 'drizzle-orm'
 import { Context, Effect, Layer } from 'effect'
 import { BadRequestError, NotFoundError } from '../../api/errors.js'
+import { isSubstantiveReflection } from '../reviews/scheduler.js'
 
 /**
  * The human's answers to the reflect questions, recorded verbatim.
@@ -90,6 +91,37 @@ export const ReflectionsServiceLive = Layer.effect(
               new BadRequestError({ message: 'Could not record the reflection' })
             )
           }
+
+          /*
+           * The reflect → SM-2 signal. An agent pass leaves the schedule
+           * held (nextReviewAt capped at a day, the real date parked in
+           * heldNextReviewAt); a substantive answer is what releases it. A
+           * hollow answer — recorded above, because it is still the honest
+           * transcript — releases nothing. Best-effort on purpose: the
+           * reflection is the record, the unlock is bookkeeping, and a
+           * failed unlock only means the review arrives sooner than earned.
+           */
+          if (isSubstantiveReflection(answer)) {
+            yield* Effect.tryPromise({
+              try: () =>
+                db
+                  .update(reviewSchedules)
+                  .set({
+                    nextReviewAt: sql`${reviewSchedules.heldNextReviewAt}`,
+                    heldNextReviewAt: null,
+                    updatedAt: new Date(),
+                  })
+                  .where(
+                    and(
+                      eq(reviewSchedules.userId, userId),
+                      eq(reviewSchedules.exerciseId, input.exerciseId),
+                      isNotNull(reviewSchedules.heldNextReviewAt)
+                    )
+                  ),
+              catch: () => new BadRequestError({ message: 'Could not release the review hold' }),
+            }).pipe(Effect.catchAll(() => Effect.void))
+          }
+
           return row
         }),
 
