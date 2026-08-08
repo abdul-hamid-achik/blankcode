@@ -1,0 +1,167 @@
+slug: scoped-metrics-recorder
+title: A metrics recorder handed out to each subsystem
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what happens to the "db" subsystem's
+  snapshot() result when the "auth" subsystem's recorder calls reset().
+language: rust
+difficulty: advanced
+isPublished: true
+
+files:
+  - path: src/counters.rs
+    content: |
+      use std::collections::HashMap;
+
+      /// Raw counts, keyed by event name.
+      #[derive(Debug, Default)]
+      pub struct Counters {
+          hits: HashMap<String, u32>,
+      }
+
+      impl Counters {
+          pub fn increment(&mut self, key: &str) {
+              *self.hits.entry(key.to_string()).or_insert(0) += 1;
+          }
+
+          pub fn snapshot(&self) -> HashMap<String, u32> {
+              self.hits.clone()
+          }
+
+          pub fn reset(&mut self) {
+              self.hits.clear();
+          }
+      }
+
+  - path: src/recorder.rs
+    content: |
+      use std::cell::RefCell;
+      use std::collections::HashMap;
+      use std::rc::Rc;
+
+      use crate::counters::Counters;
+
+      /// Records metrics under a name. Cloning a recorder, or calling `scoped`
+      /// on one, hands out another handle to the same underlying counters --
+      /// not an independent set.
+      #[derive(Clone)]
+      pub struct MetricsRecorder {
+          shared: Rc<RefCell<Counters>>,
+      }
+
+      impl MetricsRecorder {
+          pub fn new() -> Self {
+              MetricsRecorder {
+                  shared: Rc::new(RefCell::new(Counters::default())),
+              }
+          }
+
+          /// Hands another subsystem "its own" recorder.
+          pub fn scoped(&self) -> MetricsRecorder {
+              self.clone()
+          }
+
+          pub fn record(&self, key: &str) {
+              self.shared.borrow_mut().increment(key);
+          }
+
+          pub fn snapshot(&self) -> HashMap<String, u32> {
+              self.shared.borrow().snapshot()
+          }
+
+          /// Clears every count this recorder can see.
+          pub fn reset(&self) {
+              self.shared.borrow_mut().reset();
+          }
+      }
+
+  - path: src/registry.rs
+    content: |
+      use crate::recorder::MetricsRecorder;
+
+      /// Attaches a named, ostensibly independent recorder to each subsystem.
+      pub struct Registry {
+          subsystems: Vec<(String, MetricsRecorder)>,
+      }
+
+      impl Registry {
+          pub fn new() -> Self {
+              Registry {
+                  subsystems: Vec::new(),
+              }
+          }
+
+          pub fn attach(&mut self, name: &str, base: &MetricsRecorder) {
+              self.subsystems.push((name.to_string(), base.scoped()));
+          }
+
+          pub fn recorder_for(&self, name: &str) -> Option<&MetricsRecorder> {
+              self.subsystems
+                  .iter()
+                  .find(|(n, _)| n == name)
+                  .map(|(_, r)| r)
+          }
+      }
+
+  - path: src/lib.rs
+    content: |
+      pub mod counters;
+      pub mod recorder;
+      pub mod registry;
+
+      pub use counters::Counters;
+      pub use recorder::MetricsRecorder;
+      pub use registry::Registry;
+
+rubric:
+  - id: recorder-is-a-thin-handle
+    weight: 1
+    point: >-
+      MetricsRecorder's only field is Rc<RefCell<Counters>>, so it derives
+      Clone cheaply — cloning it bumps a reference count, it never allocates
+      a new Counters.
+
+  - id: scoped-is-just-clone
+    weight: 2
+    point: >-
+      scoped() is implemented as self.clone(), so it hands back a handle to
+      the exact same Rc<RefCell<Counters>> as the recorder it was called on,
+      not a fresh one.
+
+  - id: attach-shares-base-counters
+    weight: 3
+    point: >-
+      Registry::attach stores base.scoped() for whatever recorder it's
+      given, so every subsystem attached from the same base MetricsRecorder
+      ends up pointing at one shared Counters instance.
+
+  - id: records-accumulate-across-subsystems
+    weight: 2
+    point: >-
+      Because of that sharing, calling record() through the "auth"
+      subsystem's recorder and record() through the "db" subsystem's
+      recorder both mutate the same hits map, so their snapshot() results
+      are identical, not independent per-subsystem counts.
+
+  - id: reset-is-global-not-scoped
+    weight: 3
+    point: >-
+      reset() borrows the shared RefCell mutably and clears it, so calling
+      reset() through any one subsystem's recorder empties every other
+      subsystem attached from the same base too — nothing in the method's
+      name or signature signals that it isn't scoped to the caller.
+
+  - id: snapshot-breaks-the-link
+    weight: 1
+    point: >-
+      snapshot() returns Counters::snapshot()'s cloned HashMap, so mutating
+      the map a caller gets back from snapshot() has no effect on the
+      recorder's real counts — the sharing is only through the
+      Rc<RefCell>, not through anything returned by value.
+
+  - id: recorder-for-linear-scan
+    weight: 1
+    point: >-
+      recorder_for does a linear .find() over the attached (name, recorder)
+      pairs and returns None for a name that was never attach()ed, rather
+      than panicking or creating one on demand.

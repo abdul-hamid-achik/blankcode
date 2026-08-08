@@ -1,0 +1,148 @@
+slug: user-profile-watch-source
+title: A user profile card wired to a watched prop
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what user-profile-card.vue displays
+  after "Switch user" has been clicked twice.
+language: vue
+difficulty: intermediate
+isPublished: true
+
+files:
+  - path: api/users.ts
+    content: |
+      export interface Profile {
+        id: string
+        name: string
+      }
+
+      const DIRECTORY: Record<string, Profile> = {
+        u1: { id: 'u1', name: 'Ada Lovelace' },
+        u2: { id: 'u2', name: 'Grace Hopper' },
+      }
+
+      export async function fetchUser(id: string): Promise<Profile> {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        const found = DIRECTORY[id]
+        if (!found) throw new Error(`unknown user ${id}`)
+        return found
+      }
+
+  - path: composables/useUserProfile.ts
+    content: |
+      import { ref, watch } from 'vue'
+      import { fetchUser, type Profile } from '../api/users'
+
+      export function useUserProfile(userId: string) {
+        const profile = ref<Profile | null>(null)
+        const loading = ref(false)
+
+        watch(
+          () => userId,
+          async (id) => {
+            loading.value = true
+            profile.value = await fetchUser(id)
+            loading.value = false
+          },
+          { immediate: true }
+        )
+
+        return { profile, loading }
+      }
+
+  - path: components/user-profile-card.vue
+    content: |
+      <script setup lang="ts">
+      import { useUserProfile } from '../composables/useUserProfile'
+
+      const props = defineProps<{ userId: string }>()
+
+      const { profile, loading } = useUserProfile(props.userId)
+      </script>
+
+      <template>
+        <article class="card">
+          <p v-if="loading">Loading…</p>
+          <p v-else-if="profile">{{ profile.name }}</p>
+          <p v-else>No profile loaded.</p>
+        </article>
+      </template>
+
+  - path: components/user-switcher.vue
+    content: |
+      <script setup lang="ts">
+      import { ref } from 'vue'
+      import UserProfileCard from './user-profile-card.vue'
+
+      const ids = ['u1', 'u2']
+      const selected = ref(ids[0])
+
+      function next(): void {
+        const index = ids.indexOf(selected.value)
+        selected.value = ids[(index + 1) % ids.length]
+      }
+      </script>
+
+      <template>
+        <section>
+          <button type="button" @click="next">Switch user</button>
+          <UserProfileCard :user-id="selected" />
+        </section>
+      </template>
+
+rubric:
+  - id: directory-lookup
+    weight: 1
+    point: >-
+      fetchUser awaits a fixed 50ms delay and then looks id up in an in-memory
+      DIRECTORY, throwing for anything not in it; there is no cache here, so
+      nothing dedupes repeated calls for the same id.
+
+  - id: immediate-loads-first-user
+    weight: 1
+    point: >-
+      watch's `{ immediate: true }` runs the callback once synchronously at
+      composable-creation time, flipping loading true then false around the
+      fetchUser call, so a card always shows a name for whatever id it started
+      with, without needing a change to trigger the first fetch.
+
+  - id: stale-source-quirk
+    weight: 3
+    point: >-
+      useUserProfile takes userId as a plain string parameter, and
+      user-profile-card.vue calls it with `useUserProfile(props.userId)` —
+      reading the current prop value once at call time. The watch inside then
+      closes over that captured local (`() => userId`), not over the reactive
+      prop itself.
+
+  - id: watch-never-refires
+    weight: 2
+    point: >-
+      Because that getter always returns the same captured string, Vue's
+      dependency check on the watch sees no change on any later prop update,
+      so the fetch callback never runs again after the initial immediate call.
+
+  - id: prop-itself-stays-reactive
+    weight: 1
+    point: >-
+      The break is entirely inside the composable — props.userId on the
+      component instance genuinely does update live whenever user-switcher.vue
+      changes selected (Vue updates props on an existing instance without
+      remounting it); it is simply never read again after that first
+      composable call.
+
+  - id: single-instance-no-remount
+    weight: 1
+    point: >-
+      user-switcher.vue keeps exactly one UserProfileCard instance across
+      every click (no :key tied to the selected id), so the same stale closure
+      persists for the component's whole lifetime — clicking again never
+      creates a fresh composable call.
+
+  - id: stuck-on-first-user
+    weight: 2
+    point: >-
+      The net effect: user-profile-card.vue permanently displays the very
+      first user it loaded ("Ada Lovelace"). Clicking "Switch user" any number
+      of times changes selected and updates the prop, but the card's rendered
+      name never changes again.

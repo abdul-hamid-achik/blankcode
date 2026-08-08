@@ -1,0 +1,131 @@
+slug: counter-panel-composable
+title: A counter composable shared across a panel of buttons
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what the numbers on each button show
+  after it has been clicked several times.
+language: vue
+difficulty: beginner
+isPublished: true
+
+files:
+  - path: composables/useCounter.ts
+    content: |
+      import { computed, reactive } from 'vue'
+
+      export interface Counter {
+        count: number
+        doubled: number
+      }
+
+      /** One count plus its derived double, packaged as a single reactive object. */
+      export function useCounter(start: number): { state: Counter; increment: () => void } {
+        const state = reactive({
+          count: start,
+          doubled: computed(() => state.count * 2),
+        }) as Counter
+
+        function increment(): void {
+          state.count += 1
+        }
+
+        return { state, increment }
+      }
+
+  - path: components/counter-button.vue
+    content: |
+      <script setup lang="ts">
+      import { useCounter } from '../composables/useCounter'
+
+      const props = defineProps<{ start: number; label: string }>()
+
+      const { state, increment } = useCounter(props.start)
+      const { count, doubled } = state
+
+      function handleClick(): void {
+        increment()
+      }
+      </script>
+
+      <template>
+        <button class="counter" type="button" @click="handleClick">
+          {{ label }}: {{ count }} (doubled {{ doubled }})
+        </button>
+      </template>
+
+  - path: components/counter-panel.vue
+    content: |
+      <script setup lang="ts">
+      import CounterButton from './counter-button.vue'
+
+      const counters = [
+        { id: 'widgets', label: 'Widgets', start: 0 },
+        { id: 'gadgets', label: 'Gadgets', start: 5 },
+      ]
+      </script>
+
+      <template>
+        <section class="panel">
+          <CounterButton
+            v-for="counter in counters"
+            :key="counter.id"
+            :label="counter.label"
+            :start="counter.start"
+          />
+        </section>
+      </template>
+
+rubric:
+  - id: reactive-state-shape
+    weight: 1
+    point: >-
+      useCounter wraps count and a derived doubled in one reactive() object;
+      doubled is a computed ref, and reactive() unwraps it automatically, so
+      state.doubled reads as a plain number rather than needing .value.
+
+  - id: increment-source-of-truth
+    weight: 1
+    point: >-
+      increment only ever does state.count += 1. doubled has no setter of its
+      own; it recomputes because the computed's getter reads state.count and
+      Vue reruns it whenever that dependency changes.
+
+  - id: destructure-breaks-reactivity
+    weight: 3
+    point: >-
+      counter-button.vue does `const { count, doubled } = state` right after
+      calling useCounter. This reads state's current values once into local
+      script-setup constants; the reactivity lives on the reactive() proxy's
+      property access, not on the numbers themselves, so count and doubled
+      become frozen copies disconnected from state the instant they're read.
+
+  - id: functions-survive-destructure
+    weight: 2
+    point: >-
+      increment keeps working after being destructured because it is a
+      function reference closing over state, not a value read through the
+      proxy — only the primitive reads (count, doubled) lose their connection,
+      not the function.
+
+  - id: template-never-updates
+    weight: 2
+    point: >-
+      Because the template's `{{ count }}` and `{{ doubled }}` bind to those
+      frozen local constants, the button's displayed numbers never change
+      after the very first render, no matter how many times it is clicked.
+
+  - id: internal-count-still-climbs
+    weight: 1
+    point: >-
+      state.count itself keeps incrementing on every click — the disconnect is
+      entirely in what's displayed, not in the composable's internal logic; a
+      console.log(state.count) inside handleClick would show the real, growing
+      value even while the button's text stays stuck.
+
+  - id: per-instance-composable
+    weight: 1
+    point: >-
+      counter-panel.vue's v-for renders one CounterButton per entry in
+      counters, and each instance calls useCounter() independently in its own
+      setup(), so the Widgets and Gadgets buttons (and their respective frozen
+      displays) are completely isolated from one another.

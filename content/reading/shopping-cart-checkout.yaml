@@ -1,0 +1,147 @@
+slug: shopping-cart-checkout
+title: A shopping cart with a checkout step
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what `cart.list()` shows on a second
+  `Cart` after an item is added to a first `Cart` that was also constructed
+  with no arguments.
+language: typescript
+difficulty: beginner
+isPublished: true
+
+files:
+  - path: src/types.ts
+    content: |
+      export interface CartItem {
+        id: string
+        name: string
+        price: number
+        quantity: number
+      }
+
+  - path: src/pricing.ts
+    content: |
+      import type { CartItem } from './types'
+
+      export function subtotal(items: CartItem[]): number {
+        return items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+      }
+
+      export function formatPrice(amount: number): string {
+        return `$${amount.toFixed(2)}`
+      }
+
+  - path: src/cart.ts
+    content: |
+      import type { CartItem } from './types'
+      import { subtotal } from './pricing'
+
+      const EMPTY_ITEMS: CartItem[] = []
+
+      export class Cart {
+        private items: CartItem[]
+
+        constructor(initialItems: CartItem[] = EMPTY_ITEMS) {
+          this.items = initialItems
+        }
+
+        add(item: CartItem): void {
+          const existing = this.items.find((i) => i.id === item.id)
+          if (existing) {
+            existing.quantity += item.quantity
+            return
+          }
+          this.items.push(item)
+        }
+
+        remove(id: string): void {
+          const index = this.items.findIndex((i) => i.id === id)
+          if (index !== -1) this.items.splice(index, 1)
+        }
+
+        list(): CartItem[] {
+          return this.items
+        }
+
+        total(): number {
+          return subtotal(this.items)
+        }
+      }
+
+  - path: src/checkout.ts
+    content: |
+      import type { CartItem } from './types'
+      import { subtotal } from './pricing'
+
+      const FREE_SHIPPING_THRESHOLD = 50
+      const SHIPPING_FEE = 5
+
+      export interface Receipt {
+        subtotal: number
+        shipping: number
+        total: number
+      }
+
+      export function checkout(items: CartItem[]): Receipt {
+        const sub = subtotal(items)
+        const shipping = sub >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE
+        return { subtotal: sub, shipping, total: sub + shipping }
+      }
+
+  - path: src/index.ts
+    content: |
+      export { Cart } from './cart'
+      export { checkout, type Receipt } from './checkout'
+      export { formatPrice, subtotal } from './pricing'
+      export type { CartItem } from './types'
+
+rubric:
+  - id: add-merges-quantity
+    weight: 1
+    point: >-
+      Cart.add merges quantity into an existing item found by id instead of
+      pushing a duplicate row; an item with a genuinely new id is pushed.
+
+  - id: remove-single-match
+    weight: 1
+    point: >-
+      Cart.remove finds the first item with a matching id via findIndex and
+      removes just that one entry with splice.
+
+  - id: checkout-shipping-threshold
+    weight: 1
+    point: >-
+      checkout charges a flat $5 shipping fee unless the raw subtotal is at
+      least $50, in which case shipping is $0; total is always subtotal plus
+      shipping.
+
+  - id: subtotal-sums-items
+    weight: 1
+    point: >-
+      subtotal (in pricing.ts) sums price times quantity across every item,
+      and both Cart.total and checkout call it rather than reimplementing it.
+
+  - id: default-items-shared-reference
+    weight: 2
+    point: >-
+      Cart's constructor defaults initialItems to EMPTY_ITEMS, a single array
+      declared once at module scope, not a fresh [] literal evaluated on
+      every call — so every Cart built with no arguments starts out pointing
+      at that same array object.
+
+  - id: carts-share-state
+    weight: 3
+    point: >-
+      Because add and remove mutate this.items in place (push/splice) and
+      every argument-less Cart shares the EMPTY_ITEMS reference, two
+      independently created default carts are not independent: adding an
+      item to one makes it appear in list() on the other, and vice versa.
+
+  - id: list-returns-live-array
+    weight: 2
+    point: >-
+      list() returns the cart's internal array by reference rather than a
+      copy, so a caller that mutates the returned array (sorting it,
+      truncating its length) changes the cart's real contents — and on a
+      default-constructed cart, corrupts the shared EMPTY_ITEMS array for
+      every other default cart too.

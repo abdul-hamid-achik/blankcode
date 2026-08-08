@@ -1,0 +1,143 @@
+slug: delete-queue-confirm-dialog
+title: A delete queue with an escape-to-cancel dialog
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about which id is passed to onDismiss when
+  Escape is pressed after the queue has already moved past the first item.
+language: react
+difficulty: intermediate
+isPublished: true
+
+files:
+  - path: src/use-key.ts
+    content: |
+      import { useEffect } from 'react'
+
+      /**
+       * Calls `handler` while the component is mounted whenever `key` is
+       * pressed anywhere in the window.
+       */
+      export function useKeydown(key: string, handler: () => void): void {
+        useEffect(() => {
+          function onKeydown(event: KeyboardEvent): void {
+            if (event.key === key) handler()
+          }
+
+          window.addEventListener('keydown', onKeydown)
+          return () => window.removeEventListener('keydown', onKeydown)
+        }, [key])
+      }
+
+  - path: src/confirm-dialog.tsx
+    content: |
+      import type { JSX } from 'react'
+      import { useKeydown } from './use-key'
+
+      export interface ConfirmDialogProps {
+        message: string
+        onCancel: () => void
+      }
+
+      /** A confirmation prompt. Escape and the Cancel button both back out. */
+      export function ConfirmDialog({ message, onCancel }: ConfirmDialogProps): JSX.Element {
+        useKeydown('Escape', onCancel)
+
+        return (
+          <div role="dialog">
+            <p>{message}</p>
+            <button onClick={onCancel}>Cancel</button>
+          </div>
+        )
+      }
+
+  - path: src/delete-queue.tsx
+    content: |
+      import { useState } from 'react'
+      import type { JSX } from 'react'
+      import { ConfirmDialog } from './confirm-dialog'
+
+      export interface DeleteQueueProps {
+        ids: string[]
+        onDismiss: (id: string) => void
+      }
+
+      /** Walks through `ids` one at a time, confirming before each dismissal. */
+      export function DeleteQueue({ ids, onDismiss }: DeleteQueueProps): JSX.Element {
+        const [index, setIndex] = useState(0)
+        const current = ids[index] ?? ''
+
+        const cancel = (): void => {
+          onDismiss(current)
+          setIndex((i) => i + 1)
+        }
+
+        const skip = (): void => setIndex((i) => i + 1)
+
+        return (
+          <div>
+            <ConfirmDialog message={`Delete ${current}?`} onCancel={cancel} />
+            <button onClick={skip}>Skip</button>
+          </div>
+        )
+      }
+
+  - path: src/index.ts
+    content: |
+      export { ConfirmDialog, type ConfirmDialogProps } from './confirm-dialog'
+      export { DeleteQueue, type DeleteQueueProps } from './delete-queue'
+      export { useKeydown } from './use-key'
+
+rubric:
+  - id: usekeydown-shape
+    weight: 1
+    point: >-
+      useKeydown registers a 'keydown' listener on window inside a
+      useEffect and returns a cleanup function that removes it.
+
+  - id: missing-handler-dep
+    weight: 2
+    point: >-
+      The effect's dependency array is [key] only — handler is not listed —
+      so passing a new handler function on a later render does not, by
+      itself, cause the effect to tear down and re-subscribe.
+
+  - id: cancel-closes-over-render
+    weight: 1
+    point: >-
+      DeleteQueue creates a new cancel function on every render that closes
+      over that render's current id, calling onDismiss(current) and then
+      setIndex(i => i + 1).
+
+  - id: stale-listener-forever
+    weight: 3
+    point: >-
+      Because 'Escape' never changes between renders, useKeydown's effect
+      only ever runs once, on mount, so the window listener stays bound to
+      the very first render's cancel closure — permanently pointing at the
+      first id — no matter how many times DeleteQueue later re-renders with
+      a different current.
+
+  - id: escape-misreports-and-skips
+    weight: 3
+    point: >-
+      Pressing Escape therefore calls onDismiss with the first render's
+      stale id, not whatever is currently displayed — and because
+      setIndex's updater-function form does read live state, it still
+      genuinely advances the queue past the item that was actually on
+      screen, silently skipping it: that id is never passed to onDismiss at
+      all.
+
+  - id: cancel-button-is-fresh
+    weight: 2
+    point: >-
+      The dialog's own Cancel button is wired to onCancel directly as a JSX
+      prop, which React re-creates from that render's closure every time,
+      so clicking Cancel — unlike pressing Escape — always reports the id
+      currently on screen.
+
+  - id: skip-never-dismisses
+    weight: 1
+    point: >-
+      The Skip button only calls setIndex; items advanced past with Skip
+      are never passed to onDismiss either, so onDismiss is only ever
+      called from Escape (unreliably) or the Cancel button (reliably).

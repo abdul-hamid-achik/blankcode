@@ -1,0 +1,147 @@
+slug: rolling-metrics-window
+title: A rolling metrics window with a reused sample buffer
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what Window.Delta() reports after two
+  real Tick() calls whose sample values actually differ.
+language: go
+difficulty: intermediate
+isPublished: true
+
+files:
+  - path: recorder.go
+    content: |
+      package metrics
+
+      // Recorder accumulates samples between flushes.
+      type Recorder struct {
+      	buf []float64
+      }
+
+      // Sample appends one reading.
+      func (r *Recorder) Sample(v float64) {
+      	r.buf = append(r.buf, v)
+      }
+
+      // Flush returns everything sampled since the last flush and clears the
+      // buffer for the next period. The buffer is reused rather than reallocated —
+      // a Recorder flushes every second and allocating a fresh slice each time
+      // showed up in profiling.
+      func (r *Recorder) Flush() []float64 {
+      	batch := r.buf
+      	r.buf = r.buf[:0]
+      	return batch
+      }
+
+  - path: window.go
+    content: |
+      package metrics
+
+      // Window keeps the two most recently flushed batches so a caller can compare
+      // this period against the last one.
+      type Window struct {
+      	recorder *Recorder
+      	previous []float64
+      	current  []float64
+      }
+
+      func NewWindow() *Window {
+      	return &Window{recorder: &Recorder{}}
+      }
+
+      // Sample forwards to the underlying recorder.
+      func (w *Window) Sample(v float64) {
+      	w.recorder.Sample(v)
+      }
+
+      // Tick closes out the current period: last period's batch becomes previous,
+      // and whatever the recorder just flushed becomes current.
+      func (w *Window) Tick() {
+      	w.previous = w.current
+      	w.current = w.recorder.Flush()
+      }
+
+  - path: average.go
+    content: |
+      package metrics
+
+      // Delta reports how much the average changed between the previous window
+      // and the current one.
+      func (w *Window) Delta() float64 {
+      	return average(w.current) - average(w.previous)
+      }
+
+      func average(samples []float64) float64 {
+      	if len(samples) == 0 {
+      		return 0
+      	}
+      	total := 0.0
+      	for _, s := range samples {
+      		total += s
+      	}
+      	return total / float64(len(samples))
+      }
+
+  - path: report.go
+    content: |
+      package metrics
+
+      import "fmt"
+
+      // Report renders the window's period-over-period change for the dashboard.
+      func Report(w *Window) string {
+      	delta := w.Delta()
+      	if delta >= 0 {
+      		return fmt.Sprintf("up %.2f", delta)
+      	}
+      	return fmt.Sprintf("down %.2f", -delta)
+      }
+
+rubric:
+  - id: recorder-flush-shape
+    weight: 1
+    point: >-
+      Sample appends to Recorder.buf; Flush captures the current buf as "batch",
+      resets buf to length zero with buf[:0], and returns batch.
+
+  - id: flush-reuses-array
+    weight: 2
+    point: >-
+      buf[:0] does not allocate a new backing array — it keeps the same one at
+      length zero, on purpose, to avoid an allocation on every flush.
+
+  - id: mutation-before-next-tick
+    weight: 2
+    point: >-
+      Because Sample keeps appending into that same array after a flush, values
+      sampled after a Flush (but before the array's capacity is exceeded) can
+      silently overwrite the contents of the batch that Flush already returned,
+      even before the next Tick call.
+
+  - id: tick-assigns-header-not-copy
+    weight: 1
+    point: >-
+      Tick sets w.previous = w.current before replacing w.current with a fresh
+      Flush() result; this copies the slice header only, not the underlying
+      data.
+
+  - id: previous-and-current-alias
+    weight: 3
+    point: >-
+      Because Flush keeps reusing the same backing array and Tick never copies
+      the data, after the second Tick call w.previous and w.current end up as
+      the literal same slice — same pointer, same length — not just equal in
+      value.
+
+  - id: delta-goes-to-zero
+    weight: 2
+    point: >-
+      From that point on, Delta() (and Report()) computes 0 regardless of the
+      real values sampled in either period, because previous and current are
+      reading identical memory.
+
+  - id: average-guards-empty
+    weight: 1
+    point: >-
+      average() checks len(samples) == 0 and returns 0 rather than dividing by
+      zero for an empty batch.

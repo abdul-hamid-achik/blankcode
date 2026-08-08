@@ -1,0 +1,129 @@
+slug: click-counter
+title: A click counter built on a custom hook
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about how much the displayed count actually
+  increases the first time the "+3" button is clicked.
+language: react
+difficulty: beginner
+isPublished: true
+
+files:
+  - path: src/format.ts
+    content: |
+      export function formatCount(count: number): string {
+        return `${count} click${count === 1 ? '' : 's'}`
+      }
+
+  - path: src/use-counter.ts
+    content: |
+      import { useState } from 'react'
+
+      export interface CounterApi {
+        count: number
+        increment: () => void
+        incrementBy: (amount: number) => void
+        reset: () => void
+      }
+
+      /** Local click counter. `incrementBy` just calls `increment` in a loop. */
+      export function useCounter(initial = 0): CounterApi {
+        const [count, setCount] = useState(initial)
+
+        const increment = (): void => {
+          setCount(count + 1)
+        }
+
+        const incrementBy = (amount: number): void => {
+          for (let i = 0; i < amount; i++) {
+            increment()
+          }
+        }
+
+        const reset = (): void => {
+          setCount(0)
+        }
+
+        return { count, increment, incrementBy, reset }
+      }
+
+  - path: src/counter.tsx
+    content: |
+      import type { JSX } from 'react'
+      import { formatCount } from './format'
+      import { useCounter } from './use-counter'
+
+      export function Counter(): JSX.Element {
+        const { count, increment, incrementBy, reset } = useCounter()
+
+        return (
+          <div>
+            <p>{formatCount(count)}</p>
+            <button onClick={increment}>+1</button>
+            <button onClick={() => incrementBy(3)}>+3</button>
+            <button onClick={reset}>reset</button>
+          </div>
+        )
+      }
+
+  - path: src/index.ts
+    content: |
+      export { Counter } from './counter'
+      export { formatCount } from './format'
+      export { type CounterApi, useCounter } from './use-counter'
+
+rubric:
+  - id: hook-shape
+    weight: 1
+    point: >-
+      useCounter keeps count in useState and returns { count, increment,
+      incrementBy, reset }; increment, incrementBy, and reset are plain
+      functions re-created on every render, not memoized.
+
+  - id: increment-non-functional
+    weight: 1
+    point: >-
+      increment calls setCount(count + 1), reading count from its enclosing
+      render's closure rather than using the updater-function form
+      setCount(c => c + 1).
+
+  - id: incrementBy-loops
+    weight: 2
+    point: >-
+      incrementBy(amount) does not compute count + amount once; it calls
+      increment() synchronously, amount times, inside a for loop.
+
+  - id: stale-batched-updates
+    weight: 3
+    point: >-
+      Because all `amount` calls inside that loop run before React
+      re-renders, every one of them closes over the same count value from
+      that render and each schedules the identical setCount(count + 1) —
+      React collapses these into one update, so clicking "+3" once only
+      advances the displayed count by 1, not 3.
+
+  - id: plus-one-is-fine
+    weight: 2
+    point: >-
+      A lone "+1" click is unaffected by the bug — there is only one
+      increment() call, so there is nothing to collapse. The bug only shows
+      up once incrementBy is called with an amount greater than 1.
+
+  - id: reset-to-zero
+    weight: 1
+    point: >-
+      reset always sets count back to 0, regardless of any amount arguments
+      ever passed to incrementBy.
+
+  - id: format-pluralization
+    weight: 2
+    point: >-
+      formatCount pluralizes based on the count: exactly 1 renders as "1
+      click" (singular), and every other value, including 0, renders as "N
+      clicks" (plural).
+
+  - id: buttons-wired
+    weight: 1
+    point: >-
+      Counter renders formatCount(count) above three buttons wired to
+      increment, an inline arrow calling incrementBy(3), and reset.

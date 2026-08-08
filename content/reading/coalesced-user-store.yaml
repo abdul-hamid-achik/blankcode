@@ -1,0 +1,149 @@
+slug: coalesced-user-store
+title: A user store built on request coalescing
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what happens to a second call to
+  getUser for the same id, made right after the very first fetch for that id
+  fails.
+language: typescript
+difficulty: advanced
+isPublished: true
+
+files:
+  - path: src/types.ts
+    content: |
+      export interface User {
+        id: string
+        name: string
+      }
+
+  - path: src/coalesce.ts
+    content: |
+      /**
+       * Wraps an async function so that concurrent calls with the same key
+       * share one in-flight promise instead of starting a redundant
+       * request each.
+       */
+      export function coalesce<Key extends string, Value>(
+        fn: (key: Key) => Promise<Value>
+      ): (key: Key) => Promise<Value> {
+        const inFlight = new Map<Key, Promise<Value>>()
+
+        return (key: Key): Promise<Value> => {
+          const existing = inFlight.get(key)
+          if (existing) return existing
+
+          const promise = fn(key).then((value) => {
+            inFlight.delete(key)
+            return value
+          })
+
+          inFlight.set(key, promise)
+          return promise
+        }
+      }
+
+  - path: src/cache.ts
+    content: |
+      export class MemoCache<Key extends string, Value> {
+        private readonly store = new Map<Key, Value>()
+
+        get(key: Key): Value | undefined {
+          return this.store.get(key)
+        }
+
+        set(key: Key, value: Value): void {
+          this.store.set(key, value)
+        }
+      }
+
+  - path: src/user-store.ts
+    content: |
+      import { MemoCache } from './cache'
+      import { coalesce } from './coalesce'
+      import type { User } from './types'
+
+      export interface UserApi {
+        fetchUser(id: string): Promise<User>
+      }
+
+      export interface UserStore {
+        getUser(id: string): Promise<User>
+      }
+
+      /** A user store that dedupes concurrent fetches and caches settled ones. */
+      export function createUserStore(api: UserApi): UserStore {
+        const cache = new MemoCache<string, User>()
+
+        const load = coalesce(async (id: string): Promise<User> => {
+          const user = await api.fetchUser(id)
+          cache.set(id, user)
+          return user
+        })
+
+        return {
+          getUser(id: string): Promise<User> {
+            const cached = cache.get(id)
+            if (cached) return Promise.resolve(cached)
+            return load(id)
+          },
+        }
+      }
+
+  - path: src/index.ts
+    content: |
+      export { MemoCache } from './cache'
+      export { coalesce } from './coalesce'
+      export type { User } from './types'
+      export { createUserStore, type UserApi, type UserStore } from './user-store'
+
+rubric:
+  - id: coalesce-map-shape
+    weight: 1
+    point: >-
+      coalesce keeps one Map from key to the in-flight promise for that key;
+      a second call with the same key while the first is still pending
+      returns that exact same promise instead of invoking fn again.
+
+  - id: cleanup-success-only
+    weight: 3
+    point: >-
+      The in-flight entry is deleted from the map only inside the .then
+      callback, which runs on success — there is no .catch or .finally, so a
+      rejected fn call leaves its rejected promise permanently in the map
+      under that key.
+
+  - id: poisoned-key-forever
+    weight: 3
+    point: >-
+      Consequently, once fn rejects for a given key, every future call to
+      the coalesced function with that key returns the same already-rejected
+      promise and fn is never invoked again for it — even after whatever
+      caused the original failure is gone.
+
+  - id: cache-write-on-success-only
+    weight: 1
+    point: >-
+      MemoCache.set is only reached inside the coalesced fn after a
+      successful api.fetchUser call, so nothing is ever cached for an id
+      whose only attempt so far has failed.
+
+  - id: cache-no-expiry
+    weight: 1
+    point: >-
+      MemoCache has no TTL or expiry logic: once a value is cached for an id,
+      it is served from cache.get on every later getUser call for that id,
+      and api.fetchUser is never called again for it either.
+
+  - id: getUser-checks-cache-first
+    weight: 1
+    point: >-
+      getUser checks the cache first and only calls the coalesced load
+      function when nothing is cached yet for that id.
+
+  - id: distinct-keys-independent
+    weight: 1
+    point: >-
+      A failure for one id has no effect on any other id — coalesce's map
+      and MemoCache both key strictly by id, so an unrelated id is fetched
+      and cached normally regardless of another id's poisoned state.

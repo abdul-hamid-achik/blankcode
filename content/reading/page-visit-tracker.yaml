@@ -1,0 +1,131 @@
+slug: page-visit-tracker
+title: A visit tracker built on a lazily-initialized session
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what happens when a resumed session's
+  first page view is recorded, compared to a brand new session's.
+language: go
+difficulty: beginner
+isPublished: true
+
+files:
+  - path: tracker.go
+    content: |
+      package tracker
+
+      // Tracker counts visits per page for a single visitor.
+      type Tracker struct {
+      	visits map[string]int
+      }
+
+      // NewTracker returns a Tracker ready to record visits.
+      func NewTracker() Tracker {
+      	return Tracker{visits: make(map[string]int)}
+      }
+
+      // Record adds one visit to page.
+      func (t *Tracker) Record(page string) {
+      	t.visits[page]++
+      }
+
+      // Count returns how many times page was visited. An unvisited page counts
+      // zero — same as any page on a Tracker that was never initialized.
+      func (t *Tracker) Count(page string) int {
+      	return t.visits[page]
+      }
+
+  - path: session.go
+    content: |
+      package tracker
+
+      // Session pairs a visitor name with the pages they've viewed this visit.
+      type Session struct {
+      	Name string
+      	Hits Tracker
+      }
+
+      // NewSession starts a fresh session with tracking wired up.
+      func NewSession(name string) *Session {
+      	return &Session{Name: name, Hits: NewTracker()}
+      }
+
+      // Resume rebuilds a session for a visitor whose name survived a redirect
+      // (it came back on a query parameter). Their hit history did not survive the
+      // round trip, so tracking starts over for this visit.
+      func Resume(name string) *Session {
+      	return &Session{Name: name}
+      }
+
+  - path: visit.go
+    content: |
+      package tracker
+
+      import "fmt"
+
+      // Visit records that s viewed page and returns the banner line for it.
+      func Visit(s *Session, page string) string {
+      	s.Hits.Record(page)
+      	return Summary(s, page)
+      }
+
+      // Summary renders how many times the visitor has viewed page, for the
+      // welcome banner.
+      func Summary(s *Session, page string) string {
+      	return fmt.Sprintf("%s has viewed %s %d time(s)", s.Name, page, s.Hits.Count(page))
+      }
+
+  - path: lookup.go
+    content: |
+      package tracker
+
+      // Returning reports whether name has already viewed page, for sessions the
+      // caller only wants to inspect, not update.
+      func Returning(s *Session, page string) bool {
+      	return s.Hits.Count(page) > 0
+      }
+
+rubric:
+  - id: tracker-shape
+    weight: 1
+    point: >-
+      Tracker wraps a map[string]int; Record increments the count for a page and
+      Count reads it back, defaulting to zero for a page never recorded.
+
+  - id: new-session-initializes
+    weight: 1
+    point: >-
+      NewSession calls NewTracker(), which allocates the map with make(), so a
+      Session built by NewSession always has a non-nil Hits.visits map.
+
+  - id: resume-skips-initialization
+    weight: 2
+    point: >-
+      Resume builds a Session literal that only sets Name; Hits is left at its
+      zero value, which is a Tracker whose visits map is nil.
+
+  - id: nil-map-reads-are-safe
+    weight: 2
+    point: >-
+      Reading from that nil map — Count, and therefore Returning and Summary —
+      works fine and returns zero or false; a nil map is legal to read from.
+
+  - id: nil-map-write-panics
+    weight: 3
+    point: >-
+      Calling Visit on a session obtained from Resume panics at runtime with
+      "assignment to entry in nil map", because Visit calls Record, and writing
+      to a nil map is not legal.
+
+  - id: visit-records-then-summarizes
+    weight: 1
+    point: >-
+      Visit both mutates and reads: it calls Record and then Summary in one
+      call, so only a code path that reaches Visit (or Record directly) can
+      trigger the panic — Returning and Summary alone never do.
+
+  - id: constructors-not-interchangeable
+    weight: 2
+    point: >-
+      NewSession and Resume both return a *Session and look interchangeable at
+      the call site, but only NewSession performs the make() call that Resume
+      silently skips.

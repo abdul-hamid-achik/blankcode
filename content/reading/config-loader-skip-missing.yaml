@@ -1,0 +1,150 @@
+slug: config-loader-skip-missing
+title: A settings loader with an optional-key context manager
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what app.py prints for `tags`, and why
+  that's indistinguishable from the tags key being absent altogether.
+language: python
+difficulty: advanced
+isPublished: true
+
+files:
+  - path: context.py
+    content: |
+      class SkipMissing:
+          """Suppress a missing top-level config key while one setting loads.
+
+          Any KeyError raised inside the block is treated as "the key wasn't
+          there" -- including one raised by something else nested inside it.
+          """
+
+          def __enter__(self) -> "SkipMissing":
+              return self
+
+          def __exit__(
+              self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: object
+          ) -> bool:
+              return exc_type is not None and issubclass(exc_type, KeyError)
+
+  - path: tags.py
+    content: |
+      CANONICAL_TAGS = {
+          "prod": "production",
+          "dev": "development",
+          "stg": "staging",
+      }
+
+
+      def normalize_tags(raw: str) -> list[str]:
+          """Turn "prod,dev" into ["production", "development"].
+
+          Raises KeyError for any tag not in CANONICAL_TAGS -- callers are meant
+          to see that and reject the config outright.
+          """
+          tags = [tag.strip() for tag in raw.split(",") if tag.strip()]
+          return [CANONICAL_TAGS[tag] for tag in tags]
+
+  - path: loader.py
+    content: |
+      from collections.abc import Callable
+      from typing import TypeVar
+
+      from context import SkipMissing
+
+      T = TypeVar("T")
+
+
+      def load_setting(source: dict[str, str], key: str, cast: Callable[[str], T], default: T) -> T:
+          """Read `key` from `source` and cast it; fall back to `default` if absent."""
+          result = default
+          with SkipMissing():
+              raw = source[key]
+              result = cast(raw)
+          return result
+
+  - path: app.py
+    content: |
+      from loader import load_setting
+      from tags import normalize_tags
+
+      CONFIG = {
+          "region": "us-east-1",
+          "tags": "prod,unknown",
+      }
+
+
+      def main() -> None:
+          region = load_setting(CONFIG, "region", str, "us-west-2")
+          timeout_ms = load_setting(CONFIG, "timeout_ms", int, 3000)
+          tags = load_setting(CONFIG, "tags", normalize_tags, [])
+
+          print(f"region={region}")
+          print(f"timeout_ms={timeout_ms}")
+          print(f"tags={tags}")
+
+
+      if __name__ == "__main__":
+          main()
+
+rubric:
+  - id: skip-missing-shape
+    weight: 1
+    point: >-
+      SkipMissing is a class-based context manager whose __exit__ returns
+      True (suppressing the exception) only when the raised exception is a
+      KeyError or a subclass of it, and returns a falsy value otherwise,
+      letting anything else propagate.
+
+  - id: load-setting-flow
+    weight: 1
+    point: >-
+      load_setting seeds `result` with `default` before entering the `with`
+      block, then inside it looks up `source[key]` and immediately passes
+      the raw value through `cast`, only overwriting `result` if both steps
+      succeed without raising.
+
+  - id: normalize-tags-lookup
+    weight: 2
+    point: >-
+      normalize_tags splits `raw` on commas, strips whitespace, drops empty
+      entries, and looks up each surviving tag in CANONICAL_TAGS, raising
+      KeyError for the first tag not present in that map.
+
+  - id: region-and-timeout-behavior
+    weight: 1
+    point: >-
+      In app.py, "region" is present in CONFIG so its cast string is
+      returned unchanged; "timeout_ms" is absent, so `source[key]` raises
+      KeyError, SkipMissing suppresses it, and load_setting returns the
+      default 3000.
+
+  - id: suppression-scope-too-broad
+    weight: 3
+    point: >-
+      SkipMissing wraps the entire `with` block, not just the `source[key]`
+      lookup, so a KeyError raised anywhere inside it -- including one
+      raised deep inside `cast` -- is suppressed exactly like a genuinely
+      missing top-level key.
+
+  - id: invalid-tag-silently-defaulted
+    weight: 3
+    point: >-
+      CONFIG's tags value "prod,unknown" makes normalize_tags raise
+      KeyError("unknown") from inside CANONICAL_TAGS[tag]; that error is
+      caught by the same SkipMissing block around the `tags` lookup, so
+      load_setting falls back to the empty-list default and app.py prints
+      "tags=[]" with no sign that a tag was invalid.
+
+  - id: indistinguishable-from-absent
+    weight: 2
+    point: >-
+      Calling load_setting with a CONFIG that never had a "tags" key at all
+      produces the identical result, an empty list, so the printed output
+      can't tell a missing key apart from a present-but-invalid one.
+
+  - id: non-keyerror-still-propagates
+    weight: 1
+    point: >-
+      A cast that raises something other than KeyError, such as int()
+      raising ValueError on a non-numeric "timeout_ms" value, is not caught
+      by SkipMissing and propagates out of load_setting normally.

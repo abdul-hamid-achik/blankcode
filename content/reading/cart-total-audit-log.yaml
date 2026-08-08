@@ -1,0 +1,155 @@
+slug: cart-total-audit-log
+title: A cart store with an audited computed total
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about how many entries end up in the store's
+  audit log after several items are added while the total is hidden, and then
+  the total is shown.
+language: vue
+difficulty: advanced
+isPublished: true
+
+files:
+  - path: stores/cart.ts
+    content: |
+      import { computed, ref } from 'vue'
+      import { defineStore } from 'pinia'
+
+      export interface CartItem {
+        id: string
+        price: number
+        qty: number
+      }
+
+      export const useCartStore = defineStore('cart', () => {
+        const items = ref<CartItem[]>([])
+
+        /** Append-only trail of every total the store has actually reported. */
+        const auditLog: string[] = []
+
+        const total = computed(() => {
+          const sum = items.value.reduce((acc, item) => acc + item.price * item.qty, 0)
+          auditLog.push(`total recomputed: ${sum}`)
+          return sum
+        })
+
+        function addItem(item: CartItem): void {
+          items.value.push(item)
+        }
+
+        function clear(): void {
+          items.value = []
+        }
+
+        return { items, total, auditLog, addItem, clear }
+      })
+
+  - path: components/cart-total.vue
+    content: |
+      <script setup lang="ts">
+      import { useCartStore } from '../stores/cart'
+
+      const store = useCartStore()
+      </script>
+
+      <template>
+        <p class="total">Total: {{ store.total }}</p>
+      </template>
+
+  - path: components/cart-receipt.vue
+    content: |
+      <script setup lang="ts">
+      import { useCartStore } from '../stores/cart'
+
+      const store = useCartStore()
+      </script>
+
+      <template>
+        <pre class="receipt">Items: {{ store.items.length }}
+      Total: {{ store.total }}</pre>
+      </template>
+
+  - path: components/cart-panel.vue
+    content: |
+      <script setup lang="ts">
+      import { ref } from 'vue'
+      import { useCartStore } from '../stores/cart'
+      import CartTotal from './cart-total.vue'
+      import CartReceipt from './cart-receipt.vue'
+
+      const store = useCartStore()
+      const showTotal = ref(false)
+      const showReceipt = ref(false)
+      let nextId = 0
+
+      function addSample(price: number): void {
+        nextId += 1
+        store.addItem({ id: String(nextId), price, qty: 1 })
+      }
+      </script>
+
+      <template>
+        <section class="cart-panel">
+          <button type="button" @click="addSample(10)">Add $10 item</button>
+          <button type="button" @click="store.clear()">Clear cart</button>
+          <label><input v-model="showTotal" type="checkbox" /> Show total</label>
+          <label><input v-model="showReceipt" type="checkbox" /> Show receipt</label>
+          <CartTotal v-if="showTotal" />
+          <CartReceipt v-if="showReceipt" />
+        </section>
+      </template>
+
+rubric:
+  - id: side-effect-in-getter
+    weight: 1
+    point: >-
+      total's computed getter has a side effect baked in: every time the
+      getter body actually executes, it pushes one line onto auditLog before
+      returning the sum.
+
+  - id: lazy-not-eager
+    weight: 1
+    point: >-
+      Computed getters are lazy. Calling addItem (via addSample) mutates
+      items, but by itself that never touches total's getter or auditLog —
+      nothing runs until something reads total.value.
+
+  - id: hidden-panel-silent
+    weight: 2
+    point: >-
+      While showTotal is false, neither CartTotal nor CartReceipt is mounted,
+      so nothing in the tree reads store.total; items can be added any number
+      of times with auditLog staying completely empty.
+
+  - id: one-entry-per-gap
+    weight: 3
+    point: >-
+      The first read of store.total after being hidden — e.g. CartTotal
+      mounting when showTotal flips true — runs the getter exactly once
+      against the full current items array, producing a single audit-log line
+      that folds in every addition made since the last read. It is never one
+      line per addItem call.
+
+  - id: cache-persists-across-reads
+    weight: 2
+    point: >-
+      Once that read has happened, further reads of store.total — the same
+      component re-rendering, or CartReceipt reading it for the first time
+      right after — return the memoized value without re-running the getter,
+      as long as items hasn't changed since; auditLog only grows again on the
+      next read that follows a real mutation.
+
+  - id: shared-store-instance
+    weight: 1
+    point: >-
+      cart-total.vue and cart-receipt.vue each call useCartStore()
+      independently, but Pinia hands back the same store instance to both, so
+      they read the identical total computed and its one shared cache, not two
+      separate copies.
+
+  - id: clear-resets-items-not-log
+    weight: 1
+    point: >-
+      clear() empties items but never touches auditLog, so the log is a
+      running history across clears too — nothing in this codebase ever
+      shrinks or resets it.

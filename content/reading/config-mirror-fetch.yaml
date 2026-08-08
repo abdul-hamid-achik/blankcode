@@ -1,0 +1,124 @@
+slug: config-mirror-fetch
+title: A config loader that races its mirrors
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what happens to the goroutines started
+  for the mirrors that don't win the race.
+language: go
+difficulty: intermediate
+isPublished: true
+
+files:
+  - path: mirror.go
+    content: |
+      package mirror
+
+      // Result is what a single source produced.
+      type Result struct {
+      	Value string
+      	Err   error
+      }
+
+      // Fetch fetches from source. Implementations do network I/O and may block.
+      type Fetch func(source string) Result
+
+  - path: first.go
+    content: |
+      package mirror
+
+      // First asks every source at once and returns whichever answers first. It's
+      // used for config mirrors: any one of them is authoritative, so there is no
+      // reason to wait for the slow ones once we already have an answer.
+      func First(sources []string, fetch Fetch) Result {
+      	results := make(chan Result)
+      	for _, source := range sources {
+      		go func(source string) {
+      			results <- fetch(source)
+      		}(source)
+      	}
+      	return <-results
+      }
+
+  - path: config.go
+    content: |
+      package mirror
+
+      // LoadConfig fetches the shared config from whichever mirror answers first.
+      func LoadConfig(mirrors []string, fetch Fetch) (string, error) {
+      	result := First(mirrors, fetch)
+      	if result.Err != nil {
+      		return "", result.Err
+      	}
+      	return result.Value, nil
+      }
+
+  - path: static.go
+    content: |
+      package mirror
+
+      import (
+      	"fmt"
+      	"time"
+      )
+
+      // StaticFetch returns a Fetch backed by an in-memory table, sleeping delay
+      // first to stand in for the mirror's network latency.
+      func StaticFetch(values map[string]string, delay time.Duration) Fetch {
+      	return func(source string) Result {
+      		time.Sleep(delay)
+      		v, ok := values[source]
+      		if !ok {
+      			return Result{Err: fmt.Errorf("mirror: no entry for %q", source)}
+      		}
+      		return Result{Value: v}
+      	}
+      }
+
+rubric:
+  - id: first-launches-one-goroutine-per-source
+    weight: 1
+    point: >-
+      First starts one goroutine per source, each computing fetch(source) and
+      sending its Result on one shared, unbuffered channel.
+
+  - id: first-receives-once
+    weight: 1
+    point: >-
+      First reads from that channel exactly once — `return <-results` — and
+      returns as soon as whichever goroutine gets there first.
+
+  - id: losing-goroutines-block-forever
+    weight: 3
+    point: >-
+      Because the channel is unbuffered and nothing ever receives from it
+      again, every goroutine whose fetch finishes after the winner blocks
+      forever on `results <- fetch(source)` and is never garbage collected
+      while parked there.
+
+  - id: leak-is-the-normal-case
+    weight: 2
+    point: >-
+      This isn't an edge case triggered by errors or timeouts — it happens on
+      essentially every call to First with more than one source, as the
+      ordinary outcome of the race.
+
+  - id: loadconfig-adds-no-protection
+    weight: 1
+    point: >-
+      LoadConfig only wraps First's single Result with error handling; it does
+      nothing to bound, cancel, or wait for the other in-flight goroutines.
+
+  - id: staticfetch-delay-controls-the-race
+    weight: 1
+    point: >-
+      StaticFetch's delay parameter is what makes a given mirror win or lose
+      the race in tests — the slower simulated mirror is exactly the one left
+      leaked.
+
+  - id: result-does-not-mark-its-source
+    weight: 2
+    point: >-
+      Result carries only a Value or an Err with nothing identifying which
+      source produced it, so First can just as easily return a failing
+      mirror's error even when a working mirror would have answered a moment
+      later.

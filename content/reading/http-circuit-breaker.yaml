@@ -1,0 +1,126 @@
+slug: http-circuit-breaker
+title: An HTTP client wrapped in a circuit breaker
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what Breaker.Call returns for a
+  single, entirely successful call.
+language: go
+difficulty: advanced
+isPublished: true
+
+files:
+  - path: trip_error.go
+    content: |
+      package breaker
+
+      import "fmt"
+
+      // TripError explains why the breaker refused to run further calls.
+      type TripError struct {
+      	Failures int
+      }
+
+      func (e *TripError) Error() string {
+      	return fmt.Sprintf("breaker open after %d failures", e.Failures)
+      }
+
+  - path: breaker.go
+    content: |
+      package breaker
+
+      // Breaker counts consecutive failures and reports a *TripError once the
+      // count passes limit, so a caller can stop hammering a dependency that is
+      // already down.
+      type Breaker struct {
+      	limit    int
+      	failures int
+      }
+
+      // New returns a Breaker that trips after limit consecutive failures.
+      func New(limit int) *Breaker {
+      	return &Breaker{limit: limit}
+      }
+
+      // Call runs fn, tracks the outcome, and reports the breaker's state. A
+      // successful call resets the failure streak.
+      func (b *Breaker) Call(fn func() error) error {
+      	var failure *TripError
+
+      	err := fn()
+      	if err != nil {
+      		b.failures++
+      		if b.failures >= b.limit {
+      			failure = &TripError{Failures: b.failures}
+      		}
+      	} else {
+      		b.failures = 0
+      	}
+
+      	return failure
+      }
+
+  - path: process.go
+    content: |
+      package breaker
+
+      // ProcessAll runs fn for every item through the breaker, stopping early if
+      // the breaker reports an error. It returns how many items were processed
+      // before stopping.
+      func ProcessAll(b *Breaker, items []string, fn func(string) error) (int, error) {
+      	for i, item := range items {
+      		if err := b.Call(func() error { return fn(item) }); err != nil {
+      			return i, err
+      		}
+      	}
+      	return len(items), nil
+      }
+
+rubric:
+  - id: triperror-shape
+    weight: 1
+    point: >-
+      TripError is a struct holding a Failures count, with a pointer-receiver
+      Error() method that formats "breaker open after N failures".
+
+  - id: call-bookkeeping-is-correct
+    weight: 1
+    point: >-
+      Call's failure counting is itself correct: it increments failures on an
+      error, resets to zero on success, and only builds a real *TripError once
+      failures reaches limit.
+
+  - id: always-returns-the-pointer-var
+    weight: 2
+    point: >-
+      Call's final statement is unconditionally `return failure` — never a
+      literal `nil` — on every code path, including the success path where
+      failure was never assigned.
+
+  - id: typed-nil-is-a-non-nil-interface
+    weight: 3
+    point: >-
+      When failure is left at its zero value (a nil *TripError) and returned
+      through the `error` interface return type, the resulting interface value
+      is non-nil — it carries a concrete type plus a nil pointer — so
+      `err != nil` is true at the call site even though nothing went wrong.
+
+  - id: error-method-panics-on-the-nil-case
+    weight: 2
+    point: >-
+      Calling .Error() on that non-nil-but-empty error (directly, or
+      indirectly through fmt/%v/logging) dereferences the nil *TripError to
+      read e.Failures and panics with a nil pointer dereference.
+
+  - id: processall-stops-on-the-first-item
+    weight: 2
+    point: >-
+      Because of this, ProcessAll's loop treats the very first item's Call as
+      an error and returns after processing zero items, regardless of how
+      many items would actually have succeeded.
+
+  - id: only-a-real-trip-is-safe
+    weight: 1
+    point: >-
+      The only error value that is genuinely safe to use is the one produced
+      once failures has actually reached limit — but ProcessAll never reaches
+      that state, since it already stops on the first call.

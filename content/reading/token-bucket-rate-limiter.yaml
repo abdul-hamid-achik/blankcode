@@ -1,0 +1,131 @@
+slug: token-bucket-rate-limiter
+title: A token bucket rate limiter
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what happens to a drained TokenBucket's
+  token count after many calls to tick() when it was built with refill_ticks
+  greater than or equal to capacity.
+language: rust
+difficulty: beginner
+isPublished: true
+
+files:
+  - path: src/bucket.rs
+    content: |
+      /// A simple token bucket rate limiter.
+      ///
+      /// Tokens are spent one at a time by `try_take`, and trickle back in
+      /// whenever `tick` is called.
+      pub struct TokenBucket {
+          capacity: u32,
+          tokens: u32,
+          refill_per_tick: u32,
+      }
+
+      impl TokenBucket {
+          /// `capacity` tokens total, replenished evenly over `refill_ticks`
+          /// calls to `tick` (so a fully drained bucket takes about that many
+          /// ticks to refill).
+          pub fn new(capacity: u32, refill_ticks: u32) -> Self {
+              TokenBucket {
+                  capacity,
+                  tokens: capacity,
+                  refill_per_tick: capacity / refill_ticks,
+              }
+          }
+
+          /// Advance one tick, adding the refill amount without exceeding
+          /// capacity.
+          pub fn tick(&mut self) {
+              self.tokens = (self.tokens + self.refill_per_tick).min(self.capacity);
+          }
+
+          /// Spend one token if one is available.
+          pub fn try_take(&mut self) -> bool {
+              if self.tokens == 0 {
+                  return false;
+              }
+              self.tokens -= 1;
+              true
+          }
+
+          pub fn capacity(&self) -> u32 {
+              self.capacity
+          }
+
+          pub fn tokens_remaining(&self) -> u32 {
+              self.tokens
+          }
+      }
+
+  - path: src/report.rs
+    content: |
+      use crate::bucket::TokenBucket;
+
+      /// A short status line like `"3/5 tokens"`.
+      pub fn status_line(bucket: &TokenBucket) -> String {
+          format!("{}/{} tokens", bucket.tokens_remaining(), bucket.capacity())
+      }
+
+      /// True once the bucket has spent every token it currently has.
+      pub fn is_exhausted(bucket: &TokenBucket) -> bool {
+          bucket.tokens_remaining() == 0
+      }
+
+  - path: src/lib.rs
+    content: |
+      pub mod bucket;
+      pub mod report;
+
+      pub use bucket::TokenBucket;
+      pub use report::{is_exhausted, status_line};
+
+rubric:
+  - id: bucket-starts-full
+    weight: 1
+    point: >-
+      TokenBucket::new sets tokens equal to capacity, so a fresh bucket starts
+      completely full, and computes refill_per_tick once, at construction
+      time, as capacity / refill_ticks.
+
+  - id: integer-division-floors
+    weight: 3
+    point: >-
+      capacity / refill_ticks is integer division that truncates toward zero,
+      so whenever refill_ticks is greater than or equal to capacity,
+      refill_per_tick is computed as exactly 0.
+
+  - id: permanent-lockout
+    weight: 3
+    point: >-
+      When refill_per_tick is 0, tick() adds nothing on every call (tokens +
+      0, clamped by .min(capacity)), so once try_take drains the bucket to 0
+      tokens it never recovers — no number of further ticks restores it.
+
+  - id: tick-caps-at-capacity
+    weight: 1
+    point: >-
+      When refill_per_tick is nonzero, tick() still clamps with
+      .min(capacity), so repeated ticking never pushes tokens above the
+      bucket's capacity.
+
+  - id: try-take-guard
+    weight: 1
+    point: >-
+      try_take returns false and leaves tokens unchanged when tokens is
+      already 0; otherwise it decrements tokens by exactly 1 and returns
+      true.
+
+  - id: status-line-live
+    weight: 1
+    point: >-
+      status_line and is_exhausted read tokens_remaining()/capacity()
+      directly off the bucket on every call — neither caches a value, so both
+      always reflect the bucket's current state.
+
+  - id: report-read-only
+    weight: 1
+    point: >-
+      status_line and is_exhausted take only a &TokenBucket, not &mut, so
+      calling either can never spend a token or advance a tick as a side
+      effect.

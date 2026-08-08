@@ -1,0 +1,125 @@
+slug: access-log-summary
+title: An access-log line parser and summary report
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what build_report actually prints for
+  the five sample lines in main.py -- including any number that comes out
+  wrong and why.
+language: python
+difficulty: intermediate
+isPublished: true
+
+files:
+  - path: records.py
+    content: |
+      from collections.abc import Iterator
+      from dataclasses import dataclass
+
+
+      @dataclass
+      class LogRecord:
+          path: str
+          status: int
+          bytes: int
+
+
+      def parse_lines(lines: list[str]) -> Iterator[LogRecord]:
+          """Yield one LogRecord per well-formed line, skipping the rest.
+
+          Expected format: "METHOD /path STATUS BYTES", e.g. "GET /home 200 512".
+          """
+          for line in lines:
+              parts = line.split()
+              if len(parts) != 4:
+                  continue
+              _method, path, status, size = parts
+              if not status.isdigit() or not size.isdigit():
+                  continue
+              yield LogRecord(path, int(status), int(size))
+
+  - path: report.py
+    content: |
+      from records import parse_lines
+
+
+      def build_report(lines: list[str]) -> str:
+          """Summarize a batch of raw log lines into one line of text."""
+          records = parse_lines(lines)
+          request_count = sum(1 for _ in records)
+          byte_total = sum(record.bytes for record in records)
+          error_count = sum(1 for record in records if record.status >= 400)
+          return (
+              f"{request_count} requests, {byte_total} bytes served, "
+              f"{error_count} errored"
+          )
+
+  - path: main.py
+    content: |
+      from report import build_report
+
+      SAMPLE_LINES = [
+          "GET /home 200 512",
+          "GET /api/data 200 2048",
+          "POST /api/data 500 128",
+          "not a valid line",
+          "GET /favicon.ico 404 64",
+      ]
+
+
+      def main() -> None:
+          print(build_report(SAMPLE_LINES))
+
+
+      if __name__ == "__main__":
+          main()
+
+rubric:
+  - id: parse-lines-role
+    weight: 1
+    point: >-
+      parse_lines is a generator function: it splits each line on whitespace
+      and yields a LogRecord only for lines with exactly four fields whose
+      status and byte-size fields are both digit strings.
+
+  - id: malformed-line-skipped
+    weight: 1
+    point: >-
+      A line that doesn't split into four fields, like "not a valid line", is
+      silently skipped by the `len(parts) != 4` check rather than raising, so
+      it just produces no record.
+
+  - id: generator-exhausted
+    weight: 3
+    point: >-
+      `records = parse_lines(lines)` creates a single generator object, and
+      the first `sum(1 for _ in records)` fully consumes it while counting
+      requests, leaving nothing behind for the two sums that come after.
+
+  - id: later-sums-always-zero
+    weight: 3
+    point: >-
+      Because the generator is already exhausted, `byte_total` and
+      `error_count` iterate over zero items and are always 0, regardless of
+      how many bytes or error statuses actually exist in the input.
+
+  - id: printed-output
+    weight: 2
+    point: >-
+      For the five sample lines (four well-formed), build_report prints
+      "4 requests, 0 bytes served, 0 errored", even though the well-formed
+      lines total 2752 bytes and include two error-status records (500 and
+      404).
+
+  - id: request-count-only-correct
+    weight: 1
+    point: >-
+      request_count is the only one of the three numbers in the report that
+      is ever accurate, since it's the only sum that runs before the
+      generator is used up.
+
+  - id: fix-needs-list-or-refresh
+    weight: 2
+    point: >-
+      Because a generator can only be iterated once, fixing this needs either
+      materializing `records` into a list before summing it three times, or
+      calling parse_lines(lines) again for each pass.

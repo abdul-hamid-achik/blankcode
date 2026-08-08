@@ -1,0 +1,155 @@
+slug: loyalty-tier-tracker
+title: A customer loyalty tier tracker
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about which tier visit() returns for a
+  customer's second visit when promote_campaign is called in between their
+  first and second visits.
+language: rust
+difficulty: intermediate
+isPublished: true
+
+files:
+  - path: src/tier.rs
+    content: |
+      /// Loyalty tiers, ordered from least to most valuable.
+      #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+      pub enum Tier {
+          Bronze,
+          Silver,
+          Gold,
+      }
+
+      impl Tier {
+          pub fn label(self) -> &'static str {
+              match self {
+                  Tier::Bronze => "bronze",
+                  Tier::Silver => "silver",
+                  Tier::Gold => "gold",
+              }
+          }
+      }
+
+  - path: src/record.rs
+    content: |
+      use crate::tier::Tier;
+
+      /// What we know about one customer.
+      #[derive(Debug, Clone)]
+      pub struct CustomerRecord {
+          pub tier: Tier,
+          pub visits: u32,
+      }
+
+      impl CustomerRecord {
+          pub fn new(tier: Tier) -> Self {
+              CustomerRecord { tier, visits: 0 }
+          }
+      }
+
+  - path: src/tracker.rs
+    content: |
+      use std::collections::HashMap;
+
+      use crate::record::CustomerRecord;
+      use crate::tier::Tier;
+
+      /// Tracks visits and stamps each customer with the tier that was active
+      /// campaign-wide when they were first seen.
+      pub struct LoyaltyTracker {
+          current_tier: Tier,
+          customers: HashMap<String, CustomerRecord>,
+      }
+
+      impl LoyaltyTracker {
+          pub fn new(starting_tier: Tier) -> Self {
+              LoyaltyTracker {
+                  current_tier: starting_tier,
+                  customers: HashMap::new(),
+              }
+          }
+
+          /// Changes the tier new customers are stamped with going forward.
+          pub fn promote_campaign(&mut self, tier: Tier) {
+              self.current_tier = tier;
+          }
+
+          /// Records a visit and returns the tier stamped on this customer's
+          /// record.
+          pub fn visit(&mut self, customer: &str) -> Tier {
+              let current_tier = self.current_tier;
+              let record = self
+                  .customers
+                  .entry(customer.to_string())
+                  .or_insert(CustomerRecord::new(current_tier));
+              record.visits += 1;
+              record.tier
+          }
+
+          pub fn visits_for(&self, customer: &str) -> u32 {
+              self.customers.get(customer).map(|r| r.visits).unwrap_or(0)
+          }
+      }
+
+  - path: src/lib.rs
+    content: |
+      pub mod record;
+      pub mod tier;
+      pub mod tracker;
+
+      pub use record::CustomerRecord;
+      pub use tier::Tier;
+      pub use tracker::LoyaltyTracker;
+
+rubric:
+  - id: record-starts-at-zero-visits
+    weight: 1
+    point: >-
+      CustomerRecord::new(tier) always starts visits at 0; LoyaltyTracker::new
+      seeds current_tier from the tier passed to it and starts with an empty
+      customers map.
+
+  - id: visit-always-increments
+    weight: 1
+    point: >-
+      visit() increments record.visits by exactly 1 on every call, whether or
+      not the customer already had a record.
+
+  - id: or-insert-eager-eval
+    weight: 2
+    point: >-
+      The argument to or_insert, CustomerRecord::new(current_tier), is
+      evaluated every time visit() runs — even for a customer who already has
+      a record — constructing and then discarding a fresh CustomerRecord on
+      every repeat visit.
+
+  - id: tier-frozen-at-first-visit
+    weight: 3
+    point: >-
+      Because entry().or_insert only inserts when the key is absent, only a
+      customer's first-ever visit's current_tier is actually stored; on every
+      later visit for that same customer, the freshly built CustomerRecord is
+      thrown away and the existing record's tier field is left untouched.
+
+  - id: promote-does-not-retroact
+    weight: 3
+    point: >-
+      Calling promote_campaign after a customer has already visited once
+      never changes what visit() returns for that customer again — their
+      tier stays frozen at whatever current_tier was on their first visit,
+      even though current_tier itself has moved on.
+
+  - id: new-customers-get-latest-tier
+    weight: 1
+    point: >-
+      A customer visiting for the very first time is always stamped with
+      whatever current_tier is at that moment, so two customers whose first
+      visits straddle a promote_campaign call end up permanently on
+      different tiers.
+
+  - id: visits-for-no-insert
+    weight: 1
+    point: >-
+      visits_for looks the customer up with .get and falls back to 0 via
+      unwrap_or for an unknown customer, without inserting anything into the
+      map — unlike visit(), it never creates a record as a side effect.

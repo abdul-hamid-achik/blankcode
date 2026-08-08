@@ -1,0 +1,135 @@
+slug: reminder-planner-app
+title: A reminder planner for weekly to-dos and quick notes
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what quick_reminder returns for each
+  person it's called for, in the order those calls happen.
+language: python
+difficulty: beginner
+isPublished: true
+
+files:
+  - path: models.py
+    content: |
+      from dataclasses import dataclass
+
+
+      @dataclass
+      class Reminder:
+          """One reminder line for a single person."""
+
+          person: str
+          message: str
+
+          def __str__(self) -> str:
+              return f"{self.person}: {self.message}"
+
+  - path: planner.py
+    content: |
+      from models import Reminder
+
+
+      def schedule_reminder(
+          person: str, message: str, reminders: list[Reminder] = []
+      ) -> list[Reminder]:
+          """Add a reminder to the given list (or a fresh one) and return that list."""
+          reminders.append(Reminder(person, message))
+          return reminders
+
+
+      def plan_week(person: str, messages: list[str]) -> list[Reminder]:
+          """Build one person's week from scratch, one reminder at a time."""
+          week: list[Reminder] = []
+          for message in messages:
+              week = schedule_reminder(person, message, week)
+          return week
+
+  - path: app.py
+    content: |
+      from planner import plan_week, schedule_reminder
+
+
+      def weekly_planners(people: dict[str, list[str]]) -> dict[str, list]:
+          """One independent planner per person."""
+          return {person: plan_week(person, messages) for person, messages in people.items()}
+
+
+      def quick_reminder(person: str, message: str) -> list:
+          """A single ad-hoc reminder, meant to start its own short list."""
+          return schedule_reminder(person, message)
+
+
+      def main() -> None:
+          planners = weekly_planners(
+              {
+                  "Alice": ["water the plants", "call mom"],
+                  "Bob": ["renew passport"],
+              }
+          )
+          for person, reminders in planners.items():
+              print(f"-- {person} --")
+              for reminder in reminders:
+                  print(reminder)
+
+          print("-- quick --")
+          for reminder in quick_reminder("Cleo", "pick up dry cleaning"):
+              print(reminder)
+          print("-- quick again --")
+          for reminder in quick_reminder("Dee", "renew library card"):
+              print(reminder)
+
+
+      if __name__ == "__main__":
+          main()
+
+rubric:
+  - id: reminder-shape
+    weight: 1
+    point: >-
+      Reminder is a dataclass pairing a person with a message, and __str__
+      formats it as "person: message" for printing.
+
+  - id: plan-week-fresh-list
+    weight: 2
+    point: >-
+      plan_week starts a fresh, local `week` list on every call and passes it
+      into schedule_reminder explicitly on every iteration, reassigning `week`
+      to whatever schedule_reminder returns.
+
+  - id: schedule-reminder-role
+    weight: 1
+    point: >-
+      schedule_reminder appends a new Reminder built from `person` and
+      `message` onto whichever list `reminders` currently refers to, then
+      returns that same list object.
+
+  - id: mutable-default-shared
+    weight: 3
+    point: >-
+      schedule_reminder's default `reminders: list[Reminder] = []` is a single
+      list object created once, when planner.py is first imported, not a fresh
+      list on every call; any call that omits the third argument reuses that
+      exact object.
+
+  - id: quick-reminder-leaks
+    weight: 3
+    point: >-
+      quick_reminder never passes a list to schedule_reminder, so every call
+      it makes appends to that one shared default list; calling
+      quick_reminder for Dee after already calling it for Cleo returns a list
+      containing both Cleo's and Dee's reminders, not just Dee's.
+
+  - id: weekly-planners-unaffected
+    weight: 1
+    point: >-
+      weekly_planners is not affected by the shared default: because
+      plan_week always supplies its own `week` list, Alice's and Bob's
+      planners stay independent of each other and of the quick reminders.
+
+  - id: leak-grows-with-order
+    weight: 2
+    point: >-
+      The shared list keeps growing with every quick_reminder call for as
+      long as the process runs, so what a given quick call returns depends on
+      how many quick reminders were made before it, not just on its own
+      arguments.

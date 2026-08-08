@@ -1,0 +1,121 @@
+slug: menu-action-registry
+title: A menu of labeled actions built in a loop
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what string menu.run("Save") actually
+  returns, and why it isn't about Save at all.
+language: python
+difficulty: intermediate
+isPublished: true
+
+files:
+  - path: items.py
+    content: |
+      from collections.abc import Callable
+      from dataclasses import dataclass
+
+
+      @dataclass
+      class MenuItem:
+          label: str
+          action: Callable[[], str]
+
+  - path: builder.py
+    content: |
+      from items import MenuItem
+
+
+      def build_menu(labels: list[str]) -> list[MenuItem]:
+          """Build one MenuItem per label, each action naming its own label."""
+          items: list[MenuItem] = []
+          for index, label in enumerate(labels):
+              action = lambda: f"[{index}] you picked {label}"
+              items.append(MenuItem(label, action))
+          return items
+
+  - path: registry.py
+    content: |
+      from builder import build_menu
+      from items import MenuItem
+
+
+      class MenuRegistry:
+          """Wraps a built menu so callers can run an action by label."""
+
+          def __init__(self, labels: list[str]) -> None:
+              self._items: list[MenuItem] = build_menu(labels)
+
+          def labels(self) -> list[str]:
+              return [item.label for item in self._items]
+
+          def run(self, label: str) -> str:
+              for item in self._items:
+                  if item.label == label:
+                      return item.action()
+              raise KeyError(label)
+
+  - path: app.py
+    content: |
+      from registry import MenuRegistry
+
+
+      def main() -> None:
+          menu = MenuRegistry(["Save", "Load", "Quit"])
+          for label in menu.labels():
+              print(f"{label} -> {menu.run(label)}")
+
+
+      if __name__ == "__main__":
+          main()
+
+rubric:
+  - id: menu-item-shape
+    weight: 1
+    point: >-
+      MenuItem pairs a label with a zero-argument action callable that
+      returns a descriptive string.
+
+  - id: build-menu-loop
+    weight: 2
+    point: >-
+      build_menu loops over enumerate(labels), creating one lambda per
+      iteration that closes over `index` and `label`, and appends a MenuItem
+      pairing the original label with that lambda.
+
+  - id: late-binding
+    weight: 3
+    point: >-
+      The lambdas don't capture `index` and `label` by value at creation
+      time; each one looks the names up in the enclosing scope only when it
+      is finally called, and `index`/`label` are the same two loop variables
+      reused and overwritten on every iteration.
+
+  - id: all-actions-report-last
+    weight: 3
+    point: >-
+      Because every lambda shares those two variables and the loop leaves
+      them holding the values from the last label ("Quit", index 2), calling
+      any item's action -- even Save's -- returns "[2] you picked Quit".
+
+  - id: registry-lookup-is-correct
+    weight: 2
+    point: >-
+      MenuRegistry.run finds the right MenuItem by comparing
+      `item.label == label`, so the lookup itself is not the bug; it locates
+      Save's own MenuItem and still gets back the wrong string when it calls
+      that item's action.
+
+  - id: labels-unaffected
+    weight: 1
+    point: >-
+      MenuRegistry.labels() returns the three distinct, correct labels; only
+      the results of calling action() are wrong, which is what makes the bug
+      easy to miss on a quick read.
+
+  - id: fix-needs-default-arg
+    weight: 2
+    point: >-
+      Binding index and label as default argument values on the lambda (for
+      example `lambda index=index, label=label: ...`) would freeze them at
+      creation time instead of lookup time; the code as written does not do
+      this.
