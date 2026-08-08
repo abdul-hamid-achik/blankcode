@@ -1,0 +1,5 @@
+slug: specification
+name: Pin It Down
+description: A vague request produces coherent code that solves a slightly different problem. These exercises give you the prose and ask for the cases that make it unambiguous — graded by whether they reject the implementations that are subtly wrong.
+order: 130
+isPublished: true
