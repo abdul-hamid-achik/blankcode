@@ -29,7 +29,7 @@ BlankCode is a monorepo coding exercise platform built with:
 
 ## Critical Rules
 
-### 0. No One-Time Scripts in the Repository
+### 0. No One-Time Scripts, No Shell Scripts
 
 **Do not create a `scripts/` folder — or commit any file — for something that
 runs once.** A one-off (a data fix, a backfill, a probe, a migration already
@@ -37,10 +37,18 @@ applied) runs from the scratchpad or inline and is then gone; committing it
 leaves a folder of stale, unowned code that reads as if it were part of the
 product. This happened here and the folder was deleted.
 
-Recurring operator tooling — things run *on purpose, more than once* — lives in
-`tools/ops/` (the plan seed, the local-dev environment script). The test for
-where something goes: "will this be run again next month, by someone who is not
-me?" If no, it does not get committed at all.
+**Do not write shell scripts, either.** Recurring operator tooling — things
+run *on purpose, more than once* — is TypeScript in `tools/ops/`, run with bun
+(`seed.ts` is the model). Environment and secrets are tvault's job, not a
+script's: `tvault run -p <project> -- <command>` injects them as real process
+environment, so a wrapper that assembles an env file has nothing left to do.
+One existed here (`dev-against-preview.sh`, which wrote
+`.env.development.local`) and was deleted for exactly this. The single place
+shell is allowed is a container entrypoint under `docker/`, because inside the
+image `/bin/sh` is all there is.
+
+The test for where something goes: "will this be run again next month, by
+someone who is not me?" If no, it does not get committed at all.
 
 ### 1. Plan Before You Code
 
@@ -495,7 +503,30 @@ wrapper.find('.my-class > div')
 wrapper.find('[data-testid="my-element"]')
 ```
 
-### 5. Async Test Patterns
+### 5. Local dev against preview is `tvault run`, not an env file
+
+```bash
+tvault run -p blankcode-preview -- bun run dev
+```
+
+The vault injects the preview `DATABASE_URL`, `EXECUTION_BACKEND=vercel-sandbox`,
+the snapshot ids, `JWT_SECRET` and the Stripe/Resend test keys as real process
+environment, which survives turbo — verified by executing on 2026-08-08:
+`run_tests` passed in a real microVM with no env file on disk. A dotenv file
+did not survive it: the deleted `.env.development.local` approach silently fell
+back to the local docker postgres (`relation "api_tokens" does not exist`
+errors that look like migration problems, while the tracks endpoint still
+answers from stale seed data). Real environment also beats the untracked local
+`.env`, because bun does not override variables that already exist.
+
+No Vercel token goes in the environment at all: `@vercel/oidc` mints and
+refreshes an OIDC token from the Vercel CLI login and `.vercel/project.json`,
+which is how both `@vercel/sandbox` and the AI Gateway provider authenticate
+off-platform. `apps/web/server/plugins/dev-oidc.ts` primes it at startup so
+the AI route guards (which read `process.env` directly) see it. If sandboxes
+or AI stop authenticating, the fix is `vercel login`, not a token hunt.
+
+### 6. Async Test Patterns
 
 Always await async operations in tests:
 

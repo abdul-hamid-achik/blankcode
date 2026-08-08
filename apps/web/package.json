@@ -40,6 +40,7 @@
     "@pinia/nuxt": "^1.0.1",
     "@tailwindcss/vite": "^4.3.3",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/oidc": "^3.2.0",
     "@vercel/sandbox": "^2.9.2",
     "ai": "^7.0.55",
     "bcryptjs": "^3.0.3",

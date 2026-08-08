@@ -49,8 +49,8 @@ packages/db      Drizzle schema + migrations.
 packages/shared  Types, schemas, entitlement rules, blank grading.
 packages/exercise-parser   Markdown → starter/solution/blanks/tests.
 tools/ops        Recurring operator tooling: `seed.ts` (Stripe/tvault/Vercel
-                 reconciliation), `dev-against-preview.sh`. One-time scripts
-                 are never committed (AGENTS.md, Critical Rule 0).
+                 reconciliation). TypeScript only — no shell scripts, and
+                 one-time scripts are never committed (AGENTS.md, Rule 0).
 tools/content-importer     content/tracks + LEARNING_PATHS → Postgres.
 tools/exercise-validator   Static rules; also consumed by the generator.
 tools/exercise-generator   AI generation, gated by the real validator.
@@ -61,14 +61,14 @@ content/         tracks/ (exercises), blog/, tutorials/.
 
 ```bash
 bun install
-bash tools/ops/dev-against-preview.sh   # writes .env.development.local
-bun run dev                             # site on :3001, API under /api
+tvault run -p blankcode-preview -- bun run dev   # site on :3001, API under /api
 ```
 
-The env script points `DATABASE_URL` at the **preview** Neon branch and sets
-`EXECUTION_BACKEND=vercel-sandbox` with a fresh OIDC token, so a submission
-runs in a real microVM from your machine. Secrets come from tvault
-(`blankcode-preview`); the file is disposable — delete it and re-run.
+tvault injects the **preview** Neon `DATABASE_URL`,
+`EXECUTION_BACKEND=vercel-sandbox` and the snapshot ids as real process
+environment — no env file — so a submission runs in a real microVM from your
+machine. Sandbox and AI Gateway credentials mint themselves from the Vercel
+CLI login (`vercel login` once); see AGENTS.md, Common Pitfall 5.
 
 ### Gates
 
