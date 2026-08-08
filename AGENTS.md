@@ -544,6 +544,19 @@ it('loads data', async () => {
 })
 ```
 
+### 7. A bare `<template>` inside a page breaks hydration
+
+Observed on /progress: a nested `<template>` with no `v-if`/`v-for`/`v-slot`
+compiles differently on the server (fragment markers) and the client, and
+Vue reports `Hydration completed but contains mismatches` — after which the
+broken vdom can make later client-side navigation misrender until a hard
+refresh. A bare `<template>` wrapper does nothing a fragment or the parent
+element does not already do: delete it and let its children stand. To check
+the whole app for hydration regressions, hard-load every page in a real
+browser and grep the console for `hydrat|mismatch` — a Playwright sweep from
+the scratchpad reproduced and then cleared this in minutes, which static
+review had not.
+
 ## Database Changes
 
 When modifying the database schema:

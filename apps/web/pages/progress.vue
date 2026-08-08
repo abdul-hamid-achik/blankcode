@@ -93,66 +93,66 @@ const stats = computed(() => [
     </p>
     <h1 class="display text-2xl md:text-3xl mb-10">Where the reps have gone.</h1>
 
-    <!-- No loading branch: the data arrives with the render. -->
-    <template>
-      <dl class="grid grid-cols-2 gap-px border border-rule bg-rule sm:grid-cols-3 mb-12">
-        <ProgressCard
-          v-for="stat in stats"
-          :key="stat.label"
-          :class="stat.strip ? 'col-span-2 sm:col-span-1' : ''"
-          :label="stat.label"
-          :value="stat.value"
-          :strip="stat.strip"
-        />
-      </dl>
+    <!-- No loading branch: the data arrives with the render. (A bare
+         <template> wrapper used to sit here; the SSR and client compilers
+         disagree about one, which broke hydration on this page.) -->
+    <dl class="grid grid-cols-2 gap-px border border-rule bg-rule sm:grid-cols-3 mb-12">
+      <ProgressCard
+        v-for="stat in stats"
+        :key="stat.label"
+        :class="stat.strip ? 'col-span-2 sm:col-span-1' : ''"
+        :label="stat.label"
+        :value="stat.value"
+        :strip="stat.strip"
+      />
+    </dl>
 
-      <WeakSpots class="mb-12" />
+    <WeakSpots class="mb-12" />
 
-      <template v-if="progressStore.trackProgress.length > 0">
-        <!-- One horizontal bar reads faster than a radial dial, and it sits on
+    <template v-if="progressStore.trackProgress.length > 0">
+      <!-- One horizontal bar reads faster than a radial dial, and it sits on
              the same rule the rest of the page uses. -->
-        <section class="mb-12">
-          <div class="mb-3 flex items-baseline justify-between gap-4">
-            <h2 class="eyebrow">overall</h2>
-            <p class="font-mono text-xs text-muted-foreground">
-              {{ totals.completed }}/{{ totals.total }} · {{ overallPercent }}%
-            </p>
-          </div>
-          <div
-            class="h-1.5 w-full bg-rule"
-            role="img"
-            :aria-label="`${overallPercent}% of all exercises complete`"
-          >
-            <div class="h-full bg-signal" :style="{ width: `${overallPercent}%` }" />
-          </div>
-        </section>
+      <section class="mb-12">
+        <div class="mb-3 flex items-baseline justify-between gap-4">
+          <h2 class="eyebrow">overall</h2>
+          <p class="font-mono text-xs text-muted-foreground">
+            {{ totals.completed }}/{{ totals.total }} · {{ overallPercent }}%
+          </p>
+        </div>
+        <div
+          class="h-1.5 w-full bg-rule"
+          role="img"
+          :aria-label="`${overallPercent}% of all exercises complete`"
+        >
+          <div class="h-full bg-signal" :style="{ width: `${overallPercent}%` }" />
+        </div>
+      </section>
 
-        <section>
-          <h2 class="eyebrow mb-3">by track</h2>
-          <div class="grid gap-px border border-rule bg-rule sm:grid-cols-2">
-            <TrackProgressCard
-              v-for="track in progressStore.trackProgress"
-              :key="track.trackSlug"
-              :track-slug="track.trackSlug"
-              :track-name="track.trackName"
-              :total-exercises="track.totalExercises"
-              :completed-exercises="track.completedExercises"
-              :mastery-level="track.masteryLevel"
-            />
-          </div>
-        </section>
-      </template>
-
-      <EmptyState
-        v-else
-        eyebrow="nothing tracked yet"
-        title="No exercise has been run on this account."
-        description="Progress, mastery, and streaks all come from submissions. Finish one exercise and this page fills in."
-      >
-        <template #action>
-          <NuxtLink to="/tracks"><Button>Browse tracks</Button></NuxtLink>
-        </template>
-      </EmptyState>
+      <section>
+        <h2 class="eyebrow mb-3">by track</h2>
+        <div class="grid gap-px border border-rule bg-rule sm:grid-cols-2">
+          <TrackProgressCard
+            v-for="track in progressStore.trackProgress"
+            :key="track.trackSlug"
+            :track-slug="track.trackSlug"
+            :track-name="track.trackName"
+            :total-exercises="track.totalExercises"
+            :completed-exercises="track.completedExercises"
+            :mastery-level="track.masteryLevel"
+          />
+        </div>
+      </section>
     </template>
+
+    <EmptyState
+      v-else
+      eyebrow="nothing tracked yet"
+      title="No exercise has been run on this account."
+      description="Progress, mastery, and streaks all come from submissions. Finish one exercise and this page fills in."
+    >
+      <template #action>
+        <NuxtLink to="/tracks"><Button>Browse tracks</Button></NuxtLink>
+      </template>
+    </EmptyState>
   </div>
 </template>
