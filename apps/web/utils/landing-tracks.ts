@@ -15,12 +15,12 @@ export interface LandingTrack {
 }
 
 export const LANDING_TRACKS: LandingTrack[] = [
-  { name: 'TypeScript', slug: 'typescript', color: '#3178C6', exercises: 28 },
-  { name: 'Python', slug: 'python', color: '#3776AB', exercises: 23 },
+  { name: 'TypeScript', slug: 'typescript', color: '#3178C6', exercises: 29 },
+  { name: 'Python', slug: 'python', color: '#3776AB', exercises: 24 },
   { name: 'Go', slug: 'go', color: '#00ADD8', exercises: 19 },
-  { name: 'React', slug: 'react', color: '#61DAFB', exercises: 18 },
+  { name: 'React', slug: 'react', color: '#61DAFB', exercises: 19 },
   { name: 'Rust', slug: 'rust', color: '#DEA584', exercises: 19 },
-  { name: 'Vue', slug: 'vue', color: '#4FC08D', exercises: 15 },
+  { name: 'Vue', slug: 'vue', color: '#4FC08D', exercises: 16 },
 ]
 
 /** Derived, never typed out — the per-track counts are the source of truth. */
