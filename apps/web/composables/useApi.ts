@@ -244,8 +244,20 @@ export function useApi() {
       getAll: () => request('/achievements/definitions'),
     },
     reflections: {
-      // The human's recorded answers to an agent's reflect questions —
-      // written by record_reflection over MCP, read back on the exercise page.
+      // Written by the agent (MCP record_reflection) or by the human on this
+      // site when an agent pass left the schedule held. Both paths hit the
+      // same POST; the server decides whether the answer is substantive.
+      create: (input: { exerciseId: string; question: string; answer: string }) =>
+        request<{
+          id: string
+          exerciseId: string
+          question: string
+          answer: string
+          createdAt: string
+        }>('/reflections', {
+          method: 'POST',
+          body: JSON.stringify(input),
+        }),
       getByExercise: (exerciseId: string) =>
         request<
           Array<{
@@ -264,6 +276,20 @@ export function useApi() {
         request<{ dueNow: number; next: { date: string; count: number } | null }>(
           '/reviews/upcoming'
         ),
+      /**
+       * Agent passes still parked a day out awaiting an explanation.
+       * Same list the dashboard renders; used on the exercise page to open
+       * the explain form only when this exercise is held.
+       */
+      getUnexplained: () =>
+        request<
+          Array<{
+            exerciseId: string
+            title: string
+            passedAt: string | null
+            nextReviewAt: string
+          }>
+        >('/reviews/unexplained'),
       complete: (exerciseId: string, passed: boolean, quality?: 3 | 4 | 5) =>
         request<{ nextReviewAt: string; intervalDays: number }>(`/reviews/${exerciseId}/complete`, {
           method: 'POST',

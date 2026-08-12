@@ -10,12 +10,24 @@ import { useKeyboard } from '~/composables/useKeyboard'
 import { useExerciseStore } from '~/stores/exercise'
 import { useReviewStore } from '~/stores/review'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
+import {
+  defaultReflectQuestion,
+  isSubstantiveReflection,
+  MIN_SUBSTANTIVE_REFLECTION_CHARS,
+} from '~/utils/reflection'
 import { speakSchedule } from '~/utils/review-dates'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
 
 interface ExerciseWithRelations {
   concept?: Concept & { track?: Track }
+}
+
+interface ReflectionRow {
+  id: string
+  question: string
+  answer: string
+  createdAt: string
 }
 
 const route = useRoute()
@@ -26,19 +38,78 @@ const api = useApi()
 const exerciseId = computed(() => route.params['exerciseId'] as string)
 
 /**
- * What the learner said when an agent asked them to explain this exercise —
- * recorded verbatim over MCP, read back here so the page holds both halves
- * of the record: the sandbox's verdict and the human's understanding.
+ * What the learner said when asked to explain this exercise — recorded
+ * verbatim over MCP or from the form below. The page holds both halves of
+ * the record: the sandbox's verdict and the human's understanding.
  */
-const reflections = ref<Array<{ id: string; question: string; answer: string; createdAt: string }>>(
-  []
-)
-onMounted(async () => {
+const reflections = ref<ReflectionRow[]>([])
+/**
+ * True while an agent pass left this exercise's review held a day out.
+ * Cleared when a substantive answer lands (or the human redoes the exercise
+ * and the schedule settles elsewhere).
+ */
+const awaitingExplanation = ref(false)
+const holdAnswer = ref('')
+const holdBusy = ref(false)
+const holdError = ref('')
+const holdFeedback = ref<'released' | 'hollow' | null>(null)
+
+const holdQuestion = computed(() => defaultReflectQuestion(exerciseStore.exercise?.type))
+
+async function loadReflectionState() {
+  const [listed, unexplained] = await Promise.all([
+    api.reflections.getByExercise(exerciseId.value).catch(() => [] as ReflectionRow[]),
+    api.reviews.getUnexplained().catch(() => [] as Array<{ exerciseId: string }>),
+  ])
+  reflections.value = listed
+  awaitingExplanation.value = unexplained.some((row) => row.exerciseId === exerciseId.value)
+}
+
+async function submitHoldExplanation() {
+  const answer = holdAnswer.value.trim()
+  const question = holdQuestion.value
+  if (!answer || holdBusy.value) return
+
+  holdBusy.value = true
+  holdError.value = ''
+  holdFeedback.value = null
   try {
-    reflections.value = await api.reflections.getByExercise(exerciseId.value)
-  } catch {
-    // No reflections reads the same as none recorded; the section stays out.
+    const row = await api.reflections.create({
+      exerciseId: exerciseId.value,
+      question,
+      answer,
+    })
+    reflections.value = [
+      {
+        id: row.id,
+        question: row.question,
+        answer: row.answer,
+        createdAt: row.createdAt,
+      },
+      ...reflections.value,
+    ]
+    holdAnswer.value = ''
+
+    if (isSubstantiveReflection(answer)) {
+      // Server promotes heldNextReviewAt; we drop the form without another
+      // round-trip so the page matches the schedule immediately.
+      awaitingExplanation.value = false
+      holdFeedback.value = 'released'
+      // Due badge may drop one if this was the only held item due soon.
+      void reviewStore.loadDueCount()
+    } else {
+      holdFeedback.value = 'hollow'
+    }
+  } catch (caught) {
+    holdError.value =
+      caught instanceof Error ? caught.message : 'Could not record the explanation. Try again.'
+  } finally {
+    holdBusy.value = false
   }
+}
+
+onMounted(() => {
+  void loadReflectionState()
 })
 const ratingSubmittedFor = ref<string | null>(null)
 const isRating = ref(false)
@@ -721,8 +792,60 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
           />
         </div>
 
-        <!-- The other half of the record: what the human could explain,
-             recorded verbatim by their agent. Absent until one exists. -->
+        <!--
+          Unexplained agent pass: the schedule is held a day out until the
+          human can say why the code is right. MCP can record this; so can
+          this form — same POST, same substantive floor.
+        -->
+        <div
+          v-if="awaitingExplanation"
+          class="mt-8 border-t border-rule pt-6"
+          aria-label="Explain this pass"
+        >
+          <p class="eyebrow mb-2">explain this pass</p>
+          <p class="mb-3 max-w-[58ch] text-sm leading-relaxed text-muted-foreground">
+            An agent passed this for you. The review is parked a day out until you can say why the
+            code is right — in your words, not the suite's.
+          </p>
+          <p class="mb-2 text-sm leading-relaxed">{{ holdQuestion }}</p>
+          <label class="sr-only" for="hold-explain-answer">Your explanation</label>
+          <textarea
+            id="hold-explain-answer"
+            v-model="holdAnswer"
+            rows="4"
+            class="w-full resize-y border border-rule bg-background px-3 py-2 font-sans text-sm leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+            :placeholder="`At least ${MIN_SUBSTANTIVE_REFLECTION_CHARS} characters — a real sentence, not “yes”.`"
+            :disabled="holdBusy"
+          />
+          <div class="mt-3 flex flex-wrap items-center gap-3">
+            <Button
+              size="sm"
+              :disabled="holdBusy || !holdAnswer.trim()"
+              :loading="holdBusy"
+              @click="submitHoldExplanation"
+            >
+              {{ holdBusy ? 'Recording…' : 'Record explanation' }}
+            </Button>
+            <p v-if="holdError" class="text-sm text-fail" role="alert">{{ holdError }}</p>
+            <p
+              v-else-if="holdFeedback === 'hollow'"
+              class="text-sm text-muted-foreground"
+              role="status"
+            >
+              Recorded, but the schedule is still waiting for a real explanation.
+            </p>
+          </div>
+        </div>
+
+        <div
+          v-if="holdFeedback === 'released'"
+          class="mt-6 border-l-2 border-signal bg-signal/5 px-4 py-3 text-sm leading-relaxed"
+          role="status"
+        >
+          The schedule believes this pass now — review moves to its earned interval.
+        </div>
+
+        <!-- Prior answers, agent- or site-written. Absent until one exists. -->
         <div v-if="reflections.length" class="mt-8 border-t border-rule pt-6">
           <p class="eyebrow mb-3">your reflections</p>
           <dl class="border border-rule">
