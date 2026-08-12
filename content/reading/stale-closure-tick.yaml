@@ -1,0 +1,121 @@
+slug: stale-closure-tick
+title: A tick counter that never leaves zero
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what the screen shows after five seconds
+  with the interval running, and why the number refuses to move.
+language: typescript
+difficulty: intermediate
+isPublished: true
+
+files:
+  - path: store/ticks.ts
+    content: |
+      /** Tiny pub/sub used only so the UI can subscribe without a framework. */
+      type Listener = () => void
+
+      let ticks = 0
+      const listeners = new Set<Listener>()
+
+      export function getTicks(): number {
+        return ticks
+      }
+
+      export function setTicks(next: number): void {
+        ticks = next
+        for (const listener of listeners) listener()
+      }
+
+      export function subscribe(listener: Listener): () => void {
+        listeners.add(listener)
+        return () => {
+          listeners.delete(listener)
+        }
+      }
+
+  - path: hooks/useTickCounter.ts
+    content: |
+      import { useEffect, useState } from 'react'
+      import { getTicks, setTicks, subscribe } from '../store/ticks'
+
+      /**
+       * Subscribe to the tick store and advance it once per second while mounted.
+       */
+      export function useTickCounter(): number {
+        const [count, setCount] = useState(() => getTicks())
+
+        useEffect(() => subscribe(() => setCount(getTicks())), [])
+
+        useEffect(() => {
+          // Captures `count` from the first render (0) and never sees updates.
+          const id = window.setInterval(() => {
+            setTicks(count + 1)
+          }, 1000)
+          return () => window.clearInterval(id)
+        }, [])
+
+        return count
+      }
+
+  - path: components/TickDisplay.tsx
+    content: |
+      import { useTickCounter } from '../hooks/useTickCounter'
+
+      export function TickDisplay() {
+        const count = useTickCounter()
+        return (
+          <p className="ticks" data-testid="ticks">
+            Elapsed seconds: {count}
+          </p>
+        )
+      }
+
+  - path: app/App.tsx
+    content: |
+      import { TickDisplay } from '../components/TickDisplay'
+
+      export function App() {
+        return (
+          <main>
+            <h1>Session timer</h1>
+            <TickDisplay />
+          </main>
+        )
+      }
+
+rubric:
+  - id: store-is-source-of-truth
+    weight: 1
+    point: >-
+      ticks.ts holds a module-level ticks number, setTicks mutates it and
+      notifies subscribers, and getTicks is the only read path the hook uses
+      after the initial useState.
+
+  - id: two-effects
+    weight: 1
+    point: >-
+      useTickCounter mounts two effects with empty dependency arrays: one
+      subscribes to the store, and one starts a 1s setInterval that calls
+      setTicks.
+
+  - id: closure-captures-zero
+    weight: 3
+    point: >-
+      The interval callback closes over `count` from the first render, where
+      count is 0, and the effect never re-runs — so every tick calls
+      setTicks(0 + 1), writing 1 forever rather than incrementing.
+
+  - id: ui-stuck-at-one-or-zero
+    weight: 2
+    point: >-
+      After several seconds the display shows 1 (or 0 then 1 once) and stops
+      climbing, because the store is repeatedly set to the same value and
+      subscribers have nothing new to render after the first write to 1.
+
+  - id: fix-direction
+    weight: 2
+    point: >-
+      A correct fix stops closing over the render-time count: functional
+      updates (setTicks(t => t + 1) or read getTicks() inside the interval),
+      or include a ref / dependency strategy that always reads the latest
+      value — empty deps alone are not enough when the callback uses state.

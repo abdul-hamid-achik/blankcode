@@ -1,0 +1,97 @@
+slug: hydration-mismatch-clock
+title: A greeting that disagrees with itself after load
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what the user sees on first paint versus
+  after hydration, and which line is responsible for the mismatch warning.
+language: vue
+difficulty: intermediate
+isPublished: true
+
+files:
+  - path: utils/clock.ts
+    content: |
+      /** Wall-clock label used in the chrome. */
+      export function formatNow(date: Date = new Date()): string {
+        return date.toLocaleTimeString('en-GB', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
+      }
+
+  - path: components/greeting-banner.vue
+    content: |
+      <script setup lang="ts">
+      import { formatNow } from '../utils/clock'
+
+      // Evaluated once per render pass — on the server for HTML, again on the
+      // client during hydration. Those two clocks almost never match.
+      const renderedAt = formatNow()
+      </script>
+
+      <template>
+        <header class="banner">
+          <p>Welcome back.</p>
+          <p class="meta">Page rendered at {{ renderedAt }}</p>
+        </header>
+      </template>
+
+  - path: pages/index.vue
+    content: |
+      <script setup lang="ts">
+      import GreetingBanner from '../components/greeting-banner.vue'
+      </script>
+
+      <template>
+        <main>
+          <GreetingBanner />
+          <p>Your dashboard loads below.</p>
+        </main>
+      </template>
+
+  - path: app.vue
+    content: |
+      <script setup lang="ts">
+      // Default Nuxt shell — SSR on, hydration on.
+      </script>
+
+      <template>
+        <NuxtPage />
+      </template>
+
+rubric:
+  - id: files-and-roles
+    weight: 1
+    point: >-
+      clock.ts owns formatting, greeting-banner.vue owns the banner markup and
+      the renderedAt binding, pages/index.vue mounts the banner, and app.vue is
+      the SSR shell that hydrates the page.
+
+  - id: evaluated-at-setup
+    weight: 2
+    point: >-
+      renderedAt is assigned in <script setup> by calling formatNow() once, not
+      inside onMounted or a client-only guard — so the server render and the
+      client hydration each run that call independently.
+
+  - id: two-different-clocks
+    weight: 3
+    point: >-
+      The server HTML embeds whatever wall time the server had at render; the
+      client re-runs setup during hydration with a later Date, so the text
+      content of .meta differs between the SSR HTML and the client VNode.
+
+  - id: hydration-mismatch-symptom
+    weight: 2
+    point: >-
+      Vue reports a hydration mismatch (or similar warning) and may patch the
+      DOM to the client value; the first paint can flash the server time and
+      then jump to the client time.
+
+  - id: fix-direction
+    weight: 2
+    point: >-
+      A correct fix keeps the first paint stable: render a static placeholder
+      (or omit the clock) on the server and set the time in onMounted, or mark
+      the banner client-only so SSR does not emit a clock string at all.

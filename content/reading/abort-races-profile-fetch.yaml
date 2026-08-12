@@ -1,0 +1,127 @@
+slug: abort-races-profile-fetch
+title: A profile fetch that can show the wrong user
+brief: >-
+  Explain this codebase to a teammate who has to modify it tomorrow. Say what
+  each file is for, and be exact about what name is displayed if the user
+  clicks "Next" twice quickly while the first request is still in flight.
+language: typescript
+difficulty: advanced
+isPublished: true
+
+files:
+  - path: api/profiles.ts
+    content: |
+      export interface Profile {
+        id: string
+        name: string
+      }
+
+      const DIRECTORY: Record<string, Profile> = {
+        a: { id: 'a', name: 'Ada' },
+        b: { id: 'b', name: 'Barbara' },
+        c: { id: 'c', name: 'Carol' },
+      }
+
+      /** Simulated network: later ids take longer so out-of-order replies are easy. */
+      export async function fetchProfile(id: string): Promise<Profile> {
+        const latencyMs = id === 'a' ? 80 : id === 'b' ? 40 : 10
+        await new Promise((resolve) => setTimeout(resolve, latencyMs))
+        const found = DIRECTORY[id]
+        if (!found) throw new Error(`unknown profile ${id}`)
+        return found
+      }
+
+  - path: hooks/useProfile.ts
+    content: |
+      import { useEffect, useState } from 'react'
+      import { fetchProfile, type Profile } from '../api/profiles'
+
+      export function useProfile(id: string): { profile: Profile | null; loading: boolean } {
+        const [profile, setProfile] = useState<Profile | null>(null)
+        const [loading, setLoading] = useState(false)
+
+        useEffect(() => {
+          setLoading(true)
+          // No generation counter, no AbortSignal, no cancelled flag —
+          // whichever reply lands last wins, even if it is for an old id.
+          fetchProfile(id).then((next) => {
+            setProfile(next)
+            setLoading(false)
+          })
+        }, [id])
+
+        return { profile, loading }
+      }
+
+  - path: components/ProfilePager.tsx
+    content: |
+      import { useState } from 'react'
+      import { useProfile } from '../hooks/useProfile'
+
+      const ORDER = ['a', 'b', 'c'] as const
+
+      export function ProfilePager() {
+        const [index, setIndex] = useState(0)
+        const id = ORDER[index]!
+        const { profile, loading } = useProfile(id)
+
+        return (
+          <section>
+            <button type="button" onClick={() => setIndex((i) => (i + 1) % ORDER.length)}>
+              Next
+            </button>
+            <p data-testid="label">{loading ? 'Loading…' : profile?.name ?? '—'}</p>
+          </section>
+        )
+      }
+
+  - path: app/App.tsx
+    content: |
+      import { ProfilePager } from '../components/ProfilePager'
+
+      export function App() {
+        return (
+          <main>
+            <h1>Profiles</h1>
+            <ProfilePager />
+          </main>
+        )
+      }
+
+rubric:
+  - id: latency-by-id
+    weight: 1
+    point: >-
+      fetchProfile delays 80ms for a, 40ms for b, and 10ms for c before
+      returning the matching DIRECTORY entry, so earlier ids in the pager
+      are slower than later ones.
+
+  - id: effect-per-id
+    weight: 1
+    point: >-
+      useProfile runs an effect whenever id changes, sets loading true, and
+      starts fetchProfile(id) with no cleanup that cancels or ignores the
+      in-flight promise.
+
+  - id: last-write-wins
+    weight: 3
+    point: >-
+      Every completed fetch calls setProfile, so the UI shows whichever
+      response finishes last — not necessarily the one for the current id.
+      Because a is slower than b and c, a quick a→b or a→c click can paint
+      Barbara/Carol and then overwrite with Ada when a finally resolves.
+
+  - id: concrete-race
+    weight: 2
+    point: >-
+      Starting on a and clicking Next twice quickly (a→b→c) can end on Carol
+      briefly and then flash Ada (or Barbara) depending on resolve order; the
+      displayed name can disagree with the selected id in ORDER[index].
+
+  - id: fix-direction
+    weight: 2
+    point: >-
+      A correct fix ignores stale replies: a generation counter or cancelled
+      flag set in effect cleanup, or AbortSignal passed into the fetch, so
+      only the latest id's response may call setProfile.
+
