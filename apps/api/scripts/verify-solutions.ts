@@ -19,6 +19,12 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseExercise } from '@blankcode/exercise-parser'
+import type { AgentScript } from '@blankcode/shared/types'
+import {
+  collectAgentCodeStates,
+  expectationHolds,
+  solutionConflicts,
+} from '../src/services/content-verify/agent-states.js'
 import { executionService } from '../src/services/execution/index.js'
 
 const TRACKS_DIR = join(import.meta.dir, '../../../content/tracks')
@@ -31,6 +37,7 @@ interface Fixture {
   /** What the learner opens. Only carried for reviews, where it must fail. */
   starter: string
   testCode: string
+  agentScript: AgentScript | null
 }
 
 function collect(tracks: string[], challengesOnly: boolean): Fixture[] {
@@ -68,6 +75,7 @@ function collect(tracks: string[], challengesOnly: boolean): Fixture[] {
             .replaceAll('___blank_end___', ''),
           starter: parsed.exercise.starterCode,
           testCode,
+          agentScript: parsed.exercise.agentScript,
         })
       }
     }
@@ -150,6 +158,56 @@ for (const fixture of fixtures) {
           console.log(`✗ ${label}  STARTER PASSES  ${seconds}s`)
           continue
         }
+      }
+
+      if (fixture.type === 'agent') {
+        if (!fixture.agentScript) {
+          failures.push({ fixture, reason: 'agent exercise has no parsed script' })
+          console.log(`✗ ${label}  NO SCRIPT`)
+          continue
+        }
+        const collected = collectAgentCodeStates(fixture.agentScript, fixture.starter)
+        if (!collected.ok) {
+          failures.push({ fixture, reason: collected.reason })
+          console.log(`✗ ${label}  SCRIPT  ${collected.reason}`)
+          continue
+        }
+        const clash = solutionConflicts(collected.states, fixture.solution)
+        if (clash) {
+          failures.push({ fixture, reason: clash })
+          console.log(`✗ ${label}  SEED LIES  ${clash}`)
+          continue
+        }
+        let statesOk = true
+        for (const state of collected.states) {
+          if (state.code === fixture.solution) continue
+          let stateRun = await executionService.execute(
+            `verify-agent-${fixture.track}-${fixture.name}-${state.label}`,
+            'verify',
+            state.code,
+            fixture.testCode,
+            fixture.track
+          )
+          if (!expectationHolds(state.expect, stateRun)) {
+            stateRun = await executionService.execute(
+              `verify-agent-retry-${fixture.track}-${fixture.name}-${state.label}`,
+              'verify',
+              state.code,
+              fixture.testCode,
+              fixture.track
+            )
+          }
+          if (!expectationHolds(state.expect, stateRun)) {
+            failures.push({
+              fixture,
+              reason: `${state.label} should ${state.expect} but the suite said ${stateRun.status}`,
+            })
+            console.log(`✗ ${label}  ${state.label}  ${stateRun.status}`)
+            statesOk = false
+            break
+          }
+        }
+        if (!statesOk) continue
       }
 
       passed++
