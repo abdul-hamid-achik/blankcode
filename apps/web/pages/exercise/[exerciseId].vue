@@ -486,6 +486,7 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
             title: exerciseStore.exercise.title,
             description: exerciseStore.exercise.description,
           }"
+          :language="language"
         />
 
         <div v-else class="min-h-0 flex-1 overflow-auto p-5 md:p-6">

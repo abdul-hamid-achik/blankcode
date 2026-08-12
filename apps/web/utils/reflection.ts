@@ -17,6 +17,7 @@ export function defaultReflectQuestion(exerciseType: string | undefined): string
     blank: 'Cover the answer: can you say from memory what goes in each blank, and why?',
     turn: 'Which turn spent the budget best, and what would you cut next time?',
     context: 'What context did the answer actually need, and what was noise?',
+    agent: 'Which claim did you almost believe, and what evidence saved you?',
   }
   const fallback = byType['challenge']
   if (!fallback) {

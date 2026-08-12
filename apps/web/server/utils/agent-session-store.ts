@@ -22,6 +22,7 @@ function toSession(row: Row): StoredAgentSession {
     script: row.script,
     currentCode: row.currentCode,
     lastEvidence: row.lastEvidence,
+    workPassed: row.workPassed,
     finalCode: row.finalCode,
   }
 }

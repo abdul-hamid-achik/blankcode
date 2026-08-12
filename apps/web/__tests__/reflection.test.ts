@@ -30,6 +30,7 @@ describe('defaultReflectQuestion', () => {
     expect(defaultReflectQuestion('review')).toContain('defect')
     expect(defaultReflectQuestion('challenge')).toContain('key decision')
     expect(defaultReflectQuestion('context')).toContain('noise')
+    expect(defaultReflectQuestion('agent')).toContain('almost believe')
   })
 
   it('falls back to the challenge question for unknown types', () => {

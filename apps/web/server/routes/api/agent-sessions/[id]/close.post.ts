@@ -15,12 +15,20 @@ export default defineEventHandler(async (event) => {
   }
 
   const capture: { value?: HiddenRunOutcome } = {}
+  const runner = makeHiddenRunner(userId, capture)
   const result = await closeAgentSession(
     agentDatabaseStore(),
     id,
     userId,
     body.action,
-    makeHiddenRunner(userId, capture)
+    async (code, exerciseId) => {
+      const passed = await runner(code, exerciseId)
+      return {
+        passed,
+        testResults: capture.value?.testResults,
+        errorMessage: capture.value?.errorMessage,
+      }
+    }
   )
   if (!result.ok) {
     throw createError({ statusCode: result.status, statusMessage: result.reason })

@@ -2,7 +2,7 @@ import type { AgentAction } from '~/server/utils/agent-session'
 import { takeDecision } from '~/server/utils/agent-session-service'
 import { agentDatabaseStore } from '~/server/utils/agent-session-store'
 import { requireUserId } from '~/server/utils/auth'
-import { makeHiddenRunner } from '~/server/utils/turn-runner'
+import { type HiddenRunOutcome, makeHiddenRunner } from '~/server/utils/turn-runner'
 
 const ACTIONS = new Set<AgentAction>([
   'approve',
@@ -20,13 +20,22 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'action is required' })
   }
 
+  const capture: { value?: HiddenRunOutcome } = {}
+  const runner = makeHiddenRunner(userId, capture)
   const result = await takeDecision(
     agentDatabaseStore(),
     id,
     userId,
     body.action as AgentAction,
     body.note,
-    makeHiddenRunner(userId, {})
+    async (code, exerciseId) => {
+      const passed = await runner(code, exerciseId)
+      return {
+        passed,
+        testResults: capture.value?.testResults,
+        errorMessage: capture.value?.errorMessage,
+      }
+    }
   )
   if (!result.ok) {
     throw createError({ statusCode: result.status, statusMessage: result.reason })

@@ -616,7 +616,12 @@ export const agentSessions = pgTable(
     events: jsonb('events').$type<AgentSessionEvent[]>().notNull().default([]),
     script: jsonb('script').$type<AgentScript>().notNull(),
     currentCode: text('current_code'),
-    lastEvidence: jsonb('last_evidence').$type<{ passed: boolean } | null>(),
+    lastEvidence: jsonb('last_evidence').$type<{
+      passed: boolean
+      testResults?: Array<{ name: string; passed: boolean; message: string | null }>
+      errorMessage?: string | null
+    } | null>(),
+    workPassed: boolean('work_passed'),
     finalCode: text('final_code'),
     status: turnSessionStatusEnum('status').notNull().default('open'),
     revealedAt: timestamp('revealed_at', { withTimezone: true }),

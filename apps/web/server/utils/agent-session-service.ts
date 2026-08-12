@@ -29,8 +29,19 @@ export interface StoredAgentSession extends AgentSessionState {
   readonly exerciseId: string
   readonly script: AgentScript
   readonly currentCode: string | null
-  readonly lastEvidence: { passed: boolean } | null
+  readonly lastEvidence: AgentEvidence | null
+  readonly workPassed: boolean | null
   readonly finalCode: string | null
+}
+
+export interface AgentEvidence {
+  readonly passed: boolean
+  readonly testResults?: Array<{
+    name: string
+    passed: boolean
+    message: string | null
+  }>
+  readonly errorMessage?: string | null
 }
 
 export interface AgentSessionStore {
@@ -51,7 +62,7 @@ export type Result<T> =
   | Refusal
   | { ok: false; reason: 'not-found'; status: number }
 
-export type RunBeat = (code: string, exerciseId: string) => Promise<boolean>
+export type RunBeat = (code: string, exerciseId: string) => Promise<AgentEvidence>
 
 async function own(
   store: AgentSessionStore,
@@ -83,8 +94,9 @@ export interface PublicAgentSession {
   readonly status: AgentSessionState['status']
   readonly beatIndex: number
   readonly beat: { say: string; run: boolean; hasCode: boolean } | null
+  readonly currentCode: string | null
   readonly ledger: readonly PublicLedgerEntry[]
-  readonly evidence: { passed: boolean } | null
+  readonly evidence: AgentEvidence | null
   readonly agentTurnsUsed: number
   readonly maxAgentTurns: number
   readonly interventionsUsed: number
@@ -120,13 +132,18 @@ export function publicView(
     status: session.status,
     beatIndex: session.beatIndex,
     beat: session.status === 'open' ? currentBeat(session) : null,
+    currentCode: session.currentCode,
     ledger: ledgerOf(session),
     evidence: session.lastEvidence,
     agentTurnsUsed: session.agentTurnsUsed,
     maxAgentTurns: session.maxAgentTurns,
     interventionsUsed: session.interventionsUsed,
     maxInterventions: session.maxInterventions,
-    report,
+    report:
+      report ??
+      (session.status !== 'open' && session.workPassed !== null
+        ? scoreSupervision(session.script, session.events, session.workPassed)
+        : null),
   }
 }
 
@@ -137,7 +154,8 @@ export async function startAgentSession(
   script: AgentScript,
   maxAgentTurns: number,
   maxInterventions: number,
-  starterCode: string
+  starterCode: string,
+  runBeat?: RunBeat
 ): Promise<PublicAgentSession> {
   const firstWithCode = script.beats.find((beat) => beat.code !== null)
   const session = await store.create({
@@ -148,6 +166,12 @@ export async function startAgentSession(
     maxInterventions,
     currentCode: firstWithCode?.code ?? starterCode,
   })
+  const opening = script.beats[0]
+  if (runBeat && opening?.run && session.currentCode) {
+    const evidence = await runBeat(session.currentCode, exerciseId)
+    const saved = await store.save(session.id, { lastEvidence: evidence })
+    return publicView(saved)
+  }
   return publicView(session)
 }
 
@@ -171,7 +195,7 @@ export async function takeDecision(
 
   let evidence = session.lastEvidence
   if (action === 'demand-evidence' && session.currentCode) {
-    evidence = { passed: await runBeat(session.currentCode, session.exerciseId) }
+    evidence = await runBeat(session.currentCode, session.exerciseId)
   }
 
   let next: StoredAgentSession = {
@@ -182,6 +206,7 @@ export async function takeDecision(
     script: session.script,
     currentCode: session.currentCode,
     lastEvidence: evidence,
+    workPassed: session.workPassed,
     finalCode: session.finalCode,
   }
 
@@ -192,8 +217,9 @@ export async function takeDecision(
       next = { ...next, ...applyShowBeat(next) }
     }
     if (upcoming.code) next = { ...next, currentCode: upcoming.code }
-    if (upcoming.run && upcoming.code) {
-      evidence = { passed: await runBeat(upcoming.code, session.exerciseId) }
+    const codeToRun = upcoming.code ?? next.currentCode
+    if (upcoming.run && codeToRun) {
+      evidence = await runBeat(codeToRun, session.exerciseId)
       next = { ...next, lastEvidence: evidence }
     }
   }
@@ -225,7 +251,8 @@ export async function closeAgentSession(
   if (!allowed.ok) return allowed
 
   const code = session.currentCode ?? ''
-  const workPassed = code.length > 0 ? await runTests(code, session.exerciseId) : false
+  const run = code.length > 0 ? await runTests(code, session.exerciseId) : { passed: false }
+  const workPassed = run.passed
 
   const decided = applyDecision(session, action)
   const events = decided.events as readonly AgentEvent[]
@@ -235,6 +262,8 @@ export async function closeAgentSession(
     status: 'submitted',
     events,
     finalCode: code,
+    lastEvidence: run,
+    workPassed,
     revealedAt: new Date(),
   })
 

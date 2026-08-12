@@ -64,6 +64,7 @@ function reflectQuestions(exerciseType: string, passed: boolean): { ask: string[
     ],
     turn: ['Which turn spent the budget best, and what would you cut next time?'],
     context: ['What context did the answer actually need, and what was noise?'],
+    agent: ['Which claim did you almost believe, and what evidence saved you?'],
   }
   const ask = byType[exerciseType] ?? byType['challenge']!
   return {

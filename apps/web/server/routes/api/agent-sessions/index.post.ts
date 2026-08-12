@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { startAgentSession } from '~/server/utils/agent-session-service'
 import { agentDatabaseStore } from '~/server/utils/agent-session-store'
 import { requireUserId } from '~/server/utils/auth'
+import { type HiddenRunOutcome, makeHiddenRunner } from '~/server/utils/turn-runner'
 
 function isUniqueViolation(error: unknown): boolean {
   for (let current = error; current; current = (current as { cause?: unknown }).cause) {
@@ -38,6 +39,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Exercise has no supervision budget' })
   }
 
+  const capture: { value?: HiddenRunOutcome } = {}
+  const runner = makeHiddenRunner(userId, capture)
   try {
     return await startAgentSession(
       agentDatabaseStore(db),
@@ -46,7 +49,15 @@ export default defineEventHandler(async (event) => {
       exercise.agentScript,
       exercise.agentBudget,
       exercise.interventionBudget,
-      exercise.starterCode
+      exercise.starterCode,
+      async (code, exerciseId) => {
+        const passed = await runner(code, exerciseId)
+        return {
+          passed,
+          testResults: capture.value?.testResults,
+          errorMessage: capture.value?.errorMessage,
+        }
+      }
     )
   } catch (error) {
     if (isUniqueViolation(error)) {

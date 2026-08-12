@@ -21,6 +21,10 @@ describe('agent session routes', () => {
     expect(read(START)).toContain("exercise.type !== 'agent'")
   })
 
+  it('start runs the opening beat through the hidden runner', () => {
+    expect(read(START)).toContain('makeHiddenRunner')
+  })
+
   it('decide does not accept the terminal actions', () => {
     const decide = read(DECIDE)
     expect(decide).not.toContain('accept-work')

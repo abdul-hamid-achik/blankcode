@@ -62,6 +62,7 @@ function memoryStore(): AgentSessionStore & { rows: Map<string, StoredAgentSessi
         revealedAt: null,
         currentCode,
         lastEvidence: null,
+        workPassed: null,
         finalCode: null,
       }
       rows.set(session.id, session)
@@ -77,8 +78,8 @@ function memoryStore(): AgentSessionStore & { rows: Map<string, StoredAgentSessi
   }
 }
 
-const passes = async () => true
-const fails = async () => false
+const passes = async () => ({ passed: true })
+const fails = async () => ({ passed: false })
 
 let store: ReturnType<typeof memoryStore>
 
@@ -95,6 +96,15 @@ describe('startAgentSession', () => {
     expect(JSON.stringify(view)).not.toContain('forEach discarded')
     expect(JSON.stringify(view)).not.toContain('hallucinated-pass')
     expect(view.ledger[0]).toMatchObject({ kind: 'agent', beatIndex: 0 })
+    expect(view.currentCode).toBe('broken()')
+    expect(view.evidence).toBeNull()
+  })
+
+  it('runs the opening beat when the script says the agent ran', async () => {
+    const runBeat = vi.fn(fails)
+    const view = await startAgentSession(store, 'u1', 'e1', SCRIPT, 2, 3, 'starter()', runBeat)
+    expect(runBeat).toHaveBeenCalledWith('broken()', 'e1')
+    expect(view.evidence).toEqual({ passed: false })
   })
 })
 
@@ -134,6 +144,21 @@ describe('takeDecision', () => {
     expect(result.ok && result.value.evidence).toEqual({ passed: false })
   })
 
+  it('runs the current code when the next beat asks for a run without a new patch', async () => {
+    const script: AgentScript = {
+      ...SCRIPT,
+      beats: [
+        { say: 'I will tighten the mock.', code: 'broken()', run: true },
+        { say: 'Running it now.', code: null, run: true },
+      ],
+    }
+    const runBeat = vi.fn(fails)
+    const started = await startAgentSession(store, 'u1', 'e1', script, 2, 3, 'starter()')
+    const result = await takeDecision(store, started.id, 'u1', 'approve', undefined, runBeat)
+    expect(runBeat).toHaveBeenCalledWith('broken()', 'e1')
+    expect(result.ok && result.value.evidence).toEqual({ passed: false })
+  })
+
   it('refuses once interventions are spent', async () => {
     const started = await startAgentSession(store, 'u1', 'e1', SCRIPT, 2, 1, 'starter()')
     await takeDecision(store, started.id, 'u1', 'reject', undefined, fails)
@@ -167,6 +192,9 @@ describe('closeAgentSession', () => {
     expect(closed.ok && closed.value.beat).toBeNull()
     expect(store.rows.get(started.id)?.revealedAt).toBeInstanceOf(Date)
     expect(store.rows.get(started.id)?.status).toBe('submitted')
+    expect(store.rows.get(started.id)?.workPassed).toBe(true)
+    const resumed = await loadOwnSession(store, started.id, 'u1')
+    expect(resumed.ok && resumed.value.report?.passed).toBe(true)
   })
 
   it('fails when the supervisor accepts work that does not pass', async () => {
