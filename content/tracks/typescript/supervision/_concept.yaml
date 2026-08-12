@@ -2,7 +2,7 @@ slug: supervision
 name: Supervise the Agent
 description: >-
   An in-platform agent works the task. Failures are seeded. You are graded on
-  catching them — not on whether the code ends up green. The session surface
-  is still being wired; the exercise is authored and verified first.
+  catching them — not on whether the code ends up green. Claims on the left,
+  evidence on the right, and a scarce intervention budget.
 order: 160
 isPublished: true
