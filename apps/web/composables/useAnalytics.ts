@@ -62,6 +62,8 @@ interface Events {
   'turn-session-submitted': { exercise: string; passed: boolean; spared: number }
   'context-session-started': { exercise: string }
   'context-session-answered': { exercise: string; correct: boolean; sufficient: boolean }
+  'agent-session-started': { exercise: string }
+  'agent-session-closed': { exercise: string; action: string }
 
   // ── Preferences that shape cost ──
   /** The AI tier changed. Cost forecasting wants this curve. */

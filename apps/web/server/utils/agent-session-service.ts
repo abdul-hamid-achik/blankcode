@@ -69,18 +69,45 @@ function currentBeat(session: StoredAgentSession) {
   return { say: beat.say, run: beat.run, hasCode: beat.code !== null }
 }
 
+export interface PublicLedgerEntry {
+  readonly kind: 'agent' | 'you'
+  readonly say?: string
+  readonly run?: boolean
+  readonly action?: string
+  readonly beatIndex: number
+}
+
 export interface PublicAgentSession {
   readonly id: string
   readonly exerciseId: string
   readonly status: AgentSessionState['status']
   readonly beatIndex: number
   readonly beat: { say: string; run: boolean; hasCode: boolean } | null
+  readonly ledger: readonly PublicLedgerEntry[]
   readonly evidence: { passed: boolean } | null
   readonly agentTurnsUsed: number
   readonly maxAgentTurns: number
   readonly interventionsUsed: number
   readonly maxInterventions: number
   readonly report: SupervisionReport | null
+}
+
+function ledgerOf(session: StoredAgentSession): PublicLedgerEntry[] {
+  const lastAgent =
+    session.status === 'open' ? session.beatIndex : Math.max(0, session.script.beats.length - 1)
+  const entries: PublicLedgerEntry[] = []
+  for (let i = 0; i <= lastAgent; i++) {
+    const beat = session.script.beats[i]
+    if (!beat) continue
+    entries.push({ kind: 'agent', say: beat.say, run: beat.run, beatIndex: i })
+    const decision = session.events.find(
+      (event) => event.type === 'decision' && event.beatIndex === i
+    )
+    if (decision && decision.type === 'decision') {
+      entries.push({ kind: 'you', action: decision.action, beatIndex: i })
+    }
+  }
+  return entries
 }
 
 export function publicView(
@@ -93,6 +120,7 @@ export function publicView(
     status: session.status,
     beatIndex: session.beatIndex,
     beat: session.status === 'open' ? currentBeat(session) : null,
+    ledger: ledgerOf(session),
     evidence: session.lastEvidence,
     agentTurnsUsed: session.agentTurnsUsed,
     maxAgentTurns: session.maxAgentTurns,

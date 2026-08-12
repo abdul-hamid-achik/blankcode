@@ -94,6 +94,7 @@ describe('startAgentSession', () => {
     expect(view.agentTurnsUsed).toBe(1)
     expect(JSON.stringify(view)).not.toContain('forEach discarded')
     expect(JSON.stringify(view)).not.toContain('hallucinated-pass')
+    expect(view.ledger[0]).toMatchObject({ kind: 'agent', beatIndex: 0 })
   })
 })
 

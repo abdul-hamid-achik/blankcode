@@ -4,6 +4,7 @@ import CodeEditor from '~/components/editor/code-editor.vue'
 import TestResults from '~/components/editor/test-results.vue'
 import HintsPanel from '~/components/exercise/hints-panel.vue'
 import ContextSessionView from '~/components/exercise/context-session-view.vue'
+import AgentSessionView from '~/components/exercise/agent-session-view.vue'
 import TurnSessionView from '~/components/exercise/turn-session-view.vue'
 import Button from '~/components/ui/button.vue'
 import { useKeyboard } from '~/composables/useKeyboard'
@@ -478,13 +479,14 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
           }"
         />
 
-        <div v-else-if="sessionForm === 'agent'" class="min-h-0 flex-1 overflow-auto p-5 md:p-6">
-          <p class="max-w-[58ch] text-sm leading-relaxed text-muted-foreground">
-            This is a supervision exercise — you watch a scripted agent work and catch the failures
-            it seeds. The session surface is not live yet; opening the editor here would turn it
-            into a challenge, which is not the skill being graded.
-          </p>
-        </div>
+        <AgentSessionView
+          v-else-if="sessionForm === 'agent'"
+          :exercise="{
+            id: exerciseStore.exercise.id,
+            title: exerciseStore.exercise.title,
+            description: exerciseStore.exercise.description,
+          }"
+        />
 
         <div v-else class="min-h-0 flex-1 overflow-auto p-5 md:p-6">
           <ClientOnly>
