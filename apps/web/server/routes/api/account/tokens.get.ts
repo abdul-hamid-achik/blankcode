@@ -1,7 +1,7 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { apiTokens } from '@blankcode/db/schema'
 import { and, desc, eq, isNull } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
+import { requireUserId } from '~/server/utils/auth'
 
 /**
  * The owner's active practice tokens: name, prefix, when it was cut, when it

@@ -1,7 +1,7 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { users } from '@blankcode/db/schema'
 import { eq } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
+import { requireUserId } from '~/server/utils/auth'
 
 /**
  * The save button the settings page pressed into a void.

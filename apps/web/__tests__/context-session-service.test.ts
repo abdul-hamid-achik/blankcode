@@ -5,7 +5,7 @@ import {
   startContextSession,
   type StoredContextSession,
   submitAnswer,
-} from '../server/utils/context-session-service'
+} from '~/server/utils/context-session-service'
 
 const SOURCES = [
   { id: 'schema', label: 'Table definitions', tokens: 400 },

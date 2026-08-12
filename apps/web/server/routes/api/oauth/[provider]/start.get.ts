@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { credentialsFor, isProviderName, PROVIDERS } from '../../../../utils/oauth/providers'
+import { credentialsFor, isProviderName, PROVIDERS } from '~/server/utils/oauth/providers'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 /**

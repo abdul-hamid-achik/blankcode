@@ -1,6 +1,6 @@
-import { requireUserId } from '../../../../utils/auth'
-import { databaseStore } from '../../../../utils/session-store'
-import { takeTurn } from '../../../../utils/turn-session-service'
+import { requireUserId } from '~/server/utils/auth'
+import { databaseStore } from '~/server/utils/session-store'
+import { takeTurn } from '~/server/utils/turn-session-service'
 
 export default defineEventHandler(async (event) => {
   const userId = await requireUserId(event)
@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 503, statusMessage: 'AI is not configured' })
   }
 
-  const { generateReply } = await import('../../../../utils/turn-model')
+  const { generateReply } = await import('~/server/utils/turn-model')
 
   // The route composes the closure so the session service's Generate type
   // stays user-blind while the model still resolves per user (tier + plan).

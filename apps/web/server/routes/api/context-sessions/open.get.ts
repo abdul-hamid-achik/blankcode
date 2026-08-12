@@ -1,7 +1,7 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { contextSessions } from '@blankcode/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
+import { requireUserId } from '~/server/utils/auth'
 
 /**
  * The caller's open context session for an exercise, if one exists — how the

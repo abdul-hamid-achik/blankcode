@@ -1,7 +1,7 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { readingExercises, readingSubmissions } from '@blankcode/db/schema'
 import { count, eq, max, sql } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
+import { requireUserId } from '~/server/utils/auth'
 
 /**
  * The published reading exercises.

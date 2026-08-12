@@ -1,8 +1,8 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { users } from '@blankcode/db/schema'
 import { eq } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
-import { isAiTier } from '../../../utils/ai-model'
+import { requireUserId } from '~/server/utils/auth'
+import { isAiTier } from '~/server/utils/ai-model'
 
 /**
  * Sets the caller's AI tier preference.

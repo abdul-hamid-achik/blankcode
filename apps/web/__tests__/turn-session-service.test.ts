@@ -6,7 +6,7 @@ import {
   type StoredSession,
   submitSession,
   takeTurn,
-} from '../server/utils/turn-session-service'
+} from '~/server/utils/turn-session-service'
 
 /**
  * An in-memory store with the same contract as the drizzle one.

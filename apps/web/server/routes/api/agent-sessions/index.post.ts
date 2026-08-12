@@ -1,9 +1,9 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { exercises } from '@blankcode/db/schema'
 import { eq } from 'drizzle-orm'
-import { startAgentSession } from '../../../utils/agent-session-service'
-import { agentDatabaseStore } from '../../../utils/agent-session-store'
-import { requireUserId } from '../../../utils/auth'
+import { startAgentSession } from '~/server/utils/agent-session-service'
+import { agentDatabaseStore } from '~/server/utils/agent-session-store'
+import { requireUserId } from '~/server/utils/auth'
 
 function isUniqueViolation(error: unknown): boolean {
   for (let current = error; current; current = (current as { cause?: unknown }).cause) {

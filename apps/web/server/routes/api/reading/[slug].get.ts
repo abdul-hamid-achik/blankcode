@@ -1,14 +1,14 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { readingExercises, readingSubmissions, users } from '@blankcode/db/schema'
 import { and, desc, eq } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
+import { requireUserId } from '~/server/utils/auth'
 import {
   GRADE_DAILY_WINDOW_MS,
   GRADE_HOURLY_WINDOW_MS,
   GRADE_USAGE_KIND,
   gradeBudget,
-} from '../../../utils/reading-grader'
-import { countSince } from '../../../utils/usage'
+} from '~/server/utils/reading-grader'
+import { countSince } from '~/server/utils/usage'
 
 /**
  * One reading exercise: the brief and every file, which is the whole point —

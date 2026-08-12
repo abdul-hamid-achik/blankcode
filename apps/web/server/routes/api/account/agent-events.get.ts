@@ -1,7 +1,7 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { agentEvents, exercises } from '@blankcode/db/schema'
 import { desc, eq } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
+import { requireUserId } from '~/server/utils/auth'
 
 /**
  * The live feed behind /connect's connected face: the last meaningful agent

@@ -1,7 +1,7 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { apiTokens, harnessSessions, submissions, usageEvents } from '@blankcode/db/schema'
 import { and, count, desc, eq, gte, sum } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
+import { requireUserId } from '~/server/utils/auth'
 
 /**
  * The owner's own agent activity, read back from the same table the MCP

@@ -3,7 +3,7 @@ import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { linkedIdentities, users } from '@blankcode/db/schema'
 import { and, eq } from 'drizzle-orm'
 import * as jose from 'jose'
-import { decide } from '../../../../utils/oauth/linking'
+import { decide } from '~/server/utils/oauth/linking'
 import {
   credentialsFor,
   isProviderName,
@@ -11,8 +11,8 @@ import {
   parseGoogleUser,
   type Profile,
   PROVIDERS,
-} from '../../../../utils/oauth/providers'
-import { issueSession } from '../../../../utils/oauth/session'
+} from '~/server/utils/oauth/providers'
+import { issueSession } from '~/server/utils/oauth/session'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 /**

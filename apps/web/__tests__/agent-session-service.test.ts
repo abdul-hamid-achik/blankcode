@@ -8,7 +8,7 @@ import {
   startAgentSession,
   type StoredAgentSession,
   takeDecision,
-} from '../server/utils/agent-session-service'
+} from '~/server/utils/agent-session-service'
 
 const SCRIPT: AgentScript = {
   beats: [

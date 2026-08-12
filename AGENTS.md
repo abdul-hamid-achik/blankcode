@@ -337,6 +337,12 @@ there — `apps/web/__tests__/error-copy.test.ts` enforces the coverage list.
 - Use `interface` for object shapes, `type` for unions/intersections
 - Prefer `const` over `let`; never use `var`
 - Use optional chaining (`?.`) and nullish coalescing (`??`)
+- **Imports in `apps/web`**: `~/…` from the Nuxt app root. Nitro routes
+  import `~/server/utils/auth`, never `../../../../utils/auth`. Workspace
+  packages stay `@blankcode/shared`, `@blankcode/db`. Sibling files in the
+  same folder may stay relative (`./foo`). The API package uses
+  `@blankcode/*` plus short relatives inside `src/` — do not invent a
+  second `~/` there.
 
 ### Effect.ts Specifics
 

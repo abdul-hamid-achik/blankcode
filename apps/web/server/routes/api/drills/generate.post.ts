@@ -12,8 +12,8 @@ import {
 } from '@blankcode/db/schema'
 import { generateText } from 'ai'
 import { and, count, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm'
-import { resolveAiModel } from '../../../utils/ai-model'
-import { requireUserId } from '../../../utils/auth'
+import { resolveAiModel } from '~/server/utils/ai-model'
+import { requireUserId } from '~/server/utils/auth'
 import {
   buildDrillPrompt,
   buildEvidence,
@@ -28,8 +28,8 @@ import {
   validateConceptSlug,
   validateDrill,
   type ValidatedDrill,
-} from '../../../utils/drill-generator'
-import { countSince, refund, takeTicket } from '../../../utils/usage'
+} from '~/server/utils/drill-generator'
+import { countSince, refund, takeTicket } from '~/server/utils/usage'
 
 /**
  * Generates one drill from the caller's own weak spot, and refuses to store it

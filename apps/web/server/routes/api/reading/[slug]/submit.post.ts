@@ -2,8 +2,8 @@ import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { readingExercises, readingSubmissions, users } from '@blankcode/db/schema'
 import { generateText } from 'ai'
 import { and, count, eq, max } from 'drizzle-orm'
-import { resolveAiModel } from '../../../../utils/ai-model'
-import { requireUserId } from '../../../../utils/auth'
+import { resolveAiModel } from '~/server/utils/ai-model'
+import { requireUserId } from '~/server/utils/auth'
 import {
   buildGraderPrompt,
   GRADE_DAILY_WINDOW_MS,
@@ -15,8 +15,8 @@ import {
   type RubricResult,
   scoreOf,
   validateExplanation,
-} from '../../../../utils/reading-grader'
-import { countSince, refund, takeTicket } from '../../../../utils/usage'
+} from '~/server/utils/reading-grader'
+import { countSince, refund, takeTicket } from '~/server/utils/usage'
 
 /**
  * Grades an explanation against the authored rubric.

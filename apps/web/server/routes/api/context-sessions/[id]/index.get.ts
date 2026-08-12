@@ -1,5 +1,5 @@
-import { requireUserId } from '../../../../utils/auth'
-import { databaseContextStore } from '../../../../utils/context-session-store'
+import { requireUserId } from '~/server/utils/auth'
+import { databaseContextStore } from '~/server/utils/context-session-store'
 
 /**
  * The session, for resume.

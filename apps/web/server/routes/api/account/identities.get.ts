@@ -1,7 +1,7 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { linkedIdentities, users } from '@blankcode/db/schema'
 import { eq } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
+import { requireUserId } from '~/server/utils/auth'
 
 /** The sign-in methods this account has, for the settings page. */
 export default defineEventHandler(async (event) => {

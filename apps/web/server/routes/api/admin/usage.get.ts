@@ -1,6 +1,6 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { sql } from 'drizzle-orm'
-import { requireAdmin } from '../../../utils/admin'
+import { requireAdmin } from '~/server/utils/admin'
 
 /**
  * How the site is actually being used.

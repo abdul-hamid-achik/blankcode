@@ -1,8 +1,8 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { customDrills } from '@blankcode/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
-import { isDrillId, redactDrill } from '../../../utils/drill-generator'
+import { requireUserId } from '~/server/utils/auth'
+import { isDrillId, redactDrill } from '~/server/utils/drill-generator'
 
 /**
  * One of the caller's drills, redacted the way an exercise is.

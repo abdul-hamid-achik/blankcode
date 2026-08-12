@@ -2,8 +2,8 @@ import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { agentEvents, apiTokens, harnessSessions } from '@blankcode/db/schema'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { and, eq, gt, isNull, sql } from 'drizzle-orm'
-import { buildPracticeServer, isDifferentAgent } from '../utils/mcp-server'
-import { hashPracticeToken, isPracticeToken } from '../utils/practice-tokens'
+import { buildPracticeServer, isDifferentAgent } from '~/server/utils/mcp-server'
+import { hashPracticeToken, isPracticeToken } from '~/server/utils/practice-tokens'
 
 /**
  * The MCP endpoint: `https://blankcode.dev/mcp`.

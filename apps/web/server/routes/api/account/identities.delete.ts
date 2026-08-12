@@ -1,9 +1,9 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { linkedIdentities, users } from '@blankcode/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
-import { mayUnlink } from '../../../utils/oauth/linking'
-import { isProviderName } from '../../../utils/oauth/providers'
+import { requireUserId } from '~/server/utils/auth'
+import { mayUnlink } from '~/server/utils/oauth/linking'
+import { isProviderName } from '~/server/utils/oauth/providers'
 
 /**
  * Disconnects a provider.

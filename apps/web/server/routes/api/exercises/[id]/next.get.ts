@@ -1,7 +1,7 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { concepts, exercises, tracks } from '@blankcode/db/schema'
 import { and, asc, eq, gt, or } from 'drizzle-orm'
-import { requireUserId } from '../../../../utils/auth'
+import { requireUserId } from '~/server/utils/auth'
 
 /**
  * What to do after finishing an exercise.

@@ -2,8 +2,8 @@ import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { customDrills } from '@blankcode/db/schema'
 import { gradeBlanks, reconstructCode } from '@blankcode/shared'
 import { and, eq, sql } from 'drizzle-orm'
-import { requireUserId } from '../../../../utils/auth'
-import { isDrillId, validateAnswers } from '../../../../utils/drill-generator'
+import { requireUserId } from '~/server/utils/auth'
+import { isDrillId, validateAnswers } from '~/server/utils/drill-generator'
 
 /**
  * Grades a filled-in drill.

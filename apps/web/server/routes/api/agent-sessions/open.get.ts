@@ -1,7 +1,7 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { agentSessions } from '@blankcode/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
+import { requireUserId } from '~/server/utils/auth'
 
 /** The caller's open sitting for an exercise, if one exists. */
 export default defineEventHandler(async (event) => {

@@ -1,8 +1,8 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { customDrills } from '@blankcode/db/schema'
 import { desc, eq } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
-import { redactDrillListItem } from '../../../utils/drill-generator'
+import { requireUserId } from '~/server/utils/auth'
+import { redactDrillListItem } from '~/server/utils/drill-generator'
 
 /**
  * The caller's drills, newest first.

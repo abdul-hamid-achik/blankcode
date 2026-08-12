@@ -1,7 +1,7 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { apiTokens } from '@blankcode/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
-import { requireUserId } from '../../../../utils/auth'
+import { requireUserId } from '~/server/utils/auth'
 
 /**
  * Revocation is a timestamp, not a delete: the row keeps its place so

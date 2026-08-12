@@ -1,6 +1,6 @@
-import { loadOwnSession } from '../../../../utils/agent-session-service'
-import { agentDatabaseStore } from '../../../../utils/agent-session-store'
-import { requireUserId } from '../../../../utils/auth'
+import { loadOwnSession } from '~/server/utils/agent-session-service'
+import { agentDatabaseStore } from '~/server/utils/agent-session-store'
+import { requireUserId } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   const userId = await requireUserId(event)

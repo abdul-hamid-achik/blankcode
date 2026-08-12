@@ -5,7 +5,7 @@ import {
   grade,
   minimalCost,
   passed,
-} from '../server/utils/context-budget'
+} from '~/server/utils/context-budget'
 
 const exercise: ContextExercise = {
   sources: [

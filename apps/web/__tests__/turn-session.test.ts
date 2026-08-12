@@ -6,7 +6,7 @@ import {
   type SessionState,
   summarise,
   turnsRemaining,
-} from '../server/utils/turn-session'
+} from '~/server/utils/turn-session'
 
 const session = (over: Partial<SessionState> = {}): SessionState => ({
   status: 'open',

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { AI_TIERS, DEFAULT_TIER, resolveAiModel } from '../server/utils/ai-model'
+import { AI_TIERS, DEFAULT_TIER, resolveAiModel } from '~/server/utils/ai-model'
 
 /**
  * `resolveAiModel` is where a stored preference meets entitlement — the one

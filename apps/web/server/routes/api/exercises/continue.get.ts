@@ -1,7 +1,7 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { concepts, exercises, tracks, userProgress } from '@blankcode/db/schema'
 import { and, asc, desc, eq, notInArray } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
+import { requireUserId } from '~/server/utils/auth'
 
 /**
  * Where you left off.

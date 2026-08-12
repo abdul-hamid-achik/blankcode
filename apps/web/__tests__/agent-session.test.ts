@@ -15,7 +15,7 @@ import {
   seedWindow,
   summarise,
   type AgentSessionState,
-} from '../server/utils/agent-session'
+} from '~/server/utils/agent-session'
 
 const session = (over: Partial<AgentSessionState> = {}): AgentSessionState => ({
   status: 'open',

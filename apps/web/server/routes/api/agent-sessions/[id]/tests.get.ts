@@ -1,9 +1,9 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { exercises } from '@blankcode/db/schema'
 import { eq } from 'drizzle-orm'
-import { revealAgentTests } from '../../../../utils/agent-session-service'
-import { agentDatabaseStore } from '../../../../utils/agent-session-store'
-import { requireUserId } from '../../../../utils/auth'
+import { revealAgentTests } from '~/server/utils/agent-session-service'
+import { agentDatabaseStore } from '~/server/utils/agent-session-store'
+import { requireUserId } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   const userId = await requireUserId(event)

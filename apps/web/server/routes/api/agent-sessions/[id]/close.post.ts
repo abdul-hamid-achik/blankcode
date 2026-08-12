@@ -1,7 +1,7 @@
-import { closeAgentSession } from '../../../../utils/agent-session-service'
-import { agentDatabaseStore } from '../../../../utils/agent-session-store'
-import { requireUserId } from '../../../../utils/auth'
-import { type HiddenRunOutcome, makeHiddenRunner } from '../../../../utils/turn-runner'
+import { closeAgentSession } from '~/server/utils/agent-session-service'
+import { agentDatabaseStore } from '~/server/utils/agent-session-store'
+import { requireUserId } from '~/server/utils/auth'
+import { type HiddenRunOutcome, makeHiddenRunner } from '~/server/utils/turn-runner'
 
 export default defineEventHandler(async (event) => {
   const userId = await requireUserId(event)

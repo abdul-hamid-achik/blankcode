@@ -1,8 +1,8 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { users } from '@blankcode/db/schema'
 import { eq } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
-import { priceId, stripe } from '../../../utils/stripe'
+import { requireUserId } from '~/server/utils/auth'
+import { priceId, stripe } from '~/server/utils/stripe'
 
 /**
  * Starts a checkout for the subscription.

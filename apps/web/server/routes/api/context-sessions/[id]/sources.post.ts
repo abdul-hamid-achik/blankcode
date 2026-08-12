@@ -1,7 +1,7 @@
-import { requireUserId } from '../../../../utils/auth'
-import { selectSource } from '../../../../utils/context-session-service'
-import { databaseContextStore } from '../../../../utils/context-session-store'
-import { contentFor } from '../../../../utils/context-sources'
+import { requireUserId } from '~/server/utils/auth'
+import { selectSource } from '~/server/utils/context-session-service'
+import { databaseContextStore } from '~/server/utils/context-session-store'
+import { contentFor } from '~/server/utils/context-sources'
 
 /** Hands over one source and charges for it. */
 export default defineEventHandler(async (event) => {

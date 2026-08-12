@@ -10,7 +10,7 @@ import {
   type RubricResult,
   scoreOf,
   validateExplanation,
-} from '../server/utils/reading-grader'
+} from '~/server/utils/reading-grader'
 
 /**
  * The grader is a model, so the only parts that can be held to a standard are

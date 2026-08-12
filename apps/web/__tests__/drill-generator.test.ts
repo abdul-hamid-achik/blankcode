@@ -19,7 +19,7 @@ import {
   validateAnswers,
   validateConceptSlug,
   validateDrill,
-} from '../server/utils/drill-generator'
+} from '~/server/utils/drill-generator'
 
 /**
  * The drill pipeline, tested where it is decidable.

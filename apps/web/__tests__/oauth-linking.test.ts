@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { type Context, decide, mayUnlink } from '../server/utils/oauth/linking'
-import { parseGithubUser, parseGoogleUser, type Profile } from '../server/utils/oauth/providers'
+import { type Context, decide, mayUnlink } from '~/server/utils/oauth/linking'
+import { parseGithubUser, parseGoogleUser, type Profile } from '~/server/utils/oauth/providers'
 
 const profile = (over: Partial<Profile> = {}): Profile => ({
   providerAccountId: '12345',

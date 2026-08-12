@@ -3,9 +3,9 @@ import { users } from '@blankcode/db/schema'
 import { eq } from 'drizzle-orm'
 import type Stripe from 'stripe'
 import { applySubscriptionEvent } from '@blankcode/shared'
-import { subscriptionEnding, subscriptionStarted } from '../../../utils/email/messages'
-import { sendEmail } from '../../../utils/email/send'
-import { stripe, webhookSecret } from '../../../utils/stripe'
+import { subscriptionEnding, subscriptionStarted } from '~/server/utils/email/messages'
+import { sendEmail } from '~/server/utils/email/send'
+import { stripe, webhookSecret } from '~/server/utils/stripe'
 
 /**
  * Where subscription state actually comes from.

@@ -1,9 +1,9 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { exercises } from '@blankcode/db/schema'
 import { eq } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
-import { databaseStore } from '../../../utils/session-store'
-import { startSession } from '../../../utils/turn-session-service'
+import { requireUserId } from '~/server/utils/auth'
+import { databaseStore } from '~/server/utils/session-store'
+import { startSession } from '~/server/utils/turn-session-service'
 
 /** Postgres unique-violation, wherever it sits in the cause chain. */
 function isUniqueViolation(error: unknown): boolean {

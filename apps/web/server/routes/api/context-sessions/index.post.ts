@@ -1,10 +1,10 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { exercises } from '@blankcode/db/schema'
 import { eq } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
-import { startContextSession } from '../../../utils/context-session-service'
-import { databaseContextStore } from '../../../utils/context-session-store'
-import { sourcesFor } from '../../../utils/context-sources'
+import { requireUserId } from '~/server/utils/auth'
+import { startContextSession } from '~/server/utils/context-session-service'
+import { databaseContextStore } from '~/server/utils/context-session-store'
+import { sourcesFor } from '~/server/utils/context-sources'
 
 function isUniqueViolation(error: unknown): boolean {
   for (let current = error; current; current = (current as { cause?: unknown }).cause) {

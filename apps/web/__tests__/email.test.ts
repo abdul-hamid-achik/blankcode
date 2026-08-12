@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { renderEmail, renderEmailText } from '../server/utils/email/layout'
+import { renderEmail, renderEmailText } from '~/server/utils/email/layout'
 import {
   emailChanged,
   passwordReset,
@@ -7,7 +7,7 @@ import {
   subscriptionEnding,
   subscriptionStarted,
   welcome,
-} from '../server/utils/email/messages'
+} from '~/server/utils/email/messages'
 
 const ALL = [
   passwordReset('https://blankcode.dev/reset?token=abc', 30),

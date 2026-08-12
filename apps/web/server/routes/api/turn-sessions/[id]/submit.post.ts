@@ -1,7 +1,7 @@
-import { requireUserId } from '../../../../utils/auth'
-import { databaseStore } from '../../../../utils/session-store'
-import { type HiddenRunOutcome, makeHiddenRunner } from '../../../../utils/turn-runner'
-import { submitSession } from '../../../../utils/turn-session-service'
+import { requireUserId } from '~/server/utils/auth'
+import { databaseStore } from '~/server/utils/session-store'
+import { type HiddenRunOutcome, makeHiddenRunner } from '~/server/utils/turn-runner'
+import { submitSession } from '~/server/utils/turn-session-service'
 
 export default defineEventHandler(async (event) => {
   const userId = await requireUserId(event)

@@ -1,4 +1,4 @@
-import { requireAdmin } from '../../../utils/admin'
+import { requireAdmin } from '~/server/utils/admin'
 
 /**
  * Whether the caller may see the operator view.

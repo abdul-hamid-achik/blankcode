@@ -2,7 +2,7 @@ import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { users } from '@blankcode/db/schema'
 import { hasPaidAccess } from '@blankcode/shared'
 import { eq } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
+import { requireUserId } from '~/server/utils/auth'
 
 /**
  * Whether the caller currently has paid access, and why.

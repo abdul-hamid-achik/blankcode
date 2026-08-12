@@ -1,7 +1,7 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { sql } from 'drizzle-orm'
-import { reviewsDue } from '../../utils/email/messages'
-import { sendEmail } from '../../utils/email/send'
+import { reviewsDue } from '~/server/utils/email/messages'
+import { sendEmail } from '~/server/utils/email/send'
 
 /**
  * The motor of the whole product.

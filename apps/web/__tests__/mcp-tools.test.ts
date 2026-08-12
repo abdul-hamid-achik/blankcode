@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { isDifferentAgent } from '../server/utils/mcp-server'
+import { isDifferentAgent } from '~/server/utils/mcp-server'
 
 /**
  * The MCP surface, pinned at the source level (the server needs Nitro's

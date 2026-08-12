@@ -1,10 +1,10 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { userProgress } from '@blankcode/db/schema'
-import { requireUserId } from '../../../../utils/auth'
-import { passed } from '../../../../utils/context-budget'
-import { submitAnswer } from '../../../../utils/context-session-service'
-import { databaseContextStore } from '../../../../utils/context-session-store'
-import { checkAnswer } from '../../../../utils/context-sources'
+import { requireUserId } from '~/server/utils/auth'
+import { passed } from '~/server/utils/context-budget'
+import { submitAnswer } from '~/server/utils/context-session-service'
+import { databaseContextStore } from '~/server/utils/context-session-store'
+import { checkAnswer } from '~/server/utils/context-sources'
 
 export default defineEventHandler(async (event) => {
   const userId = await requireUserId(event)

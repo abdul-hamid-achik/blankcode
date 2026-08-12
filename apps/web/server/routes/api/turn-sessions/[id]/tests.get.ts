@@ -1,9 +1,9 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { exercises } from '@blankcode/db/schema'
 import { eq } from 'drizzle-orm'
-import { requireUserId } from '../../../../utils/auth'
-import { databaseStore } from '../../../../utils/session-store'
-import { revealTests } from '../../../../utils/turn-session-service'
+import { requireUserId } from '~/server/utils/auth'
+import { databaseStore } from '~/server/utils/session-store'
+import { revealTests } from '~/server/utils/turn-session-service'
 
 /**
  * The hidden suite, once the session has earned it.

@@ -1,5 +1,5 @@
-import { requireUserId } from '../../../../utils/auth'
-import { databaseStore } from '../../../../utils/session-store'
+import { requireUserId } from '~/server/utils/auth'
+import { databaseStore } from '~/server/utils/session-store'
 
 /**
  * The session, for resume.

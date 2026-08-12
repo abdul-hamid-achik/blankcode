@@ -1,8 +1,8 @@
 import { createDatabaseFromEnv } from '@blankcode/db/client'
 import { apiTokens } from '@blankcode/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
-import { requireUserId } from '../../../utils/auth'
-import { mintPracticeToken } from '../../../utils/practice-tokens'
+import { requireUserId } from '~/server/utils/auth'
+import { mintPracticeToken } from '~/server/utils/practice-tokens'
 
 /**
  * Mint a practice token.
