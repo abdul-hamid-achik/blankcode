@@ -1,20 +1,9 @@
 /**
- * Client-side mirror of the schedule's "substantive reflection" floor.
- *
- * Source of truth for the gate is `apps/api/src/modules/reviews/scheduler.ts`
- * (`MIN_SUBSTANTIVE_REFLECTION_CHARS`). Kept by copy rather than import
- * because the web app does not depend on the API package for pure constants,
- * and a length floor that drifts only affects client copy (the server still
- * decides whether the hold is released).
- *
- * Length is a proxy: "yes", "makes sense", and "the tests pass" stay hollow.
+ * Substantive-reflection floor — re-exported from shared so the exercise
+ * page, the drill generator, and the SM-2 hold release share one constant.
  */
 
-export const MIN_SUBSTANTIVE_REFLECTION_CHARS = 40
-
-export function isSubstantiveReflection(answer: string): boolean {
-  return answer.trim().length >= MIN_SUBSTANTIVE_REFLECTION_CHARS
-}
+export { isSubstantiveReflection, MIN_SUBSTANTIVE_REFLECTION_CHARS } from '@blankcode/shared'
 
 /**
  * First pass-side question for a type — same catalogue the MCP reflect tool

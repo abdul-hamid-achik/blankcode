@@ -105,15 +105,8 @@ export const MAX_EVIDENCE_CODE_CHARS = 1500
  */
 export const MAX_EVIDENCE_REFLECTIONS = 2
 
-/**
- * Mirrors MIN_SUBSTANTIVE_REFLECTION_CHARS in
- * `apps/api/src/modules/reviews/scheduler.ts`, by copy rather than import for
- * the same reason `smoothedFailureShare` is copied: that module is not on the
- * API's export map, and the two judgments must agree — a reflection the
- * schedule refused to believe is exactly the one the drill generator should
- * hear about.
- */
-export const MIN_SUBSTANTIVE_REFLECTION_CHARS = 40
+// Same floor as the SM-2 hold — one shared constant in @blankcode/shared.
+export { isHollowReflection, MIN_SUBSTANTIVE_REFLECTION_CHARS } from '@blankcode/shared'
 
 export interface DrillFailure {
   readonly exerciseTitle: string
@@ -139,10 +132,6 @@ export interface DrillEvidence {
   readonly hollowReflections: readonly DrillHollowReflection[]
   /** Agent passes on this concept still awaiting an explanation. */
   readonly unexplainedPasses: number
-}
-
-export function isHollowReflection(answer: string): boolean {
-  return answer.trim().length < MIN_SUBSTANTIVE_REFLECTION_CHARS
 }
 
 /**

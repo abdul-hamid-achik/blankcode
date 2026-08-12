@@ -74,18 +74,9 @@ function addDays(date: Date, days: number): Date {
  */
 export const REFLECTION_HOLD_DAYS = 1
 
-/**
- * The floor under "the human actually explained it". One question's answer,
- * so far lower than the reading grader's 120 — but high enough that "yes",
- * "makes sense" and "the tests pass" stay hollow. Length is a proxy, and an
- * imperfect one; it is also the only judge that costs nothing and cannot be
- * flattered.
- */
-export const MIN_SUBSTANTIVE_REFLECTION_CHARS = 40
-
-export function isSubstantiveReflection(answer: string): boolean {
-  return answer.trim().length >= MIN_SUBSTANTIVE_REFLECTION_CHARS
-}
+// Floor and predicate live in @blankcode/shared so the API, drills, and web
+// form cannot disagree about what "substantive" means.
+export { isSubstantiveReflection, MIN_SUBSTANTIVE_REFLECTION_CHARS } from '@blankcode/shared'
 
 /**
  * Caps a computed schedule while the pass awaits its explanation.
