@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   BLANK_END_MARKER,
   BLANK_START_MARKER,
+  extractAgentScript,
   extractBlanks,
   generateStarterCode,
   parseExercise,
@@ -421,5 +422,95 @@ export function half(n: number): number {
     const result = parseExercise(review)
     if (!result.success) return
     expect(result.exercise.type).toBe('review')
+  })
+})
+
+const AGENT = `---
+slug: demo-agent
+title: 'Supervise: a demo'
+description: Catch the seeded failures.
+difficulty: intermediate
+type: agent
+agentBudget: 2
+interventionBudget: 3
+---
+
+Watch the agent work saveAll.
+
+\`\`\`ts
+export async function saveAll<T>(items: T[], save: (v: T) => Promise<T>): Promise<T[]> {
+  const results: T[] = []
+  items.forEach(async (item) => {
+    results.push(await save(item))
+  })
+  return results
+}
+\`\`\`
+
+## Tests
+
+\`\`\`ts
+import { expect, it } from 'vitest'
+it('returns saved items', async () => {
+  await expect(saveAll(['a'], async (v) => v)).resolves.toEqual(['a'])
+})
+\`\`\`
+
+## Solution
+
+\`\`\`ts
+export async function saveAll<T>(items: T[], save: (v: T) => Promise<T>): Promise<T[]> {
+  const results: T[] = []
+  for (const item of items) {
+    results.push(await save(item))
+  }
+  return results
+}
+\`\`\`
+
+## Script
+
+\`\`\`yaml
+beats:
+  - say: All tests pass now.
+    run: false
+seeds:
+  - at: 0
+    kind: hallucinated-pass
+    window: 1
+    weight: 3
+    truth: no run backs the claim
+    caught: []
+    missed: []
+rubric:
+  - id: final-call
+    weight: 3
+\`\`\`
+`
+
+describe('agent exercises', () => {
+  it('parses the script and keeps the starter as the first block', () => {
+    const result = parseExercise(AGENT)
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.exercise.type).toBe('agent')
+    expect(result.exercise.frontmatter.agentBudget).toBe(2)
+    expect(result.exercise.frontmatter.interventionBudget).toBe(3)
+    expect(result.exercise.starterCode).toContain('forEach')
+    expect(result.exercise.solutionCode).toContain('for (const item of items)')
+    expect(result.exercise.agentScript?.beats).toHaveLength(1)
+    expect(result.exercise.agentScript?.seeds[0]?.kind).toBe('hallucinated-pass')
+  })
+
+  it('refuses an agent exercise with no Script section', () => {
+    const cut = AGENT.slice(0, AGENT.indexOf('## Script'))
+    const result = parseExercise(cut)
+    expect(result.success).toBe(false)
+    if (result.success) return
+    expect(result.errors[0]).toMatch(/Script/)
+  })
+
+  it('extractAgentScript returns null for other forms', () => {
+    expect(extractAgentScript('# just a heading\n')).toBeNull()
   })
 })

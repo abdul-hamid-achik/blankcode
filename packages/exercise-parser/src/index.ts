@@ -7,7 +7,13 @@ import type {
 import { exerciseFrontmatterSchema } from '@blankcode/shared'
 import { Either, Schema } from 'effect'
 import matter from 'gray-matter'
-import type { ContextSourceDefinition } from '@blankcode/shared/types'
+import {
+  AGENT_SEED_KINDS,
+  type AgentBeat,
+  type AgentScript,
+  type AgentSeedKind,
+  type ContextSourceDefinition,
+} from '@blankcode/shared/types'
 import { parse as parseYaml } from 'yaml'
 
 const BLANK_START_MARKER = '___blank_start___'
@@ -89,6 +95,14 @@ export function parseExercise(markdown: string, options: ParseOptions = {}): Par
       ? { starterCode: firstBlock, blanksInStarter: [] }
       : generateStarterCode(solutionCode, blanks)
 
+    const agentScript = extractAgentScript(content)
+    if (exerciseType === 'agent' && !agentScript) {
+      return {
+        success: false,
+        errors: ['Agent exercise must have a ## Script section with at least one beat'],
+      }
+    }
+
     return {
       success: true,
       exercise: {
@@ -100,6 +114,7 @@ export function parseExercise(markdown: string, options: ParseOptions = {}): Par
         solutionCode,
         type: exerciseType,
         contextSources: extractContextSources(content),
+        agentScript,
       },
     }
   } catch (error) {
@@ -352,6 +367,10 @@ export function validateExercise(exercise: ParsedExercise): string[] {
     errors.push('Exercise must have starter code')
   }
 
+  if (exercise.type === 'agent' && !exercise.agentScript) {
+    errors.push('Agent exercise must have a ## Script section')
+  }
+
   if (exercise.type === 'blank') {
     for (const blank of exercise.blanks) {
       if (!blank.solution) {
@@ -392,4 +411,85 @@ export function extractContextSources(markdown: string): ContextSourceDefinition
     required: parsed.required ?? [],
     accept: parsed.accept ?? '.',
   }
+}
+
+function asBeat(raw: unknown): AgentBeat | null {
+  if (!raw || typeof raw !== 'object') return null
+  const row = raw as { say?: unknown; code?: unknown; run?: unknown }
+  if (typeof row.say !== 'string' || row.say.trim().length === 0) return null
+  return {
+    say: row.say,
+    code: typeof row.code === 'string' ? row.code : null,
+    run: row.run === true,
+  }
+}
+
+/**
+ * The `## Script` section of an agent-supervision exercise.
+ *
+ * YAML in a fenced block, same shape as Context: the session is authored
+ * content and has to survive import as a snapshot. Returns null when the
+ * section is absent or does not describe at least one beat.
+ */
+export function extractAgentScript(markdown: string): AgentScript | null {
+  const yaml = extractSectionCode(markdown, 'Script')
+  if (!yaml) return null
+
+  const parsed = parseYaml(yaml) as {
+    beats?: unknown
+    seeds?: unknown
+    rubric?: unknown
+  } | null
+  if (!parsed || !Array.isArray(parsed.beats)) return null
+
+  const beats: AgentBeat[] = []
+  for (const raw of parsed.beats) {
+    const beat = asBeat(raw)
+    if (!beat) return null
+    beats.push(beat)
+  }
+  if (beats.length === 0) return null
+
+  const kinds = new Set<string>(AGENT_SEED_KINDS)
+  const seeds: AgentScript['seeds'][number][] = []
+  for (const raw of Array.isArray(parsed.seeds) ? parsed.seeds : []) {
+    if (!raw || typeof raw !== 'object') return null
+    const row = raw as {
+      at?: unknown
+      kind?: unknown
+      window?: unknown
+      weight?: unknown
+      truth?: unknown
+      caught?: unknown
+      missed?: unknown
+    }
+    if (typeof row.at !== 'number' || !Number.isInteger(row.at) || row.at < 0) return null
+    if (typeof row.kind !== 'string' || !kinds.has(row.kind)) return null
+    if (typeof row.window !== 'number' || row.window < 1) return null
+    if (typeof row.weight !== 'number' || row.weight < 1) return null
+    if (typeof row.truth !== 'string' || row.truth.trim().length === 0) return null
+    const caught = Array.isArray(row.caught) ? row.caught.map(asBeat) : []
+    const missed = Array.isArray(row.missed) ? row.missed.map(asBeat) : []
+    if (caught.some((b) => b === null) || missed.some((b) => b === null)) return null
+    seeds.push({
+      at: row.at,
+      kind: row.kind as AgentSeedKind,
+      window: row.window,
+      weight: row.weight,
+      truth: row.truth,
+      caught: caught as AgentBeat[],
+      missed: missed as AgentBeat[],
+    })
+  }
+
+  const rubric: AgentScript['rubric'][number][] = []
+  for (const raw of Array.isArray(parsed.rubric) ? parsed.rubric : []) {
+    if (!raw || typeof raw !== 'object') return null
+    const row = raw as { id?: unknown; weight?: unknown }
+    if (typeof row.id !== 'string' || row.id.length === 0) return null
+    if (typeof row.weight !== 'number' || row.weight < 1) return null
+    rubric.push({ id: row.id, weight: row.weight })
+  }
+
+  return { beats, seeds, rubric }
 }

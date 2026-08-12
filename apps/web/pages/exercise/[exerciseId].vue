@@ -245,7 +245,7 @@ const concept = computed(
  */
 const sessionForm = computed(() => {
   const type = exerciseStore.exercise?.type
-  return type === 'turn' || type === 'context' ? type : null
+  return type === 'turn' || type === 'context' || type === 'agent' ? type : null
 })
 
 const trackSlug = computed(() => concept.value?.track?.slug)
@@ -477,6 +477,14 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
             description: exerciseStore.exercise.description,
           }"
         />
+
+        <div v-else-if="sessionForm === 'agent'" class="min-h-0 flex-1 overflow-auto p-5 md:p-6">
+          <p class="max-w-[58ch] text-sm leading-relaxed text-muted-foreground">
+            This is a supervision exercise — you watch a scripted agent work and catch the failures
+            it seeds. The session surface is not live yet; opening the editor here would turn it
+            into a challenge, which is not the skill being graded.
+          </p>
+        </div>
 
         <div v-else class="min-h-0 flex-1 overflow-auto p-5 md:p-6">
           <ClientOnly>

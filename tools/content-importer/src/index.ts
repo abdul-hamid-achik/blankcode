@@ -82,8 +82,15 @@ async function importExercise(
     return false
   }
 
-  const { frontmatter, starterCode, solutionCode, blanksInStarter, type, contextSources } =
-    parseResult.exercise
+  const {
+    frontmatter,
+    starterCode,
+    solutionCode,
+    blanksInStarter,
+    type,
+    contextSources,
+    agentScript,
+  } = parseResult.exercise
   const codeBlockMatch = markdown.match(/## Tests\s*```[\w]*\n([\s\S]*?)```/)
   const testCode = codeBlockMatch?.[1]?.trim() ?? ''
 
@@ -103,6 +110,9 @@ async function importExercise(
       blanks: blanksInStarter,
       contextSources: contextSources ?? null,
       turnBudget: frontmatter.turnBudget ?? null,
+      agentBudget: frontmatter.agentBudget ?? null,
+      interventionBudget: frontmatter.interventionBudget ?? null,
+      agentScript: agentScript ?? null,
       order,
       isPublished: true,
     })
@@ -120,6 +130,9 @@ async function importExercise(
         blanks: blanksInStarter,
         contextSources: contextSources ?? null,
         turnBudget: frontmatter.turnBudget ?? null,
+        agentBudget: frontmatter.agentBudget ?? null,
+        interventionBudget: frontmatter.interventionBudget ?? null,
+        agentScript: agentScript ?? null,
         // Also on update: an upsert that sets it only on insert leaves every
         // exercise imported before this at 0 forever.
         order,

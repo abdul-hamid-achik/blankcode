@@ -98,6 +98,31 @@ describe('redactExercise', () => {
     expect(json).not.toContain('const a = 42;')
     expect(json).not.toContain('"solution"')
   })
+
+  it('strips the agent script', () => {
+    const exercise = {
+      ...EXERCISE,
+      agentScript: {
+        beats: [{ say: 'All tests pass now.', code: null, run: false }],
+        seeds: [
+          {
+            at: 0,
+            kind: 'hallucinated-pass',
+            window: 1,
+            weight: 3,
+            truth: 'no run backs the claim',
+            caught: [],
+            missed: [],
+          },
+        ],
+        rubric: [{ id: 'final-call', weight: 3 }],
+      },
+    }
+    const redacted = redactExercise(exercise) as Record<string, unknown>
+    expect(redacted['agentScript']).toBeUndefined()
+    expect(JSON.stringify(redacted)).not.toContain('hallucinated-pass')
+    expect(JSON.stringify(redacted)).not.toContain('All tests pass now')
+  })
 })
 
 describe('redactBlank', () => {

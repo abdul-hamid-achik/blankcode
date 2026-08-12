@@ -76,22 +76,24 @@ export function redactBlank(blank: BlankLike): RedactedBlank {
  */
 export function redactExercise<T extends Record<string, unknown>>(
   exercise: T
-): Omit<T, 'solutionCode' | 'blanks' | 'testCode'> & { blanks: RedactedBlank[] } {
+): Omit<T, 'solutionCode' | 'blanks' | 'testCode' | 'agentScript'> & { blanks: RedactedBlank[] } {
   const {
     solutionCode: _solutionCode,
     testCode: _testCode,
+    agentScript: _agentScript,
     blanks,
     contextSources,
     ...rest
   } = exercise as T & {
     solutionCode?: unknown
     testCode?: unknown
+    agentScript?: unknown
     blanks?: BlankLike[] | null
     contextSources?: unknown
   }
 
   return {
-    ...(rest as Omit<T, 'solutionCode' | 'blanks' | 'testCode'>),
+    ...(rest as Omit<T, 'solutionCode' | 'blanks' | 'testCode' | 'agentScript'>),
     blanks: Array.isArray(blanks) ? blanks.map(redactBlank) : [],
     ...(contextSources !== undefined
       ? { contextSources: redactContextSources(contextSources) }

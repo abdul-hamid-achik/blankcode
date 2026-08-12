@@ -110,6 +110,8 @@ export const exerciseFrontmatterSchema = Schema.Struct({
   // so an exercise authoring `turnBudget: 3` silently lost it and the session
   // route refused to start — the field has to be here to survive decoding.
   turnBudget: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
+  agentBudget: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
+  interventionBudget: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
 })
 
 export type UserCreateInput = Schema.Schema.Type<typeof userCreateSchema>

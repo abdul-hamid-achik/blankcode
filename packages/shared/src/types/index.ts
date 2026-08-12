@@ -15,9 +15,51 @@ export type TrackSlug = (typeof TRACK_SLUGS)[number]
  *               trains reading code you did not write, which is the skill that
  *               stopped being optional once a model could produce two hundred
  *               plausible lines in four seconds.
+ * `agent`     — an in-platform scripted agent works the task; the human
+ *               supervises. Graded on catching seeded failures, not on green.
  */
-export const EXERCISE_TYPES = ['blank', 'challenge', 'review', 'turn', 'context'] as const
+export const EXERCISE_TYPES = ['blank', 'challenge', 'review', 'turn', 'context', 'agent'] as const
 export type ExerciseType = (typeof EXERCISE_TYPES)[number]
+
+export const AGENT_SEED_KINDS = [
+  'hallucinated-pass',
+  'confident-invention',
+  'budget-burner',
+  'wrong-diagnosis',
+] as const
+export type AgentSeedKind = (typeof AGENT_SEED_KINDS)[number]
+
+/** One authored turn of the scripted agent. */
+export interface AgentBeat {
+  readonly say: string
+  /** Full solution state at this beat, when the agent claims to have edited. */
+  readonly code: string | null
+  /** Whether a real run happens behind this beat; false means a claim without evidence. */
+  readonly run: boolean
+}
+
+export interface AgentSeed {
+  /** Beat index the seed fires at. */
+  readonly at: number
+  readonly kind: AgentSeedKind
+  readonly window: number
+  readonly weight: number
+  readonly truth: string
+  readonly caught: readonly AgentBeat[]
+  readonly missed: readonly AgentBeat[]
+}
+
+export interface AgentRubricPoint {
+  readonly id: string
+  readonly weight: number
+}
+
+/** Authored session for an `agent` exercise. Snapshotted onto the row at import. */
+export interface AgentScript {
+  readonly beats: readonly AgentBeat[]
+  readonly seeds: readonly AgentSeed[]
+  readonly rubric: readonly AgentRubricPoint[]
+}
 
 export const ACHIEVEMENT_TYPES = [
   'first_challenge',
@@ -120,6 +162,8 @@ export interface ParsedExercise {
   type: ExerciseType
   /** Present only on context-selection exercises. */
   contextSources: ContextSourceDefinition | null
+  /** Present only on agent-supervision exercises. */
+  agentScript: AgentScript | null
 }
 
 export interface ExerciseFrontmatter {
@@ -138,6 +182,10 @@ export interface ExerciseFrontmatter {
    * exercises, not the same one configured differently.
    */
   turnBudget?: number | undefined
+  /** Agent-supervision exercises: how many scripted agent turns the session has. */
+  agentBudget?: number | undefined
+  /** Agent-supervision exercises: how many interventions the human may spend. */
+  interventionBudget?: number | undefined
 }
 
 export interface Submission {

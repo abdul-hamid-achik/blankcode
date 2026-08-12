@@ -1,4 +1,4 @@
-import type { BlankRegionInStarter } from '@blankcode/shared/types'
+import type { AgentScript, BlankRegionInStarter } from '@blankcode/shared/types'
 import {
   ACHIEVEMENT_TYPES,
   DIFFICULTIES,
@@ -194,11 +194,19 @@ export const exercises = pgTable(
      */
     /** Turn-budget exercises only: how many messages the learner gets. */
     turnBudget: integer('turn_budget'),
+    /** Agent-supervision exercises: scripted agent turns and human interventions. */
+    agentBudget: integer('agent_budget'),
+    interventionBudget: integer('intervention_budget'),
     contextSources: jsonb('context_sources').$type<{
       sources: Array<{ id: string; label: string; tokens: number; content: string }>
       required: string[]
       accept: string
     } | null>(),
+    /**
+     * Agent-supervision exercises only: the authored script (beats, seeds,
+     * rubric). Same reason as contextSources — authored with the markdown.
+     */
+    agentScript: jsonb('agent_script').$type<AgentScript | null>(),
     blanks: jsonb('blanks').$type<BlankRegionInStarter[]>().notNull().default([]),
     order: integer('order').notNull().default(0),
     isPublished: boolean('is_published').notNull().default(false),
