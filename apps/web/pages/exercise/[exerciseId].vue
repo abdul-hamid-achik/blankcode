@@ -487,6 +487,7 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
             description: exerciseStore.exercise.description,
           }"
           :language="language"
+          :concept-slug="concept?.slug ?? ''"
         />
 
         <div v-else class="min-h-0 flex-1 overflow-auto p-5 md:p-6">

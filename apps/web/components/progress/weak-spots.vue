@@ -10,6 +10,7 @@ interface WeakSpotConcept {
   failedShare: number
   completed: number
   total: number
+  why?: 'failures' | 'unexplained'
 }
 
 interface ReadingGap {
@@ -124,7 +125,11 @@ async function drillThis(conceptSlug: string): Promise<void> {
         </NuxtLink>
         <span class="flex shrink-0 items-baseline gap-3 font-mono text-xs">
           <span class="text-muted-foreground">
-            {{ concept.attempts }} attempts · {{ Math.round(concept.failedShare * 100) }}% failed
+            {{
+              concept.why === 'unexplained'
+                ? 'unexplained pass'
+                : `${concept.attempts} attempts · ${Math.round(concept.failedShare * 100)}% failed`
+            }}
           </span>
           <button
             type="button"

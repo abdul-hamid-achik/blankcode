@@ -23,6 +23,7 @@ const analytics = useAnalytics()
 const props = defineProps<{
   exercise: { id: string; title: string; description: string }
   language: string
+  conceptSlug?: string
 }>()
 
 type Action = 'approve' | 'reject' | 'interrupt' | 'demand-evidence' | 'redirect'
@@ -67,6 +68,8 @@ const pending = ref<'start' | 'decide' | 'close' | null>(null)
 const revealedTests = ref<string | null>(null)
 const closeTests = ref<TestRow[]>([])
 const closeError = ref<string | null>(null)
+const drilling = ref(false)
+const drillError = ref('')
 
 function authHeaders(): Record<string, string> {
   const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
@@ -193,6 +196,27 @@ async function closeSitting(action: 'accept-work' | 'reject-work') {
     busy.value = false
     closing.value = false
     pending.value = null
+  }
+}
+
+async function drillThisConcept() {
+  if (!props.conceptSlug || drilling.value) return
+  drilling.value = true
+  drillError.value = ''
+  try {
+    const result = await $fetch<{ drill: { id: string } }>('/api/drills/generate', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: { conceptSlug: props.conceptSlug },
+    })
+    await navigateTo(`/drills/${result.drill.id}`)
+  } catch (caught) {
+    drillError.value =
+      caught instanceof Error
+        ? caught.message
+        : 'The drill was not generated. Nothing was saved \u2014 try again.'
+  } finally {
+    drilling.value = false
   }
 }
 </script>
@@ -470,7 +494,23 @@ async function closeSitting(action: 'accept-work' | 'reject-work') {
               ><Button variant="outline" size="sm">Review queue</Button></NuxtLink
             >
             <NuxtLink to="/tracks"><Button variant="outline" size="sm">Tracks</Button></NuxtLink>
+            <Button
+              v-if="!session.report.passed && conceptSlug"
+              variant="outline"
+              size="sm"
+              :disabled="drilling"
+              :loading="drilling"
+              @click="drillThisConcept"
+            >
+              Drill this concept
+            </Button>
           </div>
+          <p v-if="drilling" class="mt-3 font-mono text-xs text-muted-foreground" role="status">
+            building and running your drill — it must pass its own tests before you see it
+          </p>
+          <p v-else-if="drillError" class="mt-3 font-mono text-xs text-fail" role="alert">
+            {{ drillError }}
+          </p>
         </template>
       </template>
 

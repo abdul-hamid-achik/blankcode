@@ -261,6 +261,7 @@ describe('the drill pages', () => {
   const detail = read('pages/drills/[id].vue')
   const weakSpots = read('components/progress/weak-spots.vue')
   const sidebar = read('components/layout/app-sidebar.vue')
+  const sitting = read('components/exercise/agent-session-view.vue')
 
   it('both require a session', () => {
     expect(ledger).toContain('requiresAuth: true')
@@ -293,6 +294,10 @@ describe('the drill pages', () => {
     expect(weakSpots).toContain('conceptSlug')
   })
 
+  it('an unexplained pass is named as a reason to drill', () => {
+    expect(weakSpots).toContain('unexplained pass')
+  })
+
   it('the weak-spots list says what the wait is for', () => {
     // "Generating…" would be a lie by omission: the sandbox run is most of the
     // wait, and it is the part worth waiting for.
@@ -301,5 +306,11 @@ describe('the drill pages', () => {
 
   it('the sidebar links to the drills', () => {
     expect(sidebar).toContain("{ to: '/drills', label: 'Drills' }")
+  })
+
+  it('a sitting that does not hold offers a drill for the same concept', () => {
+    expect(sitting).toContain('Drill this concept')
+    expect(sitting).toContain('/api/drills/generate')
+    expect(sitting).toContain('conceptSlug')
   })
 })

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   aggregateConceptWeakSpots,
   aggregateReadingGaps,
+  mergeHeldConcepts,
   ProgressService,
   ProgressServiceLive,
   aggregateRustingConcepts,
@@ -22,6 +23,7 @@ function createMockDb() {
       exercises: { findFirst: vi.fn(), findMany: vi.fn() },
       conceptMastery: { findFirst: vi.fn(), findMany: vi.fn() },
       readingSubmissions: { findMany: vi.fn() },
+      reviewSchedules: { findMany: vi.fn().mockResolvedValue([]) },
       readingExercises: { findMany: vi.fn() },
     },
     insert: vi.fn().mockReturnValue({
@@ -607,6 +609,61 @@ describe('ProgressService', () => {
     })
   })
 
+  describe('mergeHeldConcepts', () => {
+    const closures = {
+      conceptSlug: 'closures',
+      conceptName: 'Closures',
+      trackSlug: 'typescript',
+      attempts: 4,
+      failedShare: 0.6,
+      completed: 1,
+      total: 4,
+    }
+
+    it('puts an unexplained hold on the drill list even with no failures', () => {
+      const result = mergeHeldConcepts(
+        [],
+        [
+          {
+            conceptSlug: 'supervision',
+            conceptName: 'Supervise the Agent',
+            trackSlug: 'typescript',
+          },
+        ]
+      )
+      expect(result).toEqual([
+        {
+          conceptSlug: 'supervision',
+          conceptName: 'Supervise the Agent',
+          trackSlug: 'typescript',
+          attempts: 0,
+          failedShare: 0,
+          completed: 0,
+          total: 0,
+          why: 'unexplained',
+        },
+      ])
+    })
+
+    it('does not duplicate a concept the scoreboard already named', () => {
+      const result = mergeHeldConcepts(
+        [closures],
+        [{ conceptSlug: 'closures', conceptName: 'Closures', trackSlug: 'typescript' }]
+      )
+      expect(result).toEqual([closures])
+    })
+
+    it('keeps one row per held concept', () => {
+      const held = {
+        conceptSlug: 'async-patterns',
+        conceptName: 'Async Patterns',
+        trackSlug: 'typescript',
+      }
+      const result = mergeHeldConcepts([], [held, held])
+      expect(result).toHaveLength(1)
+    })
+  })
+
   describe('aggregateReadingGaps', () => {
     it('counts misses per point across submissions', () => {
       const result = aggregateReadingGaps([
@@ -762,6 +819,46 @@ describe('ProgressService', () => {
       )
 
       expect(result).toEqual({ concepts: [], readingGaps: [], rusting: [], weakReadings: [] })
+    })
+
+    it('surfaces an unexplained hold as a drillable concept', async () => {
+      mockDb.query.submissions.findMany.mockResolvedValue([])
+      mockDb.query.conceptMastery.findMany.mockResolvedValue([])
+      mockDb.query.readingSubmissions.findMany.mockResolvedValue([])
+      mockDb.query.concepts.findMany.mockResolvedValue([])
+      mockDb.query.readingExercises.findMany.mockResolvedValue([])
+      mockDb.query.reviewSchedules.findMany.mockResolvedValue([
+        {
+          exercise: {
+            concept: {
+              slug: 'supervision',
+              name: 'Supervise the Agent',
+              track: { slug: 'typescript' },
+            },
+          },
+        },
+      ])
+
+      const result = await runService(
+        Effect.gen(function* () {
+          const svc = yield* ProgressService
+          return yield* svc.getWeakSpots('user-1')
+        }),
+        testLayer
+      )
+
+      expect(result.concepts).toEqual([
+        {
+          conceptSlug: 'supervision',
+          conceptName: 'Supervise the Agent',
+          trackSlug: 'typescript',
+          attempts: 0,
+          failedShare: 0,
+          completed: 0,
+          total: 0,
+          why: 'unexplained',
+        },
+      ])
     })
   })
 })

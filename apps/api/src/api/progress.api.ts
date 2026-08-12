@@ -11,6 +11,7 @@ const WeakSpotConceptSchema = Schema.Struct({
   failedShare: Schema.Number,
   completed: Schema.Number,
   total: Schema.Number,
+  why: Schema.optional(Schema.Literal('failures', 'unexplained')),
 })
 
 const ReadingGapSchema = Schema.Struct({

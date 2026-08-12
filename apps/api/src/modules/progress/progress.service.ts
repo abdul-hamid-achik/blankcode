@@ -4,6 +4,7 @@ import {
   concepts,
   exercises,
   readingSubmissions,
+  reviewSchedules,
   submissions,
   tracks,
   userProgress,
@@ -73,6 +74,8 @@ export interface WeakSpotConcept {
   failedShare: number
   completed: number
   total: number
+  /** Absent or `failures` is the thirty-day scoreboard. `unexplained` is a hold. */
+  why?: 'failures' | 'unexplained'
 }
 
 export interface ReadingGap {
@@ -254,6 +257,42 @@ export function aggregateConceptWeakSpots(
     )
     .toSorted((a, b) => b.failedShare - a.failedShare)
     .slice(0, WEAK_SPOT_MAX_CONCEPTS)
+}
+
+export interface HeldConceptInput {
+  conceptSlug: string
+  conceptName: string
+  trackSlug: string
+}
+
+/**
+ * An unexplained agent pass is a weakness the failure scoreboard cannot see:
+ * the suite went green and the schedule is holding the review a day out.
+ * Those concepts must still be drillable, or the hold is diagnosis without
+ * treatment.
+ */
+export function mergeHeldConcepts(
+  spots: readonly WeakSpotConcept[],
+  held: readonly HeldConceptInput[]
+): WeakSpotConcept[] {
+  const already = new Set(spots.map((spot) => spot.conceptSlug))
+  const extras: WeakSpotConcept[] = []
+  const seen = new Set<string>()
+  for (const row of held) {
+    if (!row.conceptSlug || already.has(row.conceptSlug) || seen.has(row.conceptSlug)) continue
+    seen.add(row.conceptSlug)
+    extras.push({
+      conceptSlug: row.conceptSlug,
+      conceptName: row.conceptName,
+      trackSlug: row.trackSlug,
+      attempts: 0,
+      failedShare: 0,
+      completed: 0,
+      total: 0,
+      why: 'unexplained',
+    })
+  }
+  return [...extras.slice(0, WEAK_SPOT_MAX_CONCEPTS), ...spots]
 }
 
 export interface WeakSpotRubricRow {
@@ -754,7 +793,7 @@ export const ProgressServiceLive = Layer.effect(
         Effect.gen(function* () {
           const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-          const [recentSubmissions, masteryRecords, userReadingSubmissions, allConcepts] =
+          const [recentSubmissions, masteryRecords, userReadingSubmissions, allConcepts, heldRows] =
             yield* Effect.tryPromise({
               try: () =>
                 Promise.all([
@@ -788,6 +827,23 @@ export const ProgressServiceLive = Layer.effect(
                     columns: { id: true, slug: true, name: true },
                     with: { track: { columns: { slug: true } } },
                   }),
+                  db.query.reviewSchedules.findMany({
+                    where: and(
+                      eq(reviewSchedules.userId, userId),
+                      isNotNull(reviewSchedules.heldNextReviewAt)
+                    ),
+                    with: {
+                      exercise: {
+                        columns: { id: true },
+                        with: {
+                          concept: {
+                            columns: { slug: true, name: true },
+                            with: { track: { columns: { slug: true } } },
+                          },
+                        },
+                      },
+                    },
+                  }),
                 ]),
               catch: () => new NotFoundError({ resource: 'WeakSpots', id: userId }),
             })
@@ -815,8 +871,24 @@ export const ProgressServiceLive = Layer.effect(
             readingMeta.map((row) => [row.id, { slug: row.slug, title: row.title }])
           )
 
+          const held = heldRows.flatMap((row) => {
+            const concept = row.exercise?.concept
+            const trackSlug = concept?.track?.slug
+            if (!concept || !trackSlug) return []
+            return [
+              {
+                conceptSlug: concept.slug,
+                conceptName: concept.name,
+                trackSlug,
+              },
+            ]
+          })
+
           return {
-            concepts: aggregateConceptWeakSpots(recentSubmissions, masteryByConceptId),
+            concepts: mergeHeldConcepts(
+              aggregateConceptWeakSpots(recentSubmissions, masteryByConceptId),
+              held
+            ),
             readingGaps: aggregateReadingGaps(userReadingSubmissions),
             rusting: aggregateRustingConcepts(masteryRecords, conceptsById),
             weakReadings: aggregateWeakReadings(userReadingSubmissions, readingById),

@@ -223,6 +223,7 @@ export function useApi() {
             failedShare: number
             completed: number
             total: number
+            why?: 'failures' | 'unexplained'
           }>
           readingGaps: Array<{ point: string; misses: number }>
           rusting: Array<{
