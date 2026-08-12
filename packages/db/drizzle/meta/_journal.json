@@ -120,6 +120,13 @@
       "when": 1771470555763,
       "tag": "0016_add_agent_exercise_type",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1771470555764,
+      "tag": "0017_add_agent_sessions",
+      "breakpoints": true
     }
   ]
 }

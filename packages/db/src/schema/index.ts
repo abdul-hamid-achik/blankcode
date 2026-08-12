@@ -1,4 +1,8 @@
 import type { AgentScript, BlankRegionInStarter } from '@blankcode/shared/types'
+
+type AgentSessionEvent =
+  | { type: 'decision'; action: string; beatIndex: number }
+  | { type: 'final'; action: 'accept-work' | 'reject-work' }
 import {
   ACHIEVEMENT_TYPES,
   DIFFICULTIES,
@@ -579,6 +583,49 @@ export const turnSessions = pgTable(
     // One open session per exercise per user: starting a second one to get a
     // fresh budget is exactly the thing the budget exists to prevent.
     uniqueIndex('turn_sessions_one_open_idx')
+      .on(table.userId, table.exerciseId)
+      .where(sql`status = 'open'`),
+  ]
+)
+
+/**
+ * One sitting at an agent-supervision exercise.
+ *
+ * The skill is catching seeded failures under a scarce intervention budget,
+ * so the state that matters is the beat, the log, and both counters. The
+ * authored script is snapshotted here: an exercise that gains a seed must
+ * not rewrite a sitting already under way.
+ *
+ * Tests stay hidden until `revealedAt` is set, same reason as turn-sessions.
+ */
+export const agentSessions = pgTable(
+  'agent_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    exerciseId: uuid('exercise_id')
+      .notNull()
+      .references(() => exercises.id, { onDelete: 'cascade' }),
+    maxAgentTurns: integer('max_agent_turns').notNull(),
+    agentTurnsUsed: integer('agent_turns_used').notNull().default(1),
+    maxInterventions: integer('max_interventions').notNull(),
+    interventionsUsed: integer('interventions_used').notNull().default(0),
+    beatIndex: integer('beat_index').notNull().default(0),
+    events: jsonb('events').$type<AgentSessionEvent[]>().notNull().default([]),
+    script: jsonb('script').$type<AgentScript>().notNull(),
+    currentCode: text('current_code'),
+    lastEvidence: jsonb('last_evidence').$type<{ passed: boolean } | null>(),
+    finalCode: text('final_code'),
+    status: turnSessionStatusEnum('status').notNull().default('open'),
+    revealedAt: timestamp('revealed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('agent_sessions_user_idx').on(table.userId, table.createdAt),
+    uniqueIndex('agent_sessions_one_open_idx')
       .on(table.userId, table.exerciseId)
       .where(sql`status = 'open'`),
   ]
