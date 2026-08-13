@@ -33,6 +33,20 @@ describe('Review and post-pass Continue chrome', () => {
     expect(source).not.toMatch(/<Button size="sm">Continue<\/Button>/)
   })
 
+  it('a submission pass records the id before any rating', () => {
+    const page = read('pages/exercise/[exerciseId].vue')
+    const store = read('stores/review.ts')
+    expect(store).toContain('applyPassToDueQueue')
+    expect(store).toContain('notePassedInSession')
+    expect(page).toMatch(/status === 'passed'[\s\S]*notePassedInSession/)
+  })
+
+  it('post-pass "that was the last one" is not chained to the tutorial link', () => {
+    const source = read('pages/exercise/[exerciseId].vue')
+    expect(source).not.toMatch(/v-if="conceptTutorial"[\s\S]{0,400}v-else-if="whatsNext"/)
+    expect(source).toContain('shouldShowTrackFinished')
+  })
+
   it('the Nitro handlers call the same selector the tests drive', () => {
     const next = read('server/routes/api/exercises/[id]/next.get.ts')
     const cont = read('server/routes/api/exercises/continue.get.ts')
