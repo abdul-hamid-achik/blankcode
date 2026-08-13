@@ -17,7 +17,12 @@ import {
   isSubstantiveReflection,
   MIN_SUBSTANTIVE_REFLECTION_CHARS,
 } from '~/utils/reflection'
-import { continueChrome, shouldShowTrackFinished, type ContinueKind } from '~/utils/continue-target'
+import {
+  continueChrome,
+  shouldNoteSittingPass,
+  shouldShowTrackFinished,
+  type ContinueKind,
+} from '~/utils/continue-target'
 import { speakSchedule } from '~/utils/review-dates'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
@@ -156,14 +161,21 @@ watch(
  * no onward path at all, because the only call site was rateRecall.
  */
 watch(
-  () => exerciseStore.latestSubmission?.status,
-  (status) => {
-    if (status === 'passed') {
+  () => exerciseStore.latestSubmission,
+  (submission) => {
+    if (submission?.status !== 'passed') return
+    if (
+      shouldNoteSittingPass({
+        status: submission.status,
+        submissionId: submission.id,
+        sittingSubmissionIds: new Set(exerciseStore.sittingSubmissionIds),
+      })
+    ) {
       reviewStore.notePassedInSession(exerciseId.value)
-      void loadWhatsNext()
-      void loadConceptTutorial()
-      void checkAchievements()
     }
+    void loadWhatsNext()
+    void loadConceptTutorial()
+    void checkAchievements()
   }
 )
 

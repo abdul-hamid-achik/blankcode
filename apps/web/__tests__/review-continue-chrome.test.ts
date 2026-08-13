@@ -33,12 +33,26 @@ describe('Review and post-pass Continue chrome', () => {
     expect(source).not.toMatch(/<Button size="sm">Continue<\/Button>/)
   })
 
-  it('a submission pass records the id before any rating', () => {
+  it('a this-sitting pass records the id; a hydrated historical pass does not', () => {
     const page = read('pages/exercise/[exerciseId].vue')
-    const store = read('stores/review.ts')
-    expect(store).toContain('applyPassToDueQueue')
-    expect(store).toContain('notePassedInSession')
-    expect(page).toMatch(/status === 'passed'[\s\S]*notePassedInSession/)
+    const review = read('stores/review.ts')
+    const exercise = read('stores/exercise.ts')
+    expect(review).toContain('applyPassToDueQueue')
+    expect(review).toContain('notePassedInSession')
+    expect(page).toContain('shouldNoteSittingPass')
+    expect(page).toMatch(/shouldNoteSittingPass\([\s\S]*notePassedInSession/)
+    expect(exercise).toContain('sittingSubmissionIds')
+    // loadSubmissions hydrates last week's pass; it must not join the sitting set.
+    const loadFn = exercise.slice(exercise.indexOf('async function loadSubmissions'))
+    expect(loadFn.slice(0, 400)).not.toContain('sittingSubmissionIds')
+    // submitCode must record the id before latestSubmission is assigned,
+    // or the status watch fires against an empty sitting set.
+    const submitFn = exercise.slice(exercise.indexOf('async function submitCode'))
+    const sittingAt = submitFn.indexOf('sittingSubmissionIds')
+    const assignAt = submitFn.indexOf('latestSubmission.value = submission')
+    expect(sittingAt).toBeGreaterThan(-1)
+    expect(assignAt).toBeGreaterThan(-1)
+    expect(sittingAt).toBeLessThan(assignAt)
   })
 
   it('post-pass "that was the last one" is not chained to the tutorial link', () => {
