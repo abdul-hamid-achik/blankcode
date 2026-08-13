@@ -13,6 +13,12 @@ export const useExerciseStore = defineStore('exercise', () => {
   const blankFeedback = ref<Map<string, 'correct' | 'incorrect'> | undefined>(undefined)
   const isSubmitting = ref(false)
   const latestSubmission = ref<Submission | null>(null)
+  /**
+   * Submissions this sitting created (or retried). loadSubmissions hydrates
+   * last week's pass on every due review; that id must not join this set,
+   * or opening the item looks like we just passed it again.
+   */
+  const sittingSubmissionIds = ref<string[]>([])
   // The iterate step: a run executes but records nothing, so its result lives
   // apart from submissions and is cleared the moment a real one starts.
   const isRunning = ref(false)
@@ -337,6 +343,9 @@ export const useExerciseStore = defineStore('exercise', () => {
         exerciseId: exercise.value.id,
         code: submitCode,
       })
+      if (!sittingSubmissionIds.value.includes(submission.id)) {
+        sittingSubmissionIds.value = [...sittingSubmissionIds.value, submission.id]
+      }
       latestSubmission.value = submission
       submissions.value = [submission, ...submissions.value]
 
@@ -359,6 +368,9 @@ export const useExerciseStore = defineStore('exercise', () => {
   async function retrySubmission(submissionId: string) {
     const api = useApi()
     timedOut.value = false
+    if (!sittingSubmissionIds.value.includes(submissionId)) {
+      sittingSubmissionIds.value = [...sittingSubmissionIds.value, submissionId]
+    }
     await api.submissions.retry(submissionId)
     pollSubmissionStatus(submissionId)
   }
@@ -376,6 +388,7 @@ export const useExerciseStore = defineStore('exercise', () => {
     isSubmitting.value = false
     isSaving.value = false
     latestSubmission.value = null
+    sittingSubmissionIds.value = []
     isRunning.value = false
     latestRun.value = null
     runError.value = null
@@ -400,6 +413,7 @@ export const useExerciseStore = defineStore('exercise', () => {
     isSubmitting,
     isSaving,
     latestSubmission,
+    sittingSubmissionIds,
     isRunning,
     latestRun,
     runError,

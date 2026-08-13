@@ -65,6 +65,18 @@ export function applyPassToDueQueue<T extends { id: string }>(
   }
 }
 
+export function shouldNoteSittingPass(input: {
+  status: string | undefined
+  submissionId: string | undefined
+  sittingSubmissionIds: ReadonlySet<string>
+}): boolean {
+  return (
+    input.status === 'passed' &&
+    !!input.submissionId &&
+    input.sittingSubmissionIds.has(input.submissionId)
+  )
+}
+
 export function shouldShowTrackFinished(
   whatsNext: { next: { id: string } | null; track: { slug: string; name: string } } | null
 ): boolean {

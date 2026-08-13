@@ -4,6 +4,7 @@ import {
   continueChrome,
   dropPassedFromDue,
   selectContinueTarget,
+  shouldNoteSittingPass,
   shouldShowTrackFinished,
   type ContinueCandidate,
 } from '../utils/continue-target'
@@ -171,6 +172,41 @@ describe('applyPassToDueQueue', () => {
     expect(twice.dueCount).toBe(once.dueCount)
     expect(twice.completedThisSession).toBe(once.completedThisSession)
     expect(twice.passedThisSession).toEqual(once.passedThisSession)
+  })
+})
+
+describe('shouldNoteSittingPass', () => {
+  const sittingId = 'sub-this-sitting'
+  const lastWeekId = 'sub-last-week'
+
+  it('ignores a historical passed submission hydrated on load', () => {
+    expect(
+      shouldNoteSittingPass({
+        status: 'passed',
+        submissionId: lastWeekId,
+        sittingSubmissionIds: new Set(),
+      })
+    ).toBe(false)
+  })
+
+  it('notes a pass only when this sitting created the submission', () => {
+    expect(
+      shouldNoteSittingPass({
+        status: 'passed',
+        submissionId: sittingId,
+        sittingSubmissionIds: new Set([sittingId]),
+      })
+    ).toBe(true)
+  })
+
+  it('does not note a failed sitting submission', () => {
+    expect(
+      shouldNoteSittingPass({
+        status: 'failed',
+        submissionId: sittingId,
+        sittingSubmissionIds: new Set([sittingId]),
+      })
+    ).toBe(false)
   })
 })
 

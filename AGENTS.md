@@ -442,10 +442,12 @@ Nuxt reuses that payload on client navigation. A `watch` that assigns
 `dueExercises = result.due` after `completeReview` already dropped the item
 puts the finished exercise back on the list. Filter the payload with the
 ids closed this sitting (`dropPassedFromDue` / `passedThisSession`) and
-`refresh()` on mount. Record the id on the **submission pass**, not only
-on the optional rating — Continue-without-rating is the shipped onward
-path, and a `passedThisSession` that stays empty until `completeReview`
-lets the stale payload win. `/api/exercises/:id/next` must use the same
+`refresh()` on mount. Record the id on a **this-sitting** submission pass, not only
+on the optional rating and not when `loadSubmissions` hydrates last
+week's pass — every due review already has one, and treating that as
+"just passed" empties the worklist on open. Continue-without-rating is
+the shipped onward path; a `passedThisSession` that stays empty until
+`completeReview` lets the stale payload win. `/api/exercises/:id/next` must use the same
 `selectContinueTarget` as empty-queue Continue — next-in-track order is
 almost always a completed neighbour.
 
