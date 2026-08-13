@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import EmptyState from '~/components/error/empty-state.vue'
 import Button from '~/components/ui/button.vue'
 import { useReviewStore } from '~/stores/review'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
+import { dropPassedFromDue } from '~/utils/continue-target'
 import { speakNextBatch } from '~/utils/review-dates'
 
 /**
@@ -26,7 +27,11 @@ interface ContinueTarget {
  * arrives in the first paint instead of behind a spinner. The store is
  * hydrated from the result because the exercise page reads it mid-queue.
  */
-const { data: page, pending } = await useAsyncData('review-queue', async () => {
+const {
+  data: page,
+  pending,
+  refresh,
+} = await useAsyncData('review-queue', async () => {
   const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
 
@@ -55,11 +60,19 @@ watch(
   page,
   (result) => {
     if (!result) return
-    reviewStore.dueExercises = result.due as typeof reviewStore.dueExercises
-    reviewStore.dueCount = result.due.length
+    const due = dropPassedFromDue(
+      result.due as Array<{ id: string }>,
+      new Set(reviewStore.passedThisSession)
+    )
+    reviewStore.dueExercises = due as typeof reviewStore.dueExercises
+    reviewStore.dueCount = due.length
   },
   { immediate: true }
 )
+
+onMounted(() => {
+  void refresh()
+})
 
 const nextBatch = computed(() => speakNextBatch(page.value?.upcoming?.next ?? null))
 const continueTarget = computed(() => page.value?.continueTarget ?? null)
@@ -104,7 +117,9 @@ function lastSeen(iso: string | null | undefined): string {
 
 <template>
   <div class="container max-w-3xl py-10 md:py-14">
-    <p class="eyebrow mb-2">review</p>
+    <p class="eyebrow mb-2">
+      {{ reviewStore.dueExercises.length > 0 ? 'due recall' : 'review' }}
+    </p>
     <!-- A failed load says so; silence dressed as emptiness lies. -->
     <p v-if="page?.loadFailed" class="mb-8 border-l-2 border-fail bg-fail/5 py-2 pl-3 text-sm">
       Your data could not be loaded just now — this is not what your account looks like. Refresh to
@@ -128,12 +143,13 @@ function lastSeen(iso: string | null | undefined): string {
         doing ten well beats staring at {{ reviewStore.dueExercises.length }}.
       </p>
       <p v-else class="text-muted-foreground mb-8 max-w-lg">
-        These are due because the schedule expects you to be losing them. Work down the list —
-        rating your recall after each one sets the next interval.
+        These are not unfinished work. You already passed them once; they are back because the
+        schedule expects you to be losing them. Work down the list — rating your recall after each
+        one sets the next interval.
       </p>
 
       <NuxtLink v-if="first" :to="`/exercise/${first.id}`" class="mb-10 inline-block">
-        <Button size="lg">Start with {{ first.title }}</Button>
+        <Button size="lg">Review again: {{ first.title }}</Button>
       </NuxtLink>
 
       <ol class="border border-rule">
@@ -201,7 +217,7 @@ function lastSeen(iso: string | null | undefined): string {
         <template #action>
           <div class="flex flex-wrap items-center gap-3">
             <NuxtLink v-if="continueTarget" :to="`/exercise/${continueTarget.id}`">
-              <Button>Continue: {{ continueTarget.title }}</Button>
+              <Button>Something new: {{ continueTarget.title }}</Button>
             </NuxtLink>
             <NuxtLink to="/tracks">
               <Button :variant="continueTarget ? 'outline' : 'primary'">Browse tracks</Button>

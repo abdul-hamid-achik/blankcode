@@ -4,6 +4,7 @@ import {
   BLANK_START_MARKER,
   extractAgentScript,
   extractBlanks,
+  extractTaskBrief,
   generateStarterCode,
   parseExercise,
   stripBlankMarkers,
@@ -87,6 +88,43 @@ const x = ${BLANK_START_MARKER}1${BLANK_END_MARKER};
 `
     const result = parseExercise(markdown, { validateFrontmatter: false })
     expect(result.success).toBe(true)
+  })
+})
+
+describe('extractTaskBrief', () => {
+  it('keeps the job and drops Solution / Tests', () => {
+    const markdown = `---
+slug: rev-001
+title: Review
+description: It is wrong.
+difficulty: intermediate
+type: review
+---
+
+The helper drops the last page. Find the defect and fix it.
+
+\`\`\`ts
+export const broken = true
+\`\`\`
+
+## Tests
+
+\`\`\`ts
+it('does not drop the final partial page', () => {})
+\`\`\`
+
+## Solution
+
+\`\`\`ts
+export const broken = false
+\`\`\`
+`
+    const brief = extractTaskBrief(markdown)
+    expect(brief).toContain('drops the last page')
+    expect(brief).toContain('Find the defect and fix it')
+    expect(brief).not.toContain('## Solution')
+    expect(brief).not.toContain('does not drop the final partial page')
+    expect(brief).not.toContain('broken = false')
   })
 })
 

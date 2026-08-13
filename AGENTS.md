@@ -435,6 +435,17 @@ import MyComponent from './my-component.vue'
 
 ## Common Pitfalls
 
+### 0. `useAsyncData` will put a just-passed review back on the worklist
+
+The Review page hydrates the review store from `useAsyncData('review-queue')`.
+Nuxt reuses that payload on client navigation. A `watch` that assigns
+`dueExercises = result.due` after `completeReview` already dropped the item
+puts the finished exercise back on the list. Filter the payload with the
+ids closed this sitting (`dropPassedFromDue` / `passedThisSession`) and
+`refresh()` on mount. `/api/exercises/:id/next` must use the same
+`selectContinueTarget` as empty-queue Continue — next-in-track order is
+almost always a completed neighbour.
+
 ### 1. oxfmt can emit non-compiling Vue templates
 
 oxfmt 0.62 reflows a multi-statement inline handler

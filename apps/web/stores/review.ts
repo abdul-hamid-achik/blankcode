@@ -12,6 +12,12 @@ export const useReviewStore = defineStore('review', () => {
    * reads like you were never there.
    */
   const completedThisSession = ref(0)
+  /**
+   * Ids closed in this sitting. The Review page hydrates from a cached
+   * useAsyncData payload; without this list that payload puts a just-passed
+   * item back on the worklist the moment you return to the tab.
+   */
+  const passedThisSession = ref<string[]>([])
 
   async function loadDueReviews() {
     const api = useApi()
@@ -42,7 +48,12 @@ export const useReviewStore = defineStore('review', () => {
     const wasDue = dueExercises.value.some((e) => e.id === exerciseId) || dueCount.value > 0
     dueExercises.value = dueExercises.value.filter((e) => e.id !== exerciseId)
     dueCount.value = Math.max(0, dueCount.value - 1)
-    if (wasDue) completedThisSession.value += 1
+    if (wasDue) {
+      completedThisSession.value += 1
+      if (!passedThisSession.value.includes(exerciseId)) {
+        passedThisSession.value = [...passedThisSession.value, exerciseId]
+      }
+    }
     // The date the rating just set — the page gets to say it out loud.
     return schedule
   }
@@ -51,6 +62,7 @@ export const useReviewStore = defineStore('review', () => {
     dueExercises,
     dueCount,
     completedThisSession,
+    passedThisSession,
     isLoading,
     error,
     loadDueReviews,

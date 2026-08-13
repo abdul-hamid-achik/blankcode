@@ -3,6 +3,7 @@ import type { Concept, Track } from '@blankcode/shared'
 import CodeEditor from '~/components/editor/code-editor.vue'
 import TestResults from '~/components/editor/test-results.vue'
 import HintsPanel from '~/components/exercise/hints-panel.vue'
+import TaskBriefPanel from '~/components/exercise/task-brief-panel.vue'
 import ContextSessionView from '~/components/exercise/context-session-view.vue'
 import AgentSessionView from '~/components/exercise/agent-session-view.vue'
 import TurnSessionView from '~/components/exercise/turn-session-view.vue'
@@ -16,6 +17,7 @@ import {
   isSubstantiveReflection,
   MIN_SUBSTANTIVE_REFLECTION_CHARS,
 } from '~/utils/reflection'
+import { continueChrome, type ContinueKind } from '~/utils/continue-target'
 import { speakSchedule } from '~/utils/review-dates'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
@@ -252,6 +254,7 @@ const sessionForm = computed(() => {
 const trackSlug = computed(() => concept.value?.track?.slug)
 
 interface WhatsNext {
+  kind?: ContinueKind
   next: {
     id: string
     slug: string
@@ -271,6 +274,7 @@ interface WhatsNext {
  * view for a button most people never see.
  */
 const whatsNext = ref<WhatsNext | null>(null)
+const nextKind = computed<ContinueKind>(() => whatsNext.value?.kind ?? 'new-material')
 
 async function loadWhatsNext() {
   if (whatsNext.value) return
@@ -340,6 +344,24 @@ const codeSourceLabel = computed(() => {
 function handleBeforeUnload() {
   exerciseStore.flushDraftOnUnload()
 }
+
+watch(exerciseId, (id, previous) => {
+  if (!previous || previous === id) return
+  exerciseStore.flushDraftOnUnload()
+  exerciseStore.reset()
+  whatsNext.value = null
+  ratingSubmittedFor.value = null
+  scheduledPhrase.value = null
+  conceptTutorial.value = null
+  tutorialLookupDone = false
+  reflections.value = []
+  awaitingExplanation.value = false
+  holdAnswer.value = ''
+  holdError.value = ''
+  holdFeedback.value = null
+  void exerciseStore.loadExercise(id)
+  void loadReflectionState()
+})
 
 onMounted(() => {
   exerciseStore.loadExercise(exerciseId.value)
@@ -439,22 +461,18 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
           </div>
 
           <h1 class="display mt-2 text-lg md:text-xl">{{ exerciseStore.exercise.title }}</h1>
-          <p class="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          <p
+            v-if="sessionForm"
+            class="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground"
+          >
             {{ exerciseStore.exercise.description }}
           </p>
-
-          <!--
-            The one thing a review has to say before anything else. The editor
-            looks the same as any other exercise, and code that reads as
-            finished is exactly what stops people from reading it properly.
-          -->
-          <p
-            v-if="exerciseStore.isReviewMode"
-            class="mt-3 max-w-2xl border-l-2 border-signal bg-signal/5 py-2 pl-3 text-sm text-foreground"
-          >
-            <span class="font-medium">This code is wrong.</span>
-            Find the defect before you submit — you are graded on tests you cannot see.
-          </p>
+          <TaskBriefPanel
+            v-else
+            :type="exerciseStore.exercise.type"
+            :description="exerciseStore.exercise.description"
+            :slug="exerciseStore.exercise.slug"
+          />
         </div>
 
         <!-- Form C is live; the context form still gates until its surface exists. -->
@@ -521,6 +539,10 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
             </template>
             <template v-else-if="exerciseStore.isChallengeMode">
               <span class="text-signal">challenge — implement from scratch</span>
+              <span class="text-muted-foreground">{{ submitShortcutLabel }} submits</span>
+            </template>
+            <template v-else-if="exerciseStore.isReviewMode">
+              <span class="text-signal">review — find the defect</span>
               <span class="text-muted-foreground">{{ submitShortcutLabel }} submits</span>
             </template>
             <template v-else>
@@ -694,7 +716,7 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
             :to="`/exercise/${whatsNext.next.id}`"
             class="mt-4 block font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
-            next: {{ whatsNext.next.title }} →
+            {{ continueChrome(nextKind).verb }}: {{ whatsNext.next.title }} →
           </NuxtLink>
         </div>
 
@@ -716,25 +738,18 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
             rating saved — {{ scheduledPhrase ?? 'scheduled forward' }}
           </p>
 
-          <!-- Mid-queue, the queue is the thread; the track can wait. -->
-          <NuxtLink
-            v-if="reviewStore.dueCount > 0"
-            to="/review"
-            class="mb-4 block rounded border border-rule bg-card p-4 transition-colors hover:border-rule-strong"
-          >
-            <p class="eyebrow mb-1">the queue</p>
-            <p class="text-sm">{{ reviewStore.dueCount }} still due — keep going →</p>
-          </NuxtLink>
-
-          <div v-if="whatsNext?.next" class="rounded border border-rule bg-card p-4">
-            <p class="eyebrow mb-2">next</p>
+          <div v-if="whatsNext?.next" class="border border-rule px-4 py-3">
+            <p class="eyebrow mb-2">{{ continueChrome(nextKind).eyebrow }}</p>
             <p class="text-sm mb-1">{{ whatsNext.next.title }}</p>
             <p class="font-mono text-xs text-muted-foreground mb-4">
               {{ whatsNext.next.conceptName }}
-              <span v-if="!whatsNext.next.sameConcept"> · new concept</span>
+              <span v-if="nextKind === 'due-recall'"> · already passed, due again</span>
+              <span v-else-if="!whatsNext.next.sameConcept"> · new concept</span>
             </p>
             <NuxtLink :to="`/exercise/${whatsNext.next.id}`">
-              <Button size="sm">Continue</Button>
+              <Button size="sm">
+                {{ continueChrome(nextKind).verb }}
+              </Button>
             </NuxtLink>
           </div>
 
