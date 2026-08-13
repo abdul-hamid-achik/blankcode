@@ -77,6 +77,7 @@ describe('Vue SFCs compile', () => {
 describe('review exercises announce themselves', () => {
   const page = readFileSync(join(process.cwd(), 'pages/exercise/[exerciseId].vue'), 'utf-8')
   const store = readFileSync(join(process.cwd(), 'stores/exercise.ts'), 'utf-8')
+  const brief = readFileSync(join(process.cwd(), 'utils/task-brief.ts'), 'utf-8')
 
   it('the store can tell a review from the other types', () => {
     expect(store).toContain("exercise.value?.type === 'review'")
@@ -84,22 +85,24 @@ describe('review exercises announce themselves', () => {
   })
 
   it('the page warns the code is wrong', () => {
-    expect(page).toContain('exerciseStore.isReviewMode')
-    expect(page).toContain('This code is wrong')
+    expect(page).toContain('TaskBriefPanel')
+    expect(page).toContain('isReviewMode')
+    expect(brief).toMatch(/looks finished and is wrong/)
+    expect(brief).toMatch(/Find the defect/)
   })
 
   it('says the grading tests are hidden', () => {
     // Without this the learner assumes the visible tests are the grade, which
     // is the exact belief the exercise exists to break.
-    expect(page).toMatch(/graded on tests\s+you\s+cannot see/)
+    expect(brief).toMatch(/graded on tests you cannot see/)
   })
 
   it('claims nothing that is not true of every review', () => {
     // Some reviews ship a passing suite the learner is meant to distrust;
     // others fail visibly with a misleading error. A banner asserting the
     // first would be a lie on the second, and the page cannot tell them apart.
-    const banner = page.slice(page.indexOf('This code is wrong'))
-    expect(banner.slice(0, 400)).not.toContain('passes the tests')
+    const framing = brief.slice(brief.indexOf('review:'))
+    expect(framing.slice(0, 400)).not.toContain('passes the tests')
   })
 })
 

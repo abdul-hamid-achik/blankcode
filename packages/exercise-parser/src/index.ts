@@ -203,6 +203,26 @@ export function extractBlanks(code: string, generateIds = true): BlankRegion[] {
  * `redactExercise` strips `solutionCode` from every response, and the importer
  * never puts this section into the rendered content.
  */
+/**
+ * Learner-facing task prose: everything before the first fence, minus
+ * Solution / Tests (and the other hidden sections). Review and challenge
+ * exercises author the actual job here; the one-line frontmatter description
+ * is not enough to work from.
+ */
+export function extractTaskBrief(markdown: string): string {
+  const { content } = matter(markdown)
+  const fence = content.search(/^```/m)
+  let prose = fence === -1 ? content : content.slice(0, fence)
+  const hidden = prose.search(/^##\s+(Solution|Tests|The tests it came with|Script|Context)\s*$/im)
+  if (hidden !== -1) {
+    prose = prose.slice(0, hidden)
+  }
+  return prose
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 export function extractSectionCode(markdown: string, heading: string): string | undefined {
   const pattern = new RegExp(`^##\\s+${heading}\\s*$`, 'im')
   const match = pattern.exec(markdown)

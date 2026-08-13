@@ -178,7 +178,7 @@ function statusTone(status: string): string {
         <Button size="lg">Start review</Button>
       </NuxtLink>
       <NuxtLink v-if="dueCount === 0 && continueTarget" :to="`/exercise/${continueTarget.id}`">
-        <Button size="lg">Continue: {{ continueTarget.title }}</Button>
+        <Button size="lg">Something new: {{ continueTarget.title }}</Button>
       </NuxtLink>
       <NuxtLink to="/tracks">
         <Button :variant="dueCount > 0 || continueTarget ? 'outline' : 'primary'" size="lg"
