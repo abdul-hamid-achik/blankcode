@@ -31,6 +31,46 @@ export function dropPassedFromDue<T extends { id: string }>(
   return due.filter((item) => !passedIds.has(item.id))
 }
 
+export interface DueSessionState<T extends { id: string }> {
+  dueExercises: T[]
+  dueCount: number
+  completedThisSession: number
+  passedThisSession: string[]
+}
+
+/**
+ * The pass is the sitting event, not the optional rating. Continue-without-
+ * rating is the shipped onward path; if the id is only recorded in
+ * completeReview, a return to Review hydrates from a stale payload through
+ * an empty passedThisSession and puts the item back on the list.
+ */
+export function applyPassToDueQueue<T extends { id: string }>(
+  state: DueSessionState<T>,
+  exerciseId: string
+): DueSessionState<T> {
+  if (state.passedThisSession.includes(exerciseId)) {
+    return {
+      ...state,
+      dueExercises: state.dueExercises.filter((item) => item.id !== exerciseId),
+    }
+  }
+
+  const wasInQueue = state.dueExercises.some((item) => item.id === exerciseId)
+  const treatAsDue = wasInQueue || (state.dueExercises.length === 0 && state.dueCount > 0)
+  return {
+    dueExercises: state.dueExercises.filter((item) => item.id !== exerciseId),
+    dueCount: treatAsDue ? Math.max(0, state.dueCount - 1) : state.dueCount,
+    completedThisSession: treatAsDue ? state.completedThisSession + 1 : state.completedThisSession,
+    passedThisSession: [...state.passedThisSession, exerciseId],
+  }
+}
+
+export function shouldShowTrackFinished(
+  whatsNext: { next: { id: string } | null; track: { slug: string; name: string } } | null
+): boolean {
+  return whatsNext !== null && whatsNext.next === null
+}
+
 export function selectContinueTarget(input: {
   due: readonly ContinueCandidate[]
   justPassedId?: string | null

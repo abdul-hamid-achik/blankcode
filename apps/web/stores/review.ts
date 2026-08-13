@@ -1,5 +1,6 @@
 import type { ReviewExercise } from '@blankcode/shared'
 import { defineStore } from 'pinia'
+import { applyPassToDueQueue } from '~/utils/continue-target'
 
 export const useReviewStore = defineStore('review', () => {
   const dueExercises = ref<ReviewExercise[]>([])
@@ -42,18 +43,26 @@ export const useReviewStore = defineStore('review', () => {
     }
   }
 
+  function notePassedInSession(exerciseId: string) {
+    const next = applyPassToDueQueue(
+      {
+        dueExercises: dueExercises.value,
+        dueCount: dueCount.value,
+        completedThisSession: completedThisSession.value,
+        passedThisSession: passedThisSession.value,
+      },
+      exerciseId
+    )
+    dueExercises.value = next.dueExercises
+    dueCount.value = next.dueCount
+    completedThisSession.value = next.completedThisSession
+    passedThisSession.value = next.passedThisSession
+  }
+
   async function completeReview(exerciseId: string, passed: boolean, quality?: 3 | 4 | 5) {
     const api = useApi()
     const schedule = await api.reviews.complete(exerciseId, passed, quality)
-    const wasDue = dueExercises.value.some((e) => e.id === exerciseId) || dueCount.value > 0
-    dueExercises.value = dueExercises.value.filter((e) => e.id !== exerciseId)
-    dueCount.value = Math.max(0, dueCount.value - 1)
-    if (wasDue) {
-      completedThisSession.value += 1
-      if (!passedThisSession.value.includes(exerciseId)) {
-        passedThisSession.value = [...passedThisSession.value, exerciseId]
-      }
-    }
+    notePassedInSession(exerciseId)
     // The date the rating just set — the page gets to say it out loud.
     return schedule
   }
@@ -67,6 +76,7 @@ export const useReviewStore = defineStore('review', () => {
     error,
     loadDueReviews,
     loadDueCount,
+    notePassedInSession,
     completeReview,
   }
 })

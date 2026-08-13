@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyPassToDueQueue,
   continueChrome,
   dropPassedFromDue,
   selectContinueTarget,
+  shouldShowTrackFinished,
   type ContinueCandidate,
 } from '../utils/continue-target'
 
@@ -138,5 +140,57 @@ describe('dropPassedFromDue', () => {
   it('leaves the queue alone when nothing in this sitting has been passed', () => {
     const remaining = dropPassedFromDue([dueA, dueB], new Set())
     expect(remaining).toEqual([dueA, dueB])
+  })
+})
+
+describe('applyPassToDueQueue', () => {
+  const sitting = {
+    dueExercises: [dueA, dueB, dueC],
+    dueCount: 3,
+    completedThisSession: 0,
+    passedThisSession: [] as string[],
+  }
+
+  it('on a pass without a rating, a stale Review payload no longer lists that item', () => {
+    // Continue-without-rating is the shipped onward path. The id has to land
+    // in passedThisSession here, not later in completeReview.
+    const afterPass = applyPassToDueQueue(sitting, dueA.id)
+    const stalePayload = [dueA, dueB, dueC]
+    const remaining = dropPassedFromDue(stalePayload, new Set(afterPass.passedThisSession))
+
+    expect(afterPass.passedThisSession).toContain(dueA.id)
+    expect(afterPass.dueExercises.map((item) => item.id)).toEqual([dueB.id, dueC.id])
+    expect(remaining.map((item) => item.id)).toEqual([dueB.id, dueC.id])
+    expect(afterPass.dueCount).toBe(2)
+    expect(afterPass.completedThisSession).toBe(1)
+  })
+
+  it('is a no-op the second time, so a later rating does not drop a second due item', () => {
+    const once = applyPassToDueQueue(sitting, dueA.id)
+    const twice = applyPassToDueQueue(once, dueA.id)
+    expect(twice.dueCount).toBe(once.dueCount)
+    expect(twice.completedThisSession).toBe(once.completedThisSession)
+    expect(twice.passedThisSession).toEqual(once.passedThisSession)
+  })
+})
+
+describe('shouldShowTrackFinished', () => {
+  it('is false when Continue has a next exercise — even if whatsNext itself is set', () => {
+    expect(
+      shouldShowTrackFinished({
+        next: { id: 'due-b' },
+        track: { slug: 'typescript', name: 'TypeScript' },
+      })
+    ).toBe(false)
+  })
+
+  it('is true only when the selector honestly returned none', () => {
+    expect(
+      shouldShowTrackFinished({
+        next: null,
+        track: { slug: 'typescript', name: 'TypeScript' },
+      })
+    ).toBe(true)
+    expect(shouldShowTrackFinished(null)).toBe(false)
   })
 })

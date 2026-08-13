@@ -17,7 +17,7 @@ import {
   isSubstantiveReflection,
   MIN_SUBSTANTIVE_REFLECTION_CHARS,
 } from '~/utils/reflection'
-import { continueChrome, type ContinueKind } from '~/utils/continue-target'
+import { continueChrome, shouldShowTrackFinished, type ContinueKind } from '~/utils/continue-target'
 import { speakSchedule } from '~/utils/review-dates'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
@@ -159,6 +159,7 @@ watch(
   () => exerciseStore.latestSubmission?.status,
   (status) => {
     if (status === 'passed') {
+      reviewStore.notePassedInSession(exerciseId.value)
       void loadWhatsNext()
       void loadConceptTutorial()
       void checkAchievements()
@@ -753,6 +754,17 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
             </NuxtLink>
           </div>
 
+          <div
+            v-if="shouldShowTrackFinished(whatsNext)"
+            class="rounded border border-rule bg-card p-4"
+          >
+            <p class="eyebrow mb-2">that was the last one</p>
+            <p class="text-sm mb-4">
+              You have finished every exercise in {{ whatsNext?.track.name }}.
+            </p>
+            <NuxtLink to="/tracks"><Button size="sm">Pick another track</Button></NuxtLink>
+          </div>
+
           <!-- The reading behind the practice, for whoever wants the why. -->
           <NuxtLink
             v-if="conceptTutorial"
@@ -761,14 +773,6 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
           >
             the tutorial behind this: {{ conceptTutorial.title }} →
           </NuxtLink>
-
-          <div v-else-if="whatsNext" class="rounded border border-rule bg-card p-4">
-            <p class="eyebrow mb-2">that was the last one</p>
-            <p class="text-sm mb-4">
-              You have finished every exercise in {{ whatsNext.track.name }}.
-            </p>
-            <NuxtLink to="/tracks"><Button size="sm">Pick another track</Button></NuxtLink>
-          </div>
 
           <div class="mt-4 flex flex-wrap gap-3 font-mono text-xs">
             <NuxtLink
