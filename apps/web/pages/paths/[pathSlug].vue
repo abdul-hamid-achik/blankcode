@@ -6,6 +6,7 @@ import Card from '~/components/ui/card.vue'
 import DifficultyTag from '~/components/ui/difficulty-tag.vue'
 import { useAsync } from '~/composables/useAsync'
 import { useAuthStore } from '~/stores/auth'
+import { trackLabelForExercise, type CatalogExercise } from '~/utils/challenge-catalog'
 
 definePageMeta({ requiresAuth: false })
 
@@ -182,14 +183,9 @@ const startChallenge = () => {
                     <div
                       class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"
                     >
-                      <span class="flex items-center gap-1">
-                        <span>🏆</span>
-                        Challenge
-                      </span>
+                      <span>{{ exercise.type }}</span>
                       <span>•</span>
-                      <span>{{
-                        exercise.conceptId.split('-').slice(0, -1).join(' ') || 'Challenge'
-                      }}</span>
+                      <span>{{ trackLabelForExercise(exercise as CatalogExercise) }}</span>
                     </div>
                   </div>
 

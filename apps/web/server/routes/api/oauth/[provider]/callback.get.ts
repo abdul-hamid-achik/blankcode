@@ -13,6 +13,7 @@ import {
   PROVIDERS,
 } from '~/server/utils/oauth/providers'
 import { issueSession } from '~/server/utils/oauth/session'
+import { safeInternalRedirect } from '~/utils/auth-redirect'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 /**
@@ -216,8 +217,14 @@ export default defineEventHandler(async (event) => {
   setCookie(event, 'token', session.accessToken, AUTH_COOKIE_OPTIONS)
   setCookie(event, 'refresh-token', session.refreshToken, AUTH_COOKIE_OPTIONS)
 
-  // Linking came from settings; a fresh sign-in goes to the product.
-  return sendRedirect(event, currentUserId ? '/settings?linked=' + name : '/dashboard', 302)
+  // Linking came from settings. A fresh sign-in returns to the page they
+  // were bounced from, when the start route stored one.
+  const storedNext = getCookie(event, 'oauth-next')
+  deleteCookie(event, 'oauth-next')
+  const next = currentUserId
+    ? '/settings?linked=' + name
+    : safeInternalRedirect(storedNext, '/dashboard')
+  return sendRedirect(event, next, 302)
 })
 
 /**

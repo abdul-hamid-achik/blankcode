@@ -109,7 +109,7 @@ function formatId(id: string | number): string {
 }
 ```
 
-Inside the `if`, TypeScript has narrowed `id` to `string`; after it, by elimination, `id` is `number`. That narrowing is a large enough topic to get its own tutorial — see [Type Narrowing in TypeScript](/tutorials/typescript-type-narrowing) once basic unions feel comfortable.
+Inside the `if`, TypeScript has narrowed `id` to `string`; after it, by elimination, `id` is `number`. That narrowing is a large enough topic to get its own tutorial — see [Type Narrowing in TypeScript](/tutorials/typescript/type-narrowing) once basic unions feel comfortable.
 
 The union you'll write most often is the nullable one:
 
@@ -201,7 +201,7 @@ function log(value: any) {
 }
 ```
 
-If you don't know the type yet, `unknown` gives you the same flexibility on the way in and forces a check on the way out — it's the subject of its own tutorial, [Working with unknown safely](/tutorials/typescript-working-with-unknown), once the basics feel comfortable.
+If you don't know the type yet, `unknown` gives you the same flexibility on the way in and forces a check on the way out — it's the subject of its own tutorial, [Working with unknown safely](/tutorials/typescript/working-with-unknown), once the basics feel comfortable.
 
 ::code-blank{lang="typescript" href="/tracks/typescript/basics" label="practice typescript basics for real"}
 ---

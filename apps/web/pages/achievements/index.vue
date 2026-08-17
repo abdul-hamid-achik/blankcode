@@ -19,15 +19,19 @@ definePageMeta({ requiresAuth: true, middleware: 'auth' })
  * Server-fetched like the other hubs — this also moves the award check to
  * the render instead of a post-hydration surprise.
  */
-const { data: achievements, pending: isLoading } = await useAsyncData('achievements', async () => {
+const { data: page, pending: isLoading } = await useAsyncData('achievements', async () => {
   const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {}
   try {
-    return await $fetch<UserAchievement[]>('/api/achievements', { headers })
+    const achievements = await $fetch<UserAchievement[]>('/api/achievements', { headers })
+    return { loadFailed: false, achievements }
   } catch {
-    return [] as UserAchievement[]
+    return { loadFailed: true, achievements: [] as UserAchievement[] }
   }
 })
+
+const achievements = computed(() => page.value?.achievements ?? [])
+const loadFailed = computed(() => page.value?.loadFailed ?? false)
 
 const allAchievements = computed(() => Object.values(ACHIEVEMENTS))
 
@@ -55,6 +59,10 @@ const remaining = computed(() =>
   <div class="container max-w-3xl py-10 md:py-14">
     <p class="eyebrow mb-2">achievements</p>
     <h1 class="display text-2xl md:text-3xl mb-2">Things that have happened.</h1>
+    <p v-if="loadFailed" class="mb-8 border-l-2 border-fail bg-fail/5 py-2 pl-3 text-sm">
+      Your data could not be loaded just now — this is not what your account looks like. Refresh to
+      try again.
+    </p>
     <p class="mb-10 font-mono text-sm text-muted-foreground">
       {{ earned.length }} of {{ allAchievements.length }} — the rest are listed with what would make
       them happen.

@@ -54,7 +54,9 @@ const marketingLinks = [
   { to: '/tracks', label: 'Tracks' },
   { to: '/paths', label: 'Paths' },
   { to: '/challenges', label: 'Challenges' },
+  { to: '/reading', label: 'Reading' },
   { to: '/tutorials', label: 'Tutorials' },
+  { to: '/connect', label: 'Connect' },
   { to: '/blog', label: 'Blog' },
 ]
 
@@ -98,6 +100,20 @@ function closeMobileMenu() {
         </button>
 
         <div class="flex-1" />
+
+        <NuxtLink
+          to="/review"
+          class="relative rounded px-2 py-1 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
+          :class="{ 'text-foreground': reviewStore.dueCount > 0 }"
+        >
+          Review
+          <span
+            v-if="reviewStore.dueCount > 0"
+            class="ml-1.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-signal px-1 font-mono text-[10px] font-semibold text-signal-foreground"
+          >
+            {{ reviewStore.dueCount > 99 ? '99+' : reviewStore.dueCount }}
+          </span>
+        </NuxtLink>
 
         <button
           class="rounded p-2 text-muted-foreground transition-colors hover:text-foreground"
@@ -152,11 +168,7 @@ function closeMobileMenu() {
             stroke-width="2"
             aria-hidden="true"
           >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-            />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 19V9m6 10V5m6 14v-6m6 6V3" />
           </svg>
         </NuxtLink>
         <NuxtLink

@@ -1,12 +1,18 @@
 <script setup lang="ts">
+import OauthButtons from '~/components/auth/oauth-buttons.vue'
 import Button from '~/components/ui/button.vue'
 import Card from '~/components/ui/card.vue'
 import Input from '~/components/ui/input.vue'
 import { useAuthStore } from '~/stores/auth'
+import { REGISTER_BLURB, REGISTER_HEADING } from '~/utils/auth-copy'
+import { destinationHint, safeInternalRedirect } from '~/utils/auth-redirect'
 
 definePageMeta({ guestOnly: true, middleware: 'auth' })
 
+const route = useRoute()
 const authStore = useAuthStore()
+const redirectTo = computed(() => safeInternalRedirect(route.query['redirect'], '/tracks'))
+const hint = computed(() => destinationHint(redirectTo.value))
 
 const email = ref('')
 const username = ref('')
@@ -32,11 +38,12 @@ async function handleSubmit() {
 
   try {
     await authStore.register(email.value, username.value, password.value)
-    // Straight to picking a track. A brand-new account has nothing to review,
-    // so the dashboard's only answer is "pick something new" — with one more
-    // click in the way of the first exercise, right after the most expensive
-    // commitment a visitor makes.
-    navigateTo('/tracks')
+    // Honor the same redirect login uses. A guest who picked an exercise
+    // and then created an account should land on that exercise, not the
+    // track index. The default stays /tracks: a brand-new account has
+    // nothing to review, so the dashboard's only answer is "pick something
+    // new" — with one more click in the way of the first exercise.
+    navigateTo(redirectTo.value)
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Registration failed'
   } finally {
@@ -50,10 +57,9 @@ async function handleSubmit() {
     <div class="auth-card">
       <div class="mb-8">
         <p class="eyebrow mb-2">create account</p>
-        <h1 class="display text-2xl">Create a local account.</h1>
-        <p class="mt-2 text-sm text-muted-foreground">
-          There is no server but yours. Nothing leaves this machine.
-        </p>
+        <h1 class="display text-2xl">{{ REGISTER_HEADING }}</h1>
+        <p class="mt-2 text-sm text-muted-foreground">{{ REGISTER_BLURB }}</p>
+        <p v-if="hint" class="mt-2 font-mono text-xs text-muted-foreground">Then: {{ hint }}.</p>
       </div>
 
       <Card>
@@ -108,11 +114,21 @@ async function handleSubmit() {
 
           <Button type="submit" :loading="isLoading" class="w-full"> Create account </Button>
         </form>
+        <OauthButtons class="mt-4" :redirect="redirectTo" />
       </Card>
 
       <p class="text-center text-sm text-muted-foreground mt-4">
         Already have an account?
-        <NuxtLink to="/login" class="text-primary hover:underline"> Sign in </NuxtLink>
+        <NuxtLink
+          :to="
+            redirectTo === '/tracks'
+              ? '/login'
+              : `/login?redirect=${encodeURIComponent(redirectTo)}`
+          "
+          class="text-primary hover:underline"
+        >
+          Sign in
+        </NuxtLink>
       </p>
     </div>
   </div>
