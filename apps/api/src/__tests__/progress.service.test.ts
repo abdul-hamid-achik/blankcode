@@ -918,14 +918,19 @@ describe('aggregateRustingConcepts', () => {
     expect(out).toHaveLength(0)
   })
 
-  it('keeps recently held mastery that has not decayed below the floor', () => {
-    // Ten days idle at 0.9: decayed ≈ 0.55 — held, not rusting.
-    const out = aggregateRustingConcepts(
-      [row({ lastPracticedAt: new Date('2026-07-29T12:00:00Z') })],
-      CONCEPTS,
-      NOW
-    )
-    expect(out).toHaveLength(0)
+  it('measures decay against the supplied now, not the wall clock', () => {
+    // Ten days idle at 0.9, against NOW (2026-08-08): decayed ≈ 0.55 — held.
+    // The same row against a later clock rusts. If applyMasteryDecay reads
+    // Date.now() instead of `now`, this pair flips as the calendar moves.
+    const lastPracticedAt = new Date('2026-07-29T12:00:00Z')
+    expect(aggregateRustingConcepts([row({ lastPracticedAt })], CONCEPTS, NOW)).toHaveLength(0)
+    expect(
+      aggregateRustingConcepts(
+        [row({ lastPracticedAt })],
+        CONCEPTS,
+        new Date('2026-10-01T12:00:00Z')
+      )
+    ).toHaveLength(1)
   })
 })
 

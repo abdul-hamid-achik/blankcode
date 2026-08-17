@@ -135,9 +135,13 @@ export class ProgressService extends Context.Tag('ProgressService')<
 const MASTERY_HALF_LIFE_DAYS = 14
 const MASTERY_DECAY_FLOOR = 0.05
 
-function applyMasteryDecay(level: number, lastPracticedAt: Date | null | undefined): number {
+function applyMasteryDecay(
+  level: number,
+  lastPracticedAt: Date | null | undefined,
+  now: Date = new Date()
+): number {
   if (level <= 0 || !lastPracticedAt) return level
-  const days = (Date.now() - new Date(lastPracticedAt).getTime()) / (24 * 60 * 60 * 1000)
+  const days = (now.getTime() - new Date(lastPracticedAt).getTime()) / (24 * 60 * 60 * 1000)
   // Same-day practice — no decay yet. Avoids floating-point drift on freshly
   // updated rows and matches user intuition that today's progress shouldn't rust.
   if (days < 1) return level
@@ -356,7 +360,7 @@ export function aggregateRustingConcepts(
       (now.getTime() - new Date(row.lastPracticedAt).getTime()) / (24 * 60 * 60 * 1000)
     )
     if (idleDays < RUSTING_MIN_IDLE_DAYS) continue
-    const decayed = applyMasteryDecay(row.masteryLevel, row.lastPracticedAt)
+    const decayed = applyMasteryDecay(row.masteryLevel, row.lastPracticedAt, now)
     if (decayed >= RUSTING_MAX_DECAYED) continue
     const concept = conceptsById.get(row.conceptId)
     if (!concept) continue
