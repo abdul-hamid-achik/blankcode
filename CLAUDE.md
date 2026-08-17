@@ -27,8 +27,12 @@ are pushed with `bun run seed` (`-- --live` for production). Local development
 against the preview database and real sandboxes: `tvault run -p
 blankcode-preview -- bun run dev` — no env file; Sandbox and AI Gateway
 credentials mint themselves from the Vercel CLI login (see AGENTS.md, Common
-Pitfall 5). Vercel only reads new environment variables on a fresh build —
-`vercel redeploy` reuses the old one.
+Pitfall 5). Git auto-builds **`preview` only**. Production is
+`vercel promote <preview-url> --scope the-lacanians --yes` (no rebuild), then
+merge `preview` → `main` for history. Promote keeps Preview baked env; if that
+is unsafe for live Stripe/sandbox, `vercel deploy --prod` from the SHA. Vercel
+only reads new environment variables on a fresh build — `vercel redeploy`
+reuses the old one. Details: **Vercel Git and production releases** in AGENTS.md.
 
 Content has a quality bar, written down. Exercises follow the authoring rules
 in AGENTS.md; tutorials follow the Tutorial Authoring Rules there too — the
