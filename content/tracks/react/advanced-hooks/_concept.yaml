@@ -1,5 +1,5 @@
 slug: advanced-hooks
 name: Advanced Hooks
-description: Master useContext, useReducer, useMemo, and useCallback for complex state management and performance optimization. Learn when and how to create custom hooks for reusable logic.
+description: Context that re-renders every consumer, and the memo that does not earn its keep.
 order: 4
 isPublished: true

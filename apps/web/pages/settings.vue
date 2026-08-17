@@ -10,6 +10,11 @@ import { DEFAULT_EDITOR_THEME, EDITOR_THEMES } from '~/utils/editor-themes'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
 
+useSeoMeta({
+  title: 'Settings',
+  description: 'Account, billing, and practice tokens.',
+})
+
 const authStore = useAuthStore()
 const preferencesStore = usePreferencesStore()
 

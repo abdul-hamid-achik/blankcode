@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { TRACK_SLUGS, type Concept, type Exercise, type Track } from '@blankcode/shared'
 import Card from '~/components/ui/card.vue'
+import DifficultyTag from '~/components/ui/difficulty-tag.vue'
 import { useAuthStore } from '~/stores/auth'
+import { exerciseHref } from '~/utils/exercise-href'
 import { exerciseTypeBadge } from '~/utils/exercise-type-badge'
 
 const route = useRoute()
@@ -54,13 +56,6 @@ onMounted(async () => {
 })
 
 const isDone = (id: string) => completedIds.value?.has(id) ?? false
-
-const difficultyColors: Record<string, string> = {
-  beginner: 'bg-green-500/10 text-green-500',
-  intermediate: 'bg-yellow-500/10 text-yellow-500',
-  advanced: 'bg-orange-500/10 text-orange-500',
-  expert: 'bg-red-500/10 text-red-500',
-}
 </script>
 
 <template>
@@ -86,7 +81,17 @@ const difficultyColors: Record<string, string> = {
       </div>
 
       <div v-if="exercises?.length" class="grid gap-4">
-        <NuxtLink v-for="exercise in exercises" :key="exercise.id" :to="`/exercise/${exercise.id}`">
+        <NuxtLink
+          v-for="exercise in exercises"
+          :key="exercise.id"
+          :to="
+            exerciseHref({
+              id: exercise.id,
+              slug: exercise.slug,
+              concept: { slug: conceptSlug, track: { slug: trackSlug } },
+            })
+          "
+        >
           <Card class="hover:border-rule-strong transition-colors cursor-pointer">
             <div class="flex items-center justify-between gap-3">
               <div class="min-w-0 flex-1">
@@ -100,14 +105,7 @@ const difficultyColors: Record<string, string> = {
                     >✓</span
                   >
                   <h3 class="font-semibold">{{ exercise.title }}</h3>
-                  <span
-                    :class="[
-                      'text-xs px-2 py-0.5 rounded-full',
-                      difficultyColors[exercise.difficulty],
-                    ]"
-                  >
-                    {{ exercise.difficulty }}
-                  </span>
+                  <DifficultyTag :difficulty="exercise.difficulty" />
                   <span class="font-mono text-xs text-muted-foreground">
                     {{ exerciseTypeBadge(exercise.type).label }}
                   </span>

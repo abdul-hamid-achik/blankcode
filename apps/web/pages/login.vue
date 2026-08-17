@@ -6,6 +6,7 @@ import Input from '~/components/ui/input.vue'
 import { useAuthStore } from '~/stores/auth'
 import { LOGIN_BLURB, LOGIN_HEADING } from '~/utils/auth-copy'
 import { destinationHint, safeInternalRedirect } from '~/utils/auth-redirect'
+import { usePageSeo } from '~/composables/usePageSeo'
 import { oauthErrorMessage } from '~/utils/oauth-error'
 
 definePageMeta({ guestOnly: true, middleware: 'auth' })
@@ -21,6 +22,12 @@ const isLoading = ref(false)
 const redirectTo = computed(() => safeInternalRedirect(route.query['redirect']))
 const hint = computed(() => destinationHint(redirectTo.value))
 const resetDone = computed(() => route.query['reset'] === 'done')
+
+usePageSeo({
+  title: 'Sign in',
+  description: 'Your progress and review schedule live with your account.',
+  path: '/login',
+})
 
 onMounted(() => {
   const fromOauth = oauthErrorMessage(route.query['error'])

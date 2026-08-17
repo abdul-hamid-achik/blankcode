@@ -75,7 +75,10 @@ describe('Vue SFCs compile', () => {
  * measure nothing.
  */
 describe('review exercises announce themselves', () => {
-  const page = readFileSync(join(process.cwd(), 'pages/exercise/[exerciseId].vue'), 'utf-8')
+  const page = readFileSync(
+    join(process.cwd(), 'components/exercise/exercise-workspace.vue'),
+    'utf-8'
+  )
   const store = readFileSync(join(process.cwd(), 'stores/exercise.ts'), 'utf-8')
   const brief = readFileSync(join(process.cwd(), 'utils/task-brief.ts'), 'utf-8')
 
@@ -155,7 +158,7 @@ describe('missing resources are real 404s', () => {
 
   it('the paths page checks static data rather than waiting for a request', () => {
     const source = readFileSync(join(process.cwd(), 'pages/paths/[pathSlug].vue'), 'utf-8')
-    expect(source).toContain('LEARNING_PATHS.some')
+    expect(source).toContain('LEARNING_PATHS.find')
   })
 })
 

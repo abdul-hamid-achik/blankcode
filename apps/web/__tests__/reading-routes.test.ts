@@ -171,7 +171,8 @@ describe('the reading page shows what was missed', () => {
     expect(page).toContain('quotaLine')
   })
 
-  it('requires a session', () => {
-    expect(page).toContain('requiresAuth: true')
+  it('lets a guest read the files and gates the grade', () => {
+    expect(page).not.toContain('requiresAuth: true')
+    expect(page).toContain('Sign in to grade')
   })
 })

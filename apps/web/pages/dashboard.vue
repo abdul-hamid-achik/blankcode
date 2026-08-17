@@ -3,7 +3,7 @@ import type { Exercise, Submission } from '@blankcode/shared'
 import { computed, watch } from 'vue'
 import HarnessActivity from '~/components/agent/harness-activity.vue'
 import EmptyState from '~/components/error/empty-state.vue'
-import WeakSpots from '~/components/progress/weak-spots.vue'
+import { FIRST_SITTING_HREF } from '~/utils/exercise-href'
 import Button from '~/components/ui/button.vue'
 import { useAuthStore } from '~/stores/auth'
 import { useProgressStore } from '~/stores/progress'
@@ -21,6 +21,11 @@ import { getStatusLabel } from '~/utils/submission-status'
  */
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
+
+useSeoMeta({
+  title: 'Dashboard',
+  description: 'What to practise right now.',
+})
 
 interface SubmissionWithExercise extends Submission {
   exercise?: Pick<Exercise, 'title'>
@@ -174,17 +179,24 @@ function statusTone(status: string): string {
     </p>
 
     <div class="flex flex-wrap items-center gap-3 mb-12">
-      <NuxtLink v-if="dueCount > 0" to="/review">
-        <Button size="lg">Start review</Button>
-      </NuxtLink>
-      <NuxtLink v-if="dueCount === 0 && continueTarget" :to="`/exercise/${continueTarget.id}`">
-        <Button size="lg">Something new: {{ continueTarget.title }}</Button>
-      </NuxtLink>
-      <NuxtLink to="/tracks">
-        <Button :variant="dueCount > 0 || continueTarget ? 'outline' : 'primary'" size="lg"
-          >Browse tracks</Button
-        >
-      </NuxtLink>
+      <Button v-if="dueCount > 0" to="/review" size="lg">Start review</Button>
+      <Button
+        v-if="dueCount === 0 && continueTarget"
+        :to="`/exercise/${continueTarget.id}`"
+        size="lg"
+      >
+        Something new: {{ continueTarget.title }}
+      </Button>
+      <Button v-if="dueCount === 0 && !continueTarget" :to="FIRST_SITTING_HREF" size="lg">
+        Start with Type Annotations
+      </Button>
+      <Button
+        to="/tracks"
+        :variant="dueCount > 0 || continueTarget ? 'outline' : 'ghost'"
+        size="lg"
+      >
+        Browse tracks
+      </Button>
     </div>
 
     <!-- Numbers are context, not the headline. One dense strip. -->
@@ -212,7 +224,6 @@ function statusTone(status: string): string {
     </dl>
 
     <!-- Both render nothing until there is something true to say. -->
-    <WeakSpots class="mb-12" />
     <HarnessActivity class="mb-12" />
 
     <!--

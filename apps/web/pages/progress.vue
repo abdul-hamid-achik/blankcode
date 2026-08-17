@@ -10,6 +10,11 @@ import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
 
+useSeoMeta({
+  title: 'Progress',
+  description: 'Where you are in every track.',
+})
+
 const progressStore = useProgressStore()
 
 interface Stats {

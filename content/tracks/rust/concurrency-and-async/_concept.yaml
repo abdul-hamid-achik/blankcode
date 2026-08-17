@@ -1,5 +1,5 @@
 slug: concurrency-and-async
 name: Concurrency & Async
-description: Build concurrent and asynchronous applications using Rust's fearless concurrency model. Master threads, channels, async/await syntax, and understand how Rust prevents data races at compile time.
+description: Threads, channels, and the data race the compiler refuses to let you write. Deadlocks it will not see.
 order: 6
 isPublished: true

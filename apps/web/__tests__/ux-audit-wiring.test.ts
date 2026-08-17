@@ -41,7 +41,28 @@ describe('catalog and chrome wiring', () => {
   })
 
   it('names a quota endpoint the exercise page reads', () => {
-    expect(read('pages/exercise/[exerciseId].vue')).toContain('/api/account/quota')
+    expect(read('components/exercise/exercise-workspace.vue')).toContain('/api/account/quota')
     expect(read('server/routes/api/account/quota.get.ts')).toContain('FREE_DAILY_SUBMISSIONS')
+  })
+
+  it('does not nest a button inside the sign-in link', () => {
+    const header = read('components/layout/app-header.vue')
+    expect(header).toContain('to="/login"')
+    expect(header).not.toContain('<NuxtLink to="/login">')
+  })
+
+  it('skips to main content and starts a new account on a real blank', () => {
+    expect(read('layouts/default.vue')).toContain('Skip to content')
+    expect(read('layouts/default.vue')).toContain('id="main-content"')
+    expect(read('pages/register.vue')).toContain('FIRST_SITTING_HREF')
+    expect(read('pages/exercise/[exerciseId].vue')).not.toContain('requiresAuth: true')
+    expect(read('server/routes/sitemap.xml.ts')).toContain("'/connect'")
+  })
+
+  it('puts challenge filters in the query string', () => {
+    const page = read('pages/challenges/index.vue')
+    expect(page).toContain('writeQuery')
+    expect(page).toContain('selectedKind')
+    expect(page).toContain('exerciseHref')
   })
 })

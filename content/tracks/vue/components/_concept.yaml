@@ -1,5 +1,5 @@
 slug: components
 name: Vue Components
-description: Build reusable Vue components with props, emits, slots, and the Composition API.
+description: Props, emits, slots, and the defineProps call that is not a function you can pass around.
 order: 2
 isPublished: true

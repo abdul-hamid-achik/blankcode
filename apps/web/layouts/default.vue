@@ -45,6 +45,12 @@ watch(
 
 <template>
   <div class="flex flex-col min-h-screen bg-background text-foreground">
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:bg-background focus:px-3 focus:py-2 focus:font-mono focus:text-sm focus:ring-2 focus:ring-signal"
+    >
+      Skip to content
+    </a>
     <AppHeader :drawer-open="drawerOpen" @toggle-drawer="toggleNav" />
     <div class="flex flex-1">
       <AppSidebar
@@ -53,7 +59,7 @@ watch(
         :collapsed="preferencesStore.preferences.sidebarCollapsed"
         @close="drawerOpen = false"
       />
-      <main class="flex-1 min-w-0">
+      <main id="main-content" tabindex="-1" class="flex-1 min-w-0">
         <slot />
       </main>
     </div>

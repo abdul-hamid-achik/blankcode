@@ -1,5 +1,5 @@
 slug: structs-enums-and-pattern-matching
 name: Structs, Enums & Pattern Matching
-description: Build complex data structures using structs and enums, and learn powerful pattern matching techniques. Understand how Rust's type system enables expressive and safe code through algebraic data types.
+description: Structs for data, enums for the states that must not exist at once, and a match that will not compile until every case is named.
 order: 3
 isPublished: true

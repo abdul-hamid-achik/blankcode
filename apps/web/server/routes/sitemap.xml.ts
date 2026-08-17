@@ -1,3 +1,4 @@
+import { LEARNING_PATHS } from '@blankcode/shared'
 import { queryCollection } from '@nuxt/content/nitro'
 
 /**
@@ -38,6 +39,12 @@ function staticRoutes(trackSlugs: string[]): Entry[] {
     })),
     { loc: '/challenges', changefreq: 'weekly', priority: '0.6' },
     { loc: '/paths', changefreq: 'weekly', priority: '0.6' },
+    ...LEARNING_PATHS.filter((path) => path.isPublished).map((path): Entry => ({
+      loc: `/paths/${path.slug}`,
+      changefreq: 'weekly',
+      priority: '0.5',
+    })),
+    { loc: '/connect', changefreq: 'monthly', priority: '0.5' },
     { loc: '/privacy', changefreq: 'monthly', priority: '0.2' },
     { loc: '/terms', changefreq: 'monthly', priority: '0.2' },
   ]

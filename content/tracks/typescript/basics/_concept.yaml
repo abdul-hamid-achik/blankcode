@@ -1,5 +1,5 @@
 slug: basics
 name: TypeScript Basics
-description: Learn fundamental TypeScript concepts including types, interfaces, type inference, and basic type manipulation.
+description: Types you write and types the compiler already knows. The blanks are the annotations that change what the next line is allowed to be.
 order: 0
 isPublished: true

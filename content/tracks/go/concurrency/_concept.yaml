@@ -1,5 +1,5 @@
 slug: concurrency
 name: Concurrency
-description: Explore Go's powerful concurrency primitives including goroutines and channels. Learn how to write concurrent programs that efficiently handle multiple tasks and communicate safely between threads.
+description: Goroutines, channels, and the loop variable that used to be shared until 1.22.
 order: 4
 isPublished: true

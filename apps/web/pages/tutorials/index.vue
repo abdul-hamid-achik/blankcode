@@ -70,9 +70,13 @@ usePageSeo({
       inline, graded as you read. Each one ends where reading should: at the exercises that make it
       yours.
     </p>
-    <p class="mb-10 font-mono text-xs text-muted-foreground">
+    <p class="mb-3 font-mono text-xs text-muted-foreground">
       {{ tutorials.length }} walkthroughs · {{ series.length }} tracks · checkpoints graded in-page,
       free
+    </p>
+    <p class="mb-10 max-w-xl text-sm leading-relaxed text-muted-foreground">
+      The last three of each language — reviewing generated code, the three-message budget, and
+      buying context — are the same craft, written against that language's actual defects.
     </p>
 
     <!-- Jump list: one line, all the series. -->

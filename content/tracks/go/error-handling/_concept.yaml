@@ -1,5 +1,5 @@
 slug: error-handling
 name: Error Handling
-description: Understand Go's explicit error handling philosophy using error values and the error interface. Learn best practices for creating, wrapping, and propagating errors effectively.
+description: Errors you return, wrap with %w, and match later. %v looks the same and breaks the chain.
 order: 3
 isPublished: true

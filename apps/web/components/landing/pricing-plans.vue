@@ -62,7 +62,7 @@ const PLANS: readonly Plan[] = [
     includes: [
       'Every track and every exercise',
       'Real tests in a sandbox on each submission',
-      '10 submissions a day',
+      '10 submissions, 20 runs, and 3 explanations a day',
       'Spaced repetition on what you have finished',
     ],
     cta: 'Create an account',
@@ -129,11 +129,14 @@ const PLANS: readonly Plan[] = [
           </ul>
 
           <div class="mt-auto">
-            <NuxtLink v-if="!auth.isAuthenticated" to="/register">
-              <Button :variant="plan.featured ? 'primary' : 'outline'" class="w-full">
-                {{ plan.cta }}
-              </Button>
-            </NuxtLink>
+            <Button
+              v-if="!auth.isAuthenticated"
+              to="/register"
+              :variant="plan.featured ? 'primary' : 'outline'"
+              class="w-full"
+            >
+              {{ plan.cta }}
+            </Button>
 
             <template v-else-if="plan.featured">
               <p v-if="paid" class="text-sm text-muted-foreground">You are on Pro.</p>

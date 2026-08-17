@@ -4,6 +4,7 @@ import CodeView from '~/components/reading/code-view.vue'
 import FileTree from '~/components/reading/file-tree.vue'
 import RubricLedger from '~/components/reading/rubric-ledger.vue'
 import Button from '~/components/ui/button.vue'
+import { useAuthStore } from '~/stores/auth'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 import { failureStatus } from '~/utils/http-error'
 
@@ -20,7 +21,7 @@ import { failureStatus } from '~/utils/http-error'
  * filtered into view.
  */
 
-definePageMeta({ requiresAuth: true, middleware: 'auth' })
+definePageMeta({ middleware: 'auth' })
 
 interface ReadingFile {
   path: string
@@ -74,7 +75,9 @@ interface Grade {
 }
 
 const route = useRoute()
+const authStore = useAuthStore()
 const slug = computed(() => route.params['slug'] as string)
+const signInHref = computed(() => `/login?redirect=${encodeURIComponent(`/reading/${slug.value}`)}`)
 
 function headers(): Record<string, string> {
   const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
@@ -204,7 +207,7 @@ function failureMessage(caught: unknown): string {
 }
 
 async function submit(): Promise<void> {
-  if (submitting.value || !longEnough.value) return
+  if (!authStore.isAuthenticated || submitting.value || !longEnough.value) return
   submitting.value = true
   error.value = ''
 
@@ -346,7 +349,8 @@ useSeoMeta({
       </p>
 
       <div class="mt-4 flex flex-wrap items-center gap-3">
-        <Button :disabled="submitting || !longEnough || outOfGrades" @click="submit">
+        <Button v-if="!authStore.isAuthenticated" :to="signInHref"> Sign in to grade </Button>
+        <Button v-else :disabled="submitting || !longEnough || outOfGrades" @click="submit">
           {{ submitting ? 'Grading…' : 'Grade this reading' }}
         </Button>
         <p v-if="submitting" class="font-mono text-xs text-muted-foreground">

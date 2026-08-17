@@ -1,5 +1,5 @@
 slug: data-structures
 name: Data Structures
-description: Master Python's built-in data structures including lists, tuples, dictionaries, and sets. Understand when and how to use each structure effectively for different scenarios.
+description: Lists, dicts, sets, and the method that mutates the original when a copy was what you wanted.
 order: 2
 isPublished: true

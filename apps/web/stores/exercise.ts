@@ -116,8 +116,13 @@ export const useExerciseStore = defineStore('exercise', () => {
 
   async function loadSubmissions(exerciseId: string) {
     const api = useApi()
-    submissions.value = await api.submissions.getByExercise(exerciseId)
-    latestSubmission.value = submissions.value[0] ?? null
+    try {
+      submissions.value = await api.submissions.getByExercise(exerciseId)
+      latestSubmission.value = submissions.value[0] ?? null
+    } catch {
+      submissions.value = []
+      latestSubmission.value = null
+    }
   }
 
   function handlePollTimeout() {

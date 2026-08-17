@@ -25,7 +25,7 @@ describe('Review and post-pass Continue chrome', () => {
   })
 
   it('post-pass Continue uses the shared selector labels, not a generic Continue', () => {
-    const source = read('pages/exercise/[exerciseId].vue')
+    const source = read('components/exercise/exercise-workspace.vue')
     expect(source).toContain('continueChrome')
     expect(source).toContain('nextKind')
     expect(source).toContain('due-recall')
@@ -34,7 +34,7 @@ describe('Review and post-pass Continue chrome', () => {
   })
 
   it('a this-sitting pass records the id; a hydrated historical pass does not', () => {
-    const page = read('pages/exercise/[exerciseId].vue')
+    const page = read('components/exercise/exercise-workspace.vue')
     const review = read('stores/review.ts')
     const exercise = read('stores/exercise.ts')
     expect(review).toContain('applyPassToDueQueue')
@@ -61,7 +61,7 @@ describe('Review and post-pass Continue chrome', () => {
   })
 
   it('post-pass "that was the last one" is not chained to the tutorial link', () => {
-    const source = read('pages/exercise/[exerciseId].vue')
+    const source = read('components/exercise/exercise-workspace.vue')
     expect(source).not.toMatch(/v-if="conceptTutorial"[\s\S]{0,400}v-else-if="whatsNext"/)
     expect(source).toContain('shouldShowTrackFinished')
   })

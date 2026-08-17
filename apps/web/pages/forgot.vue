@@ -2,8 +2,15 @@
 import Button from '~/components/ui/button.vue'
 import Card from '~/components/ui/card.vue'
 import Input from '~/components/ui/input.vue'
+import { usePageSeo } from '~/composables/usePageSeo'
 
 definePageMeta({ guestOnly: true, middleware: 'auth' })
+
+usePageSeo({
+  title: 'Reset the password',
+  description: 'If that address has an account, a reset link goes there.',
+  path: '/forgot',
+})
 
 const email = ref('')
 const sent = ref(false)

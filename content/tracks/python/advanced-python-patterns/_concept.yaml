@@ -1,5 +1,5 @@
 slug: advanced-python-patterns
 name: Advanced Python Patterns
-description: Dive into decorators, generators, comprehensions, lambda functions, and context managers. Learn Pythonic idioms and best practices for writing clean, efficient code.
+description: Decorators, generators, and the comprehension that hides the only interesting line.
 order: 6
 isPublished: true

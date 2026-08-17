@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { LEARNING_PATHS } from '@blankcode/shared'
 import { computed, onMounted, ref } from 'vue'
-import Card from '~/components/ui/card.vue'
 import { usePageSeo } from '~/composables/usePageSeo'
 import { useAuthStore } from '~/stores/auth'
+import { challengeCountLabel } from '~/utils/challenge-catalog'
 
 definePageMeta({ requiresAuth: false })
 
@@ -66,112 +66,34 @@ usePageSeo({
 </script>
 
 <template>
-  <div class="min-h-screen">
-    <!-- Hero Section -->
-    <div class="border-b border-rule">
-      <div class="container py-16">
-        <div class="max-w-3xl">
-          <div class="eyebrow mb-4 inline-flex items-center gap-2">
-            <span>🗺️</span>
-            <span>Guided Learning</span>
-          </div>
-          <h1 class="display text-2xl md:text-3xl mb-4">Learning Paths</h1>
-          <p class="text-lg text-muted-foreground mb-6">
-            Curated challenge sequences to master specific skills. Follow a path from start to
-            finish and become an expert.
-          </p>
-          <div class="flex flex-wrap gap-4 text-sm text-muted-foreground">
-            <div class="flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-              <span>{{ sortedPaths.length }} learning paths</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-green-500"></span>
-              <span>Step-by-step progression</span>
-            </div>
-            <div class="flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-purple-500"></span>
-              <span>Progress tracked per exercise</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+  <div class="container max-w-3xl py-10 md:py-14">
+    <p class="eyebrow mb-2">paths</p>
+    <h1 class="display text-2xl md:text-3xl mb-2">A ladder, not a pile.</h1>
+    <p class="mb-10 max-w-lg text-muted-foreground">
+      Ordered sequences through the write-the-whole-thing work, plus two that walk the model-facing
+      exercises. Tracks still hold the blanks.
+    </p>
 
-    <div class="container py-8">
-      <div v-if="isLoading" class="flex items-center justify-center py-12">
-        <div
-          class="animate-spin h-6 w-6 border-2 border-rule-strong border-t-signal rounded-full"
-        ></div>
-      </div>
-
-      <div v-else class="grid gap-6 md:grid-cols-2">
+    <ul v-if="!isLoading" class="border border-rule">
+      <li v-for="path in sortedPaths" :key="path.id" class="border-b border-rule last:border-b-0">
         <NuxtLink
-          v-for="path in sortedPaths"
-          :key="path.id"
           :to="`/paths/${path.slug}`"
-          class="group"
+          class="block px-4 py-4 transition-colors hover:bg-muted/60"
         >
-          <Card
-            class="hover:border-rule-strong hover:shadow-xl transition-all cursor-pointer h-full overflow-hidden"
-          >
-            <div class="h-2" :style="{ backgroundColor: path.color }"></div>
-            <div class="p-6">
-              <div class="flex items-start justify-between mb-4">
-                <div class="text-4xl">{{ path.icon }}</div>
-                <span
-                  class="text-xs font-medium px-2.5 py-1 rounded-full bg-muted text-muted-foreground"
-                >
-                  {{ path.challengeIds.length }} challenges
-                </span>
-              </div>
-
-              <h3 class="text-xl font-bold mb-2 group-hover:text-primary transition-colors">
-                {{ path.name }}
-              </h3>
-
-              <p class="text-sm text-muted-foreground mb-4 line-clamp-2">
-                {{ path.description }}
-              </p>
-
-              <div class="flex items-center justify-between">
-                <!-- Only rendered when it is the user's real number. -->
-                <div
-                  v-if="getProgress(path)"
-                  class="flex items-center gap-2 text-xs text-muted-foreground"
-                >
-                  <span>📚</span>
-                  <span
-                    >{{ getProgress(path)?.completed }} /
-                    {{ getProgress(path)?.total }} completed</span
-                  >
-                </div>
-                <div v-else aria-hidden="true"></div>
-                <div
-                  class="flex items-center gap-1 text-sm font-medium"
-                  :style="{ color: path.color }"
-                >
-                  Start Path
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="group-hover:translate-x-1 transition-transform"
-                  >
-                    <path d="m9 18 6-6-6-6" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </Card>
+          <div class="flex items-baseline justify-between gap-4">
+            <h2 class="display text-base">{{ path.name }}</h2>
+            <span class="shrink-0 font-mono text-xs text-muted-foreground">
+              <template v-if="getProgress(path)">
+                {{ getProgress(path)?.completed }}/{{ getProgress(path)?.total }}
+              </template>
+              <template v-else>{{ challengeCountLabel(path.challengeIds.length) }}</template>
+            </span>
+          </div>
+          <p class="mt-1 line-clamp-2 max-w-xl text-sm leading-relaxed text-muted-foreground">
+            {{ path.description }}
+          </p>
         </NuxtLink>
-      </div>
-    </div>
+      </li>
+    </ul>
   </div>
 </template>
