@@ -66,6 +66,10 @@ describe('landing page track list', () => {
     const source = readFileSync(resolve(webRoot, 'utils/landing-tracks.ts'), 'utf-8')
     expect(source).toContain('LANDING_TRACKS.reduce')
 
+    const tracksIndex = readFileSync(resolve(webRoot, 'pages/tracks/index.vue'), 'utf-8')
+    expect(tracksIndex).toContain('LANDING_TRACKS.length')
+    expect(tracksIndex).not.toContain('Seven languages')
+
     for (const file of [
       'components/landing/language-showcase.vue',
       'components/landing/practice-hero.vue',

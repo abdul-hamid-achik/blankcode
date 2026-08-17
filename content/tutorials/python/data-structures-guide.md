@@ -152,7 +152,7 @@ print(sky.red, sky[1])       # 135 206
 Use a tuple for a fixed, heterogeneous record — a coordinate, a row, a
 function returning more than one value. Reach for `@dataclass` once the
 record needs a name, defaults, or methods of its own; see
-[Object-Oriented Python](/tutorials/python-object-oriented-python).
+[Object-Oriented Python](/tutorials/python/object-oriented-python).
 
 ::code-blank{lang="python" href="/tracks/python/data-structures" label="practice data structures for real"}
 ---
@@ -177,7 +177,7 @@ vowels_used = {ch for ch in sentence if ch in "aeiou"}
 `{}` alone is an empty dict, not an empty set — `set()` is the only way to
 write an empty set literal. For when a comprehension makes code clearer and
 when it hides the logic, see
-[Comprehensions Without Regret](/tutorials/python-comprehensions-without-regret).
+[Comprehensions Without Regret](/tutorials/python/comprehensions-without-regret).
 
 ## Where This Bites
 

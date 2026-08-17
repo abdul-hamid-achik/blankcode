@@ -143,7 +143,7 @@ const attempted = computed(() => verdicts.value.some((v) => v !== null))
       >
         Check
       </button>
-      <p v-if="solved" class="font-mono text-xs text-pass">
+      <p v-if="solved" class="font-mono text-xs text-pass" aria-live="polite">
         that's the shape<template v-if="href">
           —
           <NuxtLink
@@ -153,7 +153,7 @@ const attempted = computed(() => verdicts.value.some((v) => v !== null))
           ></template
         >
       </p>
-      <p v-else-if="attempted" class="font-mono text-xs text-fail">
+      <p v-else-if="attempted" class="font-mono text-xs text-fail" aria-live="polite">
         not yet — reread the section above
       </p>
       <p v-else class="font-mono text-xs text-muted-foreground">type into the gaps, then check</p>

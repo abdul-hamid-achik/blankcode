@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { usePageSeo } from '~/composables/usePageSeo'
+import { useAuthStore } from '~/stores/auth'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 /**
@@ -14,6 +15,8 @@ import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
  */
 
 definePageMeta({ requiresAuth: false })
+
+const auth = useAuthStore()
 
 interface ReadingRow {
   id: string
@@ -103,6 +106,7 @@ usePageSeo({
             >
               · {{ row.attempts }} {{ row.attempts === 1 ? 'attempt' : 'attempts' }}</template
             >
+            <template v-if="!auth.isAuthenticated"> · sign in to grade </template>
           </p>
         </NuxtLink>
       </li>

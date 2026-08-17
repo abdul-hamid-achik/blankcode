@@ -30,6 +30,8 @@ const { notifications, dismissNotification } = useAchievementNotifications()
               </div>
               <button
                 class="text-muted-foreground hover:text-foreground transition-colors"
+                type="button"
+                aria-label="Dismiss"
                 @click="dismissNotification(notification.id)"
               >
                 <svg

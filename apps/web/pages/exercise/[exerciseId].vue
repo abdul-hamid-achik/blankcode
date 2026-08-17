@@ -24,6 +24,8 @@ import {
   type ContinueKind,
 } from '~/utils/continue-target'
 import { speakSchedule } from '~/utils/review-dates'
+import { practiceQuotaLine, type PracticeQuota } from '~/utils/quota-line'
+import { runShortcutLabel, submitShortcutLabel as shortcutLabel } from '~/utils/submit-shortcut'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
 
@@ -122,14 +124,39 @@ onMounted(() => {
 const ratingSubmittedFor = ref<string | null>(null)
 const isRating = ref(false)
 
-const submitShortcutLabel = computed(() => {
-  if (!import.meta.client) return 'Ctrl+Enter'
-  return /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘↵' : 'Ctrl+↵'
-})
+const submitShortcutLabel = computed(() =>
+  shortcutLabel(import.meta.client ? navigator.platform : '')
+)
+const runShortcutText = computed(() =>
+  runShortcutLabel(import.meta.client ? navigator.platform : '')
+)
+
+const quota = ref<PracticeQuota | null>(null)
+const quotaLine = computed(() => (quota.value ? practiceQuotaLine(quota.value) : null))
+
+async function loadQuota() {
+  try {
+    quota.value = await $fetch<PracticeQuota>('/api/account/quota', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+  } catch {
+    quota.value = null
+  }
+}
+
+const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
 
 const justPassed = computed(() => {
   const sub = exerciseStore.latestSubmission
-  return sub?.status === 'passed' && ratingSubmittedFor.value !== sub.id
+  return (
+    shouldNoteSittingPass({
+      status: sub?.status,
+      submissionId: sub?.id,
+      sittingSubmissionIds: new Set(exerciseStore.sittingSubmissionIds),
+    }) &&
+    !!sub &&
+    ratingSubmittedFor.value !== sub.id
+  )
 })
 
 const {
@@ -378,6 +405,7 @@ watch(exerciseId, (id, previous) => {
 
 onMounted(() => {
   exerciseStore.loadExercise(exerciseId.value)
+  void loadQuota()
   if (import.meta.client) {
     window.addEventListener('beforeunload', handleBeforeUnload)
   }
@@ -392,13 +420,22 @@ onUnmounted(() => {
   exerciseStore.reset()
 })
 
-useKeyboard([{ key: 'Enter', ctrl: true, handler: () => handleSubmit() }])
+useKeyboard([
+  { key: 'Enter', ctrl: true, shift: true, handler: () => handleRun() },
+  { key: 'Enter', ctrl: true, handler: () => handleSubmit() },
+])
 
 async function handleSubmit() {
   if (exerciseStore.isBlankMode) {
     await exerciseStore.submitCode()
   } else {
     await exerciseStore.submitCode(exerciseStore.currentCode)
+  }
+  if (!exerciseStore.submissionError && quota.value && quota.value.submissionsRemaining !== null) {
+    quota.value = {
+      ...quota.value,
+      submissionsRemaining: Math.max(0, quota.value.submissionsRemaining - 1),
+    }
   }
 }
 
@@ -407,6 +444,10 @@ async function handleRun() {
     await exerciseStore.runCode()
   } else {
     await exerciseStore.runCode(exerciseStore.currentCode)
+  }
+  const remaining = exerciseStore.latestRun?.runsRemainingToday
+  if (quota.value && remaining !== undefined && remaining !== null) {
+    quota.value = { ...quota.value, runsRemaining: remaining }
   }
 }
 
@@ -547,22 +588,29 @@ function handleBlankValuesUpdate(values: Map<string, string>) {
                 {{ exerciseStore.filledBlanksCount }}/{{ exerciseStore.blanks.length }} filled
               </span>
               <span class="text-muted-foreground"
-                >tab moves · {{ submitShortcutLabel }} submits</span
+                >tab moves · {{ submitShortcutLabel }} submits · {{ runShortcutText }} runs</span
               >
             </template>
             <template v-else-if="exerciseStore.isChallengeMode">
               <span class="text-signal">challenge — implement from scratch</span>
-              <span class="text-muted-foreground">{{ submitShortcutLabel }} submits</span>
+              <span class="text-muted-foreground"
+                >{{ submitShortcutLabel }} submits · {{ runShortcutText }} runs</span
+              >
             </template>
             <template v-else-if="exerciseStore.isReviewMode">
               <span class="text-signal">review — find the defect</span>
-              <span class="text-muted-foreground">{{ submitShortcutLabel }} submits</span>
+              <span class="text-muted-foreground"
+                >{{ submitShortcutLabel }} submits · {{ runShortcutText }} runs</span
+              >
             </template>
             <template v-else>
-              <span class="text-muted-foreground">{{ submitShortcutLabel }} submits</span>
+              <span class="text-muted-foreground"
+                >{{ submitShortcutLabel }} submits · {{ runShortcutText }} runs</span
+              >
             </template>
 
             <span class="text-muted-foreground">{{ codeSourceLabel }}</span>
+            <span v-if="quotaLine" class="text-muted-foreground">{{ quotaLine }}</span>
             <span v-if="exerciseStore.isSaving" class="text-muted-foreground">saving…</span>
           </div>
 

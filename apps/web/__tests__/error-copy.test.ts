@@ -57,4 +57,17 @@ describe('copyForStatus', () => {
       expect(copyForStatus(status).body.length).toBeGreaterThan(30)
     }
   })
+
+  it('talks to the learner, not the operator', () => {
+    const prose = HANDLED.map((status) => {
+      const copy = copyForStatus(status)
+      return `${copy.title} ${copy.body}`
+    }).join(' ')
+    expect(prose).not.toMatch(/ADMIN_EMAILS|port 3000|stack trace|runner images/i)
+  })
+
+  it('sends a 401 back to the page they wanted', () => {
+    const signIn = copyForStatus(401).actions.find((action) => action.to === '/login')
+    expect(signIn?.redirect).toBe(true)
+  })
 })

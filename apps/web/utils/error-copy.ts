@@ -4,6 +4,8 @@ export interface ErrorAction {
   to?: string
   /** Re-run the current route instead of navigating away. */
   reload?: boolean
+  /** Append `?redirect=` of the current path — used by the 401 Sign in. */
+  redirect?: boolean
 }
 
 export interface ErrorCopy {
@@ -37,7 +39,7 @@ export const ERROR_COPY: Record<number, ErrorCopy> = {
     eyebrow: 'not signed in',
     title: 'This page needs you signed in.',
     body: 'Your session expired or was never started. Sign in and you will land back here.',
-    actions: [{ label: 'Sign in', to: '/login' }, TRACKS],
+    actions: [{ label: 'Sign in', to: '/login', redirect: true }, TRACKS],
   },
   402: {
     eyebrow: 'budget reached',
@@ -48,7 +50,7 @@ export const ERROR_COPY: Record<number, ErrorCopy> = {
   403: {
     eyebrow: 'forbidden',
     title: 'Your account cannot open this.',
-    body: 'This route is limited to admin accounts. If that should include you, add your email to ADMIN_EMAILS and restart the API.',
+    body: 'This page is limited to operator accounts. If you think that is a mistake, sign in with the address that should have access.',
     actions: [TRACKS],
   },
   404: {
@@ -72,25 +74,25 @@ export const ERROR_COPY: Record<number, ErrorCopy> = {
   500: {
     eyebrow: 'server error',
     title: 'The API failed on that one.',
-    body: 'This is a bug, not something you did. Check the API logs for the matching stack trace.',
+    body: 'This is a bug, not something you did. Try again in a moment. If it keeps happening, the tracks page still works.',
     actions: [RETRY, TRACKS],
   },
   502: {
     eyebrow: 'bad gateway',
     title: 'The API answered with nonsense.',
-    body: 'Usually the API restarted mid-request. Give it a few seconds.',
+    body: 'Usually the API restarted mid-request. Give it a few seconds, then try again.',
     actions: [RETRY, TRACKS],
   },
   503: {
     eyebrow: 'unavailable',
     title: 'The API is not accepting requests.',
-    body: 'It is probably still booting, or not running at all. Check that the API is up on port 3000.',
+    body: 'The site is up; the API is not answering. Wait a moment and try again.',
     actions: [RETRY, TRACKS],
   },
   504: {
     eyebrow: 'timeout',
     title: 'The API took too long.',
-    body: 'Submissions run in a Docker sandbox with a 60s ceiling. If this keeps happening, check that the worker and the runner images are up.',
+    body: 'A run that exceeds the sandbox ceiling is stopped. Try again; if this keeps happening, the suite may be looping.',
     actions: [RETRY, TRACKS],
   },
 }

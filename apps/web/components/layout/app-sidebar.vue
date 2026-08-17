@@ -168,6 +168,7 @@ watch(
           () => {
             emit('close')
             authStore.logout()
+            navigateTo('/')
           }
         "
       >

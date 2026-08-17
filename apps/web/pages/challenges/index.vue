@@ -4,13 +4,19 @@ import { computed, ref } from 'vue'
 import EmptyState from '~/components/error/empty-state.vue'
 import Card from '~/components/ui/card.vue'
 import DifficultyTag from '~/components/ui/difficulty-tag.vue'
-import { useAsync } from '~/composables/useAsync'
 import { usePageSeo } from '~/composables/usePageSeo'
+import { useAuthStore } from '~/stores/auth'
+import {
+  challengeBelongsToTrack,
+  trackLabelForExercise,
+  type CatalogExercise,
+} from '~/utils/challenge-catalog'
 
 definePageMeta({ requiresAuth: false })
 
 const selectedTrack = ref<string>('all')
 const selectedDifficulty = ref<string>('all')
+const auth = useAuthStore()
 
 /*
  * Both lists are public, so they are fetched during the render.
@@ -32,13 +38,13 @@ const { data: allExercises, pending: exercisesLoading } = await useAsyncData(
 const isLoading = computed(() => tracksLoading.value || exercisesLoading.value)
 
 // Filter exercises to only challenges
-const challenges = computed(() => {
-  if (!allExercises.value) return []
+const catalog = computed(() => (allExercises.value ?? []) as Array<Exercise & CatalogExercise>)
 
-  let filtered = allExercises.value.filter((ex) => ex.type === 'challenge')
+const challenges = computed(() => {
+  let filtered = catalog.value.filter((ex) => ex.type === 'challenge')
 
   if (selectedTrack.value !== 'all') {
-    filtered = filtered.filter((ex) => ex.conceptId.startsWith(selectedTrack.value))
+    filtered = filtered.filter((ex) => challengeBelongsToTrack(ex, selectedTrack.value))
   }
 
   if (selectedDifficulty.value !== 'all') {
@@ -50,19 +56,17 @@ const challenges = computed(() => {
 
 const trackOptions = computed(() => {
   if (!tracks.value) return []
+  const challengeRows = catalog.value.filter((e) => e.type === 'challenge')
   return [
     {
       value: 'all',
       label: 'All Tracks',
-      count: allExercises.value?.filter((e) => e.type === 'challenge').length || 0,
+      count: challengeRows.length,
     },
     ...tracks.value.map((track) => ({
       value: track.slug,
       label: track.name,
-      count:
-        allExercises.value?.filter(
-          (e) => e.type === 'challenge' && e.conceptId.startsWith(track.slug)
-        ).length || 0,
+      count: challengeRows.filter((e) => challengeBelongsToTrack(e, track.slug)).length,
     })),
   ]
 })
@@ -74,15 +78,6 @@ const difficultyOptions = [
   { value: 'advanced', label: 'Advanced' },
   { value: 'expert', label: 'Expert' },
 ]
-
-const trackIcons: Record<string, string> = {
-  typescript: '📘',
-  python: '🐍',
-  go: '🐹',
-  rust: '🦀',
-  react: '⚛️',
-  vue: '💚',
-}
 
 usePageSeo({
   title: 'Challenges — BlankCode',
@@ -159,7 +154,7 @@ usePageSeo({
         v-else-if="challenges.length === 0"
         eyebrow="nothing matches"
         title="No challenges for those filters."
-        description="Challenges are exercises marked type: challenge in their frontmatter. Widen the filters, or add some to content/tracks/."
+        description="Widen the track or difficulty. Every published challenge is on this page."
       />
 
       <ul v-else class="grid gap-px border border-rule bg-rule md:grid-cols-2 lg:grid-cols-3">
@@ -169,7 +164,7 @@ usePageSeo({
             class="flex h-full flex-col p-5 transition-colors hover:bg-muted/60"
           >
             <div class="mb-3 flex items-start justify-between gap-3">
-              <span class="eyebrow">{{ exercise.conceptId.split('-')[0] }}</span>
+              <span class="eyebrow">{{ trackLabelForExercise(exercise) }}</span>
               <DifficultyTag :difficulty="exercise.difficulty" show-rank />
             </div>
 
@@ -177,6 +172,9 @@ usePageSeo({
 
             <p class="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
               {{ exercise.description }}
+            </p>
+            <p v-if="!auth.isAuthenticated" class="mt-3 font-mono text-xs text-muted-foreground">
+              Sign in to run the suite
             </p>
           </NuxtLink>
         </li>
