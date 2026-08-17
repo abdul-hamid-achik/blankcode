@@ -27,7 +27,14 @@ function handle(action: ErrorAction) {
     clearError({ redirect: useRoute().fullPath })
     return
   }
-  clearError({ redirect: action.to ?? '/' })
+  let to = action.to ?? '/'
+  if (action.redirect && to === '/login') {
+    const here = useRoute().fullPath
+    if (here && !here.startsWith('/login')) {
+      to = `/login?redirect=${encodeURIComponent(here)}`
+    }
+  }
+  clearError({ redirect: to })
 }
 
 useHead({ title: `${statusCode.value} — ${copy.value.eyebrow}` })

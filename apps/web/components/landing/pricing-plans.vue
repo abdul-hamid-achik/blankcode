@@ -69,15 +69,14 @@ const PLANS: readonly Plan[] = [
     featured: false,
   },
   {
-    name: 'Unlimited',
+    name: 'Pro',
     price: '$12',
     cadence: 'per month',
     summary: 'For when you hit the daily limit and want to keep going.',
     includes: [
       'Everything in Free',
-      'No daily submission limit',
+      'No daily submission, run, or explanation cap',
       'Explanations of failed submissions, unmetered',
-      'The full review queue',
     ],
     cta: 'Create an account',
     featured: true,
@@ -102,7 +101,7 @@ const PLANS: readonly Plan[] = [
           v-for="plan in PLANS"
           :key="plan.name"
           class="rounded border bg-card p-6 flex flex-col"
-          :class="plan.featured ? 'border-signal' : 'border-rule-strong'"
+          :class="plan.featured ? 'border-rule-strong' : 'border-rule'"
         >
           <p class="eyebrow mb-4">{{ plan.name }}</p>
 

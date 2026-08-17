@@ -1,8 +1,12 @@
 <script setup lang="ts">
+import OauthButtons from '~/components/auth/oauth-buttons.vue'
 import Button from '~/components/ui/button.vue'
 import Card from '~/components/ui/card.vue'
 import Input from '~/components/ui/input.vue'
 import { useAuthStore } from '~/stores/auth'
+import { LOGIN_BLURB, LOGIN_HEADING } from '~/utils/auth-copy'
+import { destinationHint, safeInternalRedirect } from '~/utils/auth-redirect'
+import { oauthErrorMessage } from '~/utils/oauth-error'
 
 definePageMeta({ guestOnly: true, middleware: 'auth' })
 
@@ -14,16 +18,22 @@ const password = ref('')
 const error = ref('')
 const isLoading = ref(false)
 
+const redirectTo = computed(() => safeInternalRedirect(route.query['redirect']))
+const hint = computed(() => destinationHint(redirectTo.value))
+const resetDone = computed(() => route.query['reset'] === 'done')
+
+onMounted(() => {
+  const fromOauth = oauthErrorMessage(route.query['error'])
+  if (fromOauth) error.value = fromOauth
+})
+
 async function handleSubmit() {
   error.value = ''
   isLoading.value = true
 
   try {
     await authStore.login(email.value, password.value)
-    const redirectTo = route.query['redirect'] as string | undefined
-    const safeRedirect =
-      redirectTo?.startsWith('/') && !redirectTo.startsWith('//') ? redirectTo : '/dashboard'
-    navigateTo(safeRedirect)
+    navigateTo(redirectTo.value)
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Login failed'
   } finally {
@@ -37,10 +47,12 @@ async function handleSubmit() {
     <div class="auth-card">
       <div class="mb-8">
         <p class="eyebrow mb-2">sign in</p>
-        <h1 class="display text-2xl">Back to it.</h1>
-        <p class="mt-2 text-sm text-muted-foreground">
-          Your progress and review schedule live in your own database.
+        <h1 class="display text-2xl">{{ LOGIN_HEADING }}</h1>
+        <p class="mt-2 text-sm text-muted-foreground">{{ LOGIN_BLURB }}</p>
+        <p v-if="hint" class="mt-2 font-mono text-xs text-muted-foreground">
+          Continue to {{ hint }}.
         </p>
+        <p v-if="resetDone" class="mt-2 text-sm text-pass">Password updated. Sign in with it.</p>
       </div>
 
       <Card>
@@ -75,11 +87,29 @@ async function handleSubmit() {
 
           <Button type="submit" :loading="isLoading" class="w-full"> Sign in </Button>
         </form>
+        <p class="mt-3 text-center text-sm">
+          <NuxtLink
+            to="/forgot"
+            class="text-muted-foreground hover:text-foreground hover:underline"
+          >
+            Forgot password
+          </NuxtLink>
+        </p>
+        <OauthButtons class="mt-4" :redirect="redirectTo" />
       </Card>
 
       <p class="text-center text-sm text-muted-foreground mt-4">
         Don't have an account?
-        <NuxtLink to="/register" class="text-primary hover:underline"> Sign up </NuxtLink>
+        <NuxtLink
+          :to="
+            redirectTo === '/dashboard'
+              ? '/register'
+              : `/register?redirect=${encodeURIComponent(redirectTo)}`
+          "
+          class="text-primary hover:underline"
+        >
+          Sign up
+        </NuxtLink>
       </p>
     </div>
   </div>

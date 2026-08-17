@@ -2,6 +2,7 @@
 import { TRACK_SLUGS, type Concept, type Exercise, type Track } from '@blankcode/shared'
 import Card from '~/components/ui/card.vue'
 import { useAuthStore } from '~/stores/auth'
+import { exerciseTypeBadge } from '~/utils/exercise-type-badge'
 
 const route = useRoute()
 const trackSlug = computed(() => route.params['trackSlug'] as string)
@@ -60,20 +61,6 @@ const difficultyColors: Record<string, string> = {
   advanced: 'bg-orange-500/10 text-orange-500',
   expert: 'bg-red-500/10 text-red-500',
 }
-
-const exerciseTypeBadges: Record<string, { label: string; icon: string; color: string }> = {
-  blank: { label: 'Fill-in-Blank', icon: '📝', color: 'bg-blue-500/10 text-blue-500' },
-  challenge: { label: 'Challenge', icon: '🏆', color: 'bg-purple-500/10 text-purple-500' },
-  // A review used to fall through this map and render an empty pill — a badge
-  // with nothing in it, on the type whose whole point is that looks deceive.
-  review: { label: 'Code Review', icon: '🔎', color: 'bg-amber-500/10 text-amber-600' },
-  turn: { label: 'Turn-Budget Session', icon: '✉️', color: 'bg-emerald-500/10 text-emerald-600' },
-  context: {
-    label: 'Context Session',
-    icon: '🧾',
-    color: 'bg-cyan-500/10 text-cyan-600',
-  },
-}
 </script>
 
 <template>
@@ -121,14 +108,8 @@ const exerciseTypeBadges: Record<string, { label: string; icon: string; color: s
                   >
                     {{ exercise.difficulty }}
                   </span>
-                  <span
-                    :class="[
-                      'text-xs px-2 py-0.5 rounded-full',
-                      exerciseTypeBadges[exercise.type || 'blank']?.color,
-                    ]"
-                    :title="exerciseTypeBadges[exercise.type || 'blank']?.label"
-                  >
-                    {{ exerciseTypeBadges[exercise.type || 'blank']?.icon }}
+                  <span class="font-mono text-xs text-muted-foreground">
+                    {{ exerciseTypeBadge(exercise.type).label }}
                   </span>
                 </div>
                 <p class="text-sm text-muted-foreground line-clamp-2">

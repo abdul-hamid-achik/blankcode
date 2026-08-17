@@ -6,6 +6,7 @@ import { useApi } from '~/composables/useApi'
 import { useAsync } from '~/composables/useAsync'
 import { useAuthStore } from '~/stores/auth'
 import { usePageSeo } from '~/composables/usePageSeo'
+import { LANDING_TRACKS } from '~/utils/landing-tracks'
 
 /**
  * A track row's job is to tell you where you are in it. Descriptions were
@@ -53,8 +54,7 @@ function percent(completed: number, total: number): number {
 
 usePageSeo({
   title: 'Tracks — BlankCode',
-  description:
-    'Seven languages, from TypeScript and Python to Go and Rust. Each track is real code with the pieces that matter taken out.',
+  description: `${LANDING_TRACKS.length} languages, from TypeScript and Python to Go and Rust. Each track is real code with the pieces that matter taken out.`,
   path: '/tracks',
 })
 </script>
@@ -131,7 +131,7 @@ usePageSeo({
       v-else
       eyebrow="no tracks"
       title="Nothing has been imported yet."
-      description="Tracks live as markdown under content/tracks/. Run `bun run content:import` to load them into the database."
+      description="Nothing is published yet. Come back when a track is imported, or browse the tutorials in the meantime."
     />
   </div>
 </template>

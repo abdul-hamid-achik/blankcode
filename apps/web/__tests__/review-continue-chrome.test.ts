@@ -41,6 +41,9 @@ describe('Review and post-pass Continue chrome', () => {
     expect(review).toContain('notePassedInSession')
     expect(page).toContain('shouldNoteSittingPass')
     expect(page).toMatch(/shouldNoteSittingPass\([\s\S]*notePassedInSession/)
+    // justPassed is the same sitting rule — a hydrated last-week pass must
+    // not reopen "How did that come back?"
+    expect(page).toMatch(/const justPassed = computed\(\(\) => \{[\s\S]*shouldNoteSittingPass/)
     expect(exercise).toContain('sittingSubmissionIds')
     // loadSubmissions hydrates last week's pass; it must not join the sitting set.
     const loadFn = exercise.slice(exercise.indexOf('async function loadSubmissions'))
@@ -53,6 +56,8 @@ describe('Review and post-pass Continue chrome', () => {
     expect(sittingAt).toBeGreaterThan(-1)
     expect(assignAt).toBeGreaterThan(-1)
     expect(sittingAt).toBeLessThan(assignAt)
+    expect(exercise).toContain('isTerminalSubmissionStatus')
+    expect(submitFn).toContain('handleSubmissionComplete()')
   })
 
   it('post-pass "that was the last one" is not chained to the tutorial link', () => {

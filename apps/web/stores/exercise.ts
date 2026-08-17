@@ -2,6 +2,7 @@ import type { BlankRegionInStarter, Exercise, RunOutcome, Submission } from '@bl
 import { defineStore } from 'pinia'
 import { useAnalytics } from '~/composables/useAnalytics'
 import { extractDraftBlankValues, reconstructCode } from '~/composables/useBlankEditor'
+import { isTerminalSubmissionStatus } from '~/utils/submission-status'
 
 export const useExerciseStore = defineStore('exercise', () => {
   const exercise = ref<Exercise | null>(null)
@@ -170,7 +171,7 @@ export const useExerciseStore = defineStore('exercise', () => {
           submissions.value[idx] = updated
         }
 
-        if (updated.status !== 'pending' && updated.status !== 'running') {
+        if (isTerminalSubmissionStatus(updated.status)) {
           handleSubmissionComplete()
         }
       } catch {
@@ -274,9 +275,7 @@ export const useExerciseStore = defineStore('exercise', () => {
    * exercise was one Network tab away. Grading now happens server-side and the
    * client only renders the result.
    */
-  function computeBlankFeedback() {
-    const verdicts = (latestSubmission.value as { blankFeedback?: Record<string, string> } | null)
-      ?.blankFeedback
+  function applyBlankFeedback(verdicts: Record<string, string> | null | undefined) {
     if (!verdicts) {
       blankFeedback.value = undefined
       return
@@ -288,6 +287,12 @@ export const useExerciseStore = defineStore('exercise', () => {
       if (verdict === 'correct' || verdict === 'incorrect') feedback.set(blank.id, verdict)
     }
     blankFeedback.value = feedback
+  }
+
+  function computeBlankFeedback() {
+    const verdicts = (latestSubmission.value as { blankFeedback?: Record<string, string> } | null)
+      ?.blankFeedback
+    applyBlankFeedback(verdicts)
   }
 
   /**
@@ -311,6 +316,9 @@ export const useExerciseStore = defineStore('exercise', () => {
         exerciseId: exercise.value.id,
         code: codeToRun,
       })
+      applyBlankFeedback(
+        (latestRun.value as { blankFeedback?: Record<string, string> | null }).blankFeedback
+      )
       useAnalytics().emit('practice-run', { status: latestRun.value.status })
     } catch (e) {
       runError.value = e instanceof Error ? e.message : 'Run failed'
@@ -352,7 +360,11 @@ export const useExerciseStore = defineStore('exercise', () => {
       await api.exercises.deleteDraft(exercise.value.id)
       codeSource.value = 'submission'
 
-      pollSubmissionStatus(submission.id)
+      if (isTerminalSubmissionStatus(submission.status)) {
+        handleSubmissionComplete()
+      } else {
+        pollSubmissionStatus(submission.id)
+      }
 
       return submission
     } catch (e) {

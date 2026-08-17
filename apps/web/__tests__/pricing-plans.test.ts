@@ -36,7 +36,9 @@ describe('pricing section', () => {
   it('sells the thing that costs money to serve', () => {
     // Submissions run a microVM each. Charging per seat with unlimited
     // execution puts the exposure on the wrong side.
-    expect(component).toContain('daily submission limit')
-    expect(component).toContain('No daily submission limit')
+    expect(component).toContain('10 submissions a day')
+    expect(component).toContain('No daily submission, run, or explanation cap')
+    expect(component).toContain("name: 'Pro'")
+    expect(component).not.toContain('The full review queue')
   })
 })

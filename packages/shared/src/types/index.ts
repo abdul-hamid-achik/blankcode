@@ -220,6 +220,8 @@ export interface RunOutcome {
   executionTimeMs: number | null
   errorMessage: string | null
   runsRemainingToday: number | null
+  /** Per-blank verdicts when the exercise is a blank. Absent on challenges. */
+  blankFeedback?: Record<string, 'correct' | 'incorrect'> | null
 }
 
 export interface UserProgress {

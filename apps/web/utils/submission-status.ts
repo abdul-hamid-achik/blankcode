@@ -35,3 +35,12 @@ export function getStatusClasses(status: SubmissionStatus): StatusConfig {
 }
 
 export { statusConfig }
+
+/**
+ * A create that already ran (inline execution) is terminal. Polling for two
+ * more seconds after the suite has answered is how a 2–12s wait becomes
+ * a 4–14s wait with a quiet rail.
+ */
+export function isTerminalSubmissionStatus(status: string | undefined): boolean {
+  return status !== undefined && status !== 'pending' && status !== 'running'
+}

@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { credentialsFor, isProviderName, PROVIDERS } from '~/server/utils/oauth/providers'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
+import { safeInternalRedirect } from '~/utils/auth-redirect'
 
 /**
  * Sends someone to the provider.
@@ -31,6 +32,15 @@ export default defineEventHandler((event) => {
     // cannot be replayed later.
     maxAge: 600,
   })
+
+  const next = safeInternalRedirect(getQuery(event)['next'], '')
+  if (next) {
+    setCookie(event, 'oauth-next', next, {
+      ...AUTH_COOKIE_OPTIONS,
+      httpOnly: true,
+      maxAge: 600,
+    })
+  }
 
   const site = (useRuntimeConfig().public['siteUrl'] as string).replace(/\/+$/, '')
   const url = new URL(provider.authorizeUrl)

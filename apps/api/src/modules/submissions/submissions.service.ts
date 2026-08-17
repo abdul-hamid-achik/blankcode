@@ -428,6 +428,14 @@ export const SubmissionsServiceLive = Layer.effect(
               }))
           )
 
+          const blanks = Array.isArray(exercise.blanks)
+            ? (exercise.blanks as (BlankRegionInStarter & { solution?: string })[])
+            : []
+          const blankFeedback =
+            blanks.length > 0 && exercise.starterCode
+              ? gradeBlanks(input.code, exercise.starterCode, blanks)
+              : null
+
           return {
             status: result.status,
             testResults: result.testResults ?? [],
@@ -437,6 +445,7 @@ export const SubmissionsServiceLive = Layer.effect(
               limits.paid || usedToday === null
                 ? null
                 : Math.max(0, limits.runsPerDay - usedToday - 1),
+            blankFeedback,
           }
         }),
 

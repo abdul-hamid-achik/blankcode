@@ -24,6 +24,7 @@ import {
 } from '~/composables/useBlankEditor'
 import { usePreferencesStore } from '~/stores/preferences'
 import { resolveEditorTheme } from '~/utils/editor-themes'
+import { editorFooterShortcut } from '~/utils/submit-shortcut'
 
 interface Props {
   code: string
@@ -47,6 +48,10 @@ const emit = defineEmits<{
   'update:blankValues': [values: Map<string, string>]
   submit: []
 }>()
+
+const footerShortcut = computed(() =>
+  editorFooterShortcut(import.meta.client ? navigator.platform : '')
+)
 
 const editorContainer = ref<HTMLElement | null>(null)
 const editorView = shallowRef<EditorView | null>(null)
@@ -304,7 +309,8 @@ onUnmounted(() => {
     <div
       class="absolute bottom-2 right-2 max-w-[calc(100%-1rem)] truncate text-xs text-muted-foreground bg-background/80 px-2 py-1 rounded"
     >
-      {{ language }}{{ isBlankMode ? ' | Tab to navigate' : '' }} | Ctrl+Enter to submit
+      {{ language }}{{ isBlankMode ? ' | Tab to navigate' : '' }} |
+      {{ footerShortcut }}
     </div>
   </div>
 </template>

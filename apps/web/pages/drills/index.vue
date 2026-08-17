@@ -34,11 +34,17 @@ function headers(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-const { data, pending } = await useAsyncData('drills-index', () =>
-  $fetch<{ drills: DrillRow[] }>('/api/drills', { headers: headers() }).catch(() => null)
-)
+const { data, pending } = await useAsyncData('drills-index', async () => {
+  try {
+    const result = await $fetch<{ drills: DrillRow[] }>('/api/drills', { headers: headers() })
+    return { loadFailed: false, drills: result.drills }
+  } catch {
+    return { loadFailed: true, drills: [] as DrillRow[] }
+  }
+})
 
 const drills = computed(() => data.value?.drills ?? [])
+const loadFailed = computed(() => data.value?.loadFailed ?? false)
 const solved = computed(() => drills.value.filter((drill) => drill.solvedAt !== null).length)
 
 function conceptName(slug: string): string {
@@ -61,6 +67,11 @@ useSeoMeta({
     </p>
     <p v-if="drills.length > 0" class="mb-10 font-mono text-xs text-muted-foreground">
       {{ drills.length }} {{ drills.length === 1 ? 'drill' : 'drills' }} · {{ solved }} solved
+    </p>
+
+    <p v-if="loadFailed" class="mb-8 border-l-2 border-fail bg-fail/5 py-2 pl-3 text-sm">
+      Your data could not be loaded just now — this is not what your account looks like. Refresh to
+      try again.
     </p>
 
     <div v-if="pending" role="status">
@@ -98,7 +109,7 @@ useSeoMeta({
       </li>
     </ol>
 
-    <div v-else class="border border-rule p-6">
+    <div v-else-if="!loadFailed" class="border border-rule p-6">
       <p class="mb-2">You have no drills yet.</p>
       <p class="mb-4 max-w-xl text-sm leading-relaxed text-muted-foreground">
         A drill is generated on request from one concept you keep failing: your last 30 days of

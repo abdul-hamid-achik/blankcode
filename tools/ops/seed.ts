@@ -25,8 +25,7 @@ import Stripe from 'stripe'
 // ---------------------------------------------------------------- configuration
 
 const PRODUCT_NAME = 'BlankCode Unlimited'
-const PRODUCT_DESCRIPTION =
-  'No daily submission limit, unmetered explanations, the full review queue.'
+const PRODUCT_DESCRIPTION = 'No daily submission, run, or explanation cap.'
 
 /**
  * The plan, in one place.

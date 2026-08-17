@@ -1,6 +1,11 @@
 import type { SubmissionStatus } from '@blankcode/shared'
 import { describe, expect, it } from 'vitest'
-import { getStatusClasses, getStatusLabel, statusConfig } from '~/utils/submission-status'
+import {
+  getStatusClasses,
+  getStatusLabel,
+  isTerminalSubmissionStatus,
+  statusConfig,
+} from '~/utils/submission-status'
 
 const ALL_STATUSES: SubmissionStatus[] = ['pending', 'running', 'passed', 'failed', 'error']
 
@@ -37,5 +42,12 @@ describe('submission status mapping', () => {
       expect(classes.colorClass.length).toBeGreaterThan(0)
       expect(classes.bgClass.length).toBeGreaterThan(0)
     }
+  })
+
+  it('treats an inline createAndExecute result as done', () => {
+    expect(isTerminalSubmissionStatus('passed')).toBe(true)
+    expect(isTerminalSubmissionStatus('failed')).toBe(true)
+    expect(isTerminalSubmissionStatus('pending')).toBe(false)
+    expect(isTerminalSubmissionStatus('running')).toBe(false)
   })
 })
