@@ -1,5 +1,5 @@
 slug: object-oriented-python
 name: Object-Oriented Python
-description: Explore classes, objects, inheritance, encapsulation, and polymorphism. Learn to design and implement object-oriented solutions to complex problems.
+description: Classes, inheritance, and the class attribute that is shared whether you meant it or not.
 order: 4
 isPublished: true

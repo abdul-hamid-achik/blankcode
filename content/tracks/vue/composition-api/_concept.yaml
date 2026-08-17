@@ -1,5 +1,5 @@
 slug: composition-api
 name: Composition API
-description: Learn Vue 3's Composition API for organizing component logic with ref, reactive, computed, and watch.
+description: ref, reactive, computed, and the watch that fired on a string instead of a source.
 order: 1
 isPublished: true

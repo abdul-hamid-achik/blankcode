@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { LEARNING_PATHS, type Exercise } from '@blankcode/shared'
+import { LEARNING_PATHS, type Exercise, type LearningPath } from '@blankcode/shared'
 import { computed, onMounted, ref } from 'vue'
 import Button from '~/components/ui/button.vue'
-import Card from '~/components/ui/card.vue'
 import DifficultyTag from '~/components/ui/difficulty-tag.vue'
-import { useAsync } from '~/composables/useAsync'
+import { usePageSeo } from '~/composables/usePageSeo'
 import { useAuthStore } from '~/stores/auth'
-import { trackLabelForExercise, type CatalogExercise } from '~/utils/challenge-catalog'
+import {
+  challengeCountLabel,
+  trackLabelForExercise,
+  type CatalogExercise,
+} from '~/utils/challenge-catalog'
+import { exerciseHref } from '~/utils/exercise-href'
 
 definePageMeta({ requiresAuth: false })
 
 const route = useRoute()
-const router = useRouter()
 const pathSlug = computed(() => route.params['pathSlug'] as string)
 
 /*
@@ -20,58 +23,36 @@ const pathSlug = computed(() => route.params['pathSlug'] as string)
  * not tells a crawler the URL is a valid page, which makes every typo an
  * indexable one.
  */
-if (!LEARNING_PATHS.some((p) => p.slug === pathSlug.value)) {
+const authored = LEARNING_PATHS.find((p) => p.slug === pathSlug.value)
+if (!authored) {
   throw createError({ statusCode: 404, statusMessage: 'Path not found', fatal: true })
 }
 
-const api = useApi()
-const {
-  data: path,
-  isLoading: pathLoading,
-  execute: loadPath,
-} = useAsync(() => api.paths.getBySlug(pathSlug.value))
+const { data: page, pending: isLoading } = await useAsyncData(
+  `path-${pathSlug.value}`,
+  async () => {
+    const path = await $fetch<LearningPath>(`/api/paths/${pathSlug.value}`)
+    const rows = await Promise.all(
+      path.challengeIds.map((id) => $fetch<Exercise>(`/api/exercises/${id}`).catch(() => null))
+    )
+    return { path, exercises: rows.filter((row): row is Exercise => row !== null) }
+  }
+)
 
-const {
-  data: exercises,
-  isLoading: exercisesLoading,
-  execute: loadExercises,
-} = useAsync(() => {
-  if (!path.value) return Promise.resolve([] as (Exercise | null)[])
-  return Promise.all(
-    path.value.challengeIds.map((id) => api.exercises.getById(id).catch(() => null))
-  )
-})
+const path = computed(() => page.value?.path ?? null)
+const validExercises = computed(() => page.value?.exercises ?? [])
 
-/*
- * Real done-marks, or none. `progress` was a ref hardcoded to `completed: 0`
- * rendered as if it were the user's number. Now the completed-exercise list is
- * fetched when signed in, each step carries its own mark, and the fraction is
- * simply absent when there is no one to have a fraction.
- */
 const auth = useAuthStore()
+const api = useApi()
 const completedIds = ref<Set<string> | null>(null)
 
-// The exercise fetch reads `path.value`, so it has to run after the path
-// resolves — `useAsync` never fires either of these on its own.
 onMounted(async () => {
-  await loadPath()
-  await Promise.all([
-    loadExercises(),
-    (async () => {
-      if (!auth.isAuthenticated) return
-      try {
-        completedIds.value = new Set(await api.progress.completed())
-      } catch {
-        // Show nothing rather than a wrong zero.
-      }
-    })(),
-  ])
-})
-
-const isLoading = computed(() => pathLoading.value || exercisesLoading.value)
-
-const validExercises = computed(() => {
-  return (exercises.value || []).filter((e) => e !== null)
+  if (!auth.isAuthenticated) return
+  try {
+    completedIds.value = new Set(await api.progress.completed())
+  } catch {
+    // Show nothing rather than a wrong zero.
+  }
 })
 
 const progress = computed(() => {
@@ -84,13 +65,16 @@ const progress = computed(() => {
 
 const isDone = (id: string) => completedIds.value?.has(id) ?? false
 
-// Start where you left off: the first step not yet completed, not step one.
-const startChallenge = () => {
+const startHref = computed(() => {
   const first = validExercises.value.find((e) => !isDone(e.id)) ?? validExercises.value[0]
-  if (first) {
-    router.push(`/exercise/${first.id}`)
-  }
-}
+  return first ? exerciseHref(first as CatalogExercise & { id: string; slug?: string }) : '/paths'
+})
+
+usePageSeo({
+  title: `${authored.name} — BlankCode`,
+  description: authored.description,
+  path: `/paths/${authored.slug}`,
+})
 </script>
 
 <template>
@@ -101,115 +85,59 @@ const startChallenge = () => {
       ></div>
     </div>
 
-    <div v-else-if="!path" class="container py-12 text-center">
+    <div v-else-if="!path" class="container py-12">
       <h1 class="display text-xl md:text-2xl mb-4">Path not found</h1>
-      <NuxtLink to="/paths">
-        <Button>Browse All Paths</Button>
-      </NuxtLink>
+      <Button to="/paths" variant="outline">Back to paths</Button>
     </div>
 
-    <div v-else>
-      <!-- Hero Section -->
-      <div class="border-b border-rule">
-        <div class="container py-12">
-          <div class="max-w-4xl">
-            <NuxtLink
-              to="/paths"
-              class="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block"
-            >
-              &larr; Back to Paths
-            </NuxtLink>
+    <div v-else class="container max-w-3xl py-10 md:py-14">
+      <NuxtLink
+        to="/paths"
+        class="mb-6 inline-block text-sm text-muted-foreground hover:text-foreground"
+      >
+        &larr; Back to paths
+      </NuxtLink>
 
-            <div class="flex items-start gap-4 mb-6">
-              <div class="text-6xl">{{ path.icon }}</div>
-              <div>
-                <h1 class="display text-2xl md:text-3xl mb-2">{{ path.name }}</h1>
-                <p class="text-lg text-muted-foreground mb-4">{{ path.description }}</p>
-                <div class="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span class="flex items-center gap-1">
-                    <span>📚</span>
-                    {{ path.challengeIds.length }} challenges
-                  </span>
-                  <span v-if="progress" class="flex items-center gap-1">
-                    <span>📊</span>
-                    {{ progress.completed }} / {{ progress.total }} completed
-                  </span>
-                </div>
-              </div>
-            </div>
+      <h1 class="display text-2xl md:text-3xl mb-2">{{ path.name }}</h1>
+      <p class="mb-4 max-w-xl text-muted-foreground">{{ path.description }}</p>
+      <p class="mb-8 font-mono text-xs text-muted-foreground">
+        {{ challengeCountLabel(path.challengeIds.length) }}
+        <template v-if="progress">
+          · {{ progress.completed }} / {{ progress.total }} done
+        </template>
+      </p>
 
-            <Button size="lg" @click="startChallenge"> Start Path </Button>
-          </div>
-        </div>
-      </div>
+      <Button size="lg" :to="startHref">Start here</Button>
 
-      <!-- Challenges List -->
-      <div class="container py-8">
-        <h2 class="display text-xl md:text-2xl mb-6">Challenges in this Path</h2>
-
-        <div class="space-y-4">
+      <ol class="mt-10 border border-rule">
+        <li
+          v-for="(exercise, index) in validExercises"
+          :key="exercise.id"
+          class="border-b border-rule last:border-b-0"
+        >
           <NuxtLink
-            v-for="(exercise, index) in validExercises"
-            :key="exercise.id"
-            :to="`/exercise/${exercise.id}`"
+            :to="exerciseHref(exercise as CatalogExercise & { id: string; slug?: string })"
+            class="block px-4 py-4 transition-colors hover:bg-muted/60"
           >
-            <Card class="hover:border-rule-strong hover:shadow-lg transition-all cursor-pointer">
-              <div class="p-6">
-                <div class="flex items-start gap-4">
-                  <!-- Step number, or the mark that this step is behind you. -->
-                  <div
-                    class="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg"
-                    :style="{
-                      backgroundColor: `${path.color}20`,
-                      color: path.color,
-                    }"
-                    :title="isDone(exercise.id) ? 'Completed' : undefined"
-                  >
-                    <span v-if="isDone(exercise.id)" aria-label="Completed">✓</span>
-                    <span v-else>{{ index + 1 }}</span>
-                  </div>
-
-                  <!-- Content -->
-                  <div class="min-w-0 flex-1">
-                    <div class="flex flex-wrap items-center gap-3 mb-2">
-                      <h3 class="display text-base">{{ exercise.title }}</h3>
-                      <DifficultyTag :difficulty="exercise.difficulty" show-rank />
-                    </div>
-
-                    <p class="text-sm text-muted-foreground mb-3">
-                      {{ exercise.description }}
-                    </p>
-
-                    <div
-                      class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"
-                    >
-                      <span>{{ exercise.type }}</span>
-                      <span>•</span>
-                      <span>{{ trackLabelForExercise(exercise as CatalogExercise) }}</span>
-                    </div>
-                  </div>
-
-                  <!-- Arrow -->
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    class="text-muted-foreground flex-shrink-0 mt-2"
-                  >
-                    <path d="m9 18 6-6-6-6" />
-                  </svg>
-                </div>
-              </div>
-            </Card>
+            <div class="flex items-baseline justify-between gap-4">
+              <h2 class="display text-base">
+                <span class="font-mono text-xs text-muted-foreground">{{ index + 1 }}.</span>
+                {{ exercise.title }}
+                <span v-if="isDone(exercise.id)" class="ml-2 font-mono text-xs text-pass"
+                  >done</span
+                >
+              </h2>
+              <DifficultyTag :difficulty="exercise.difficulty" show-rank />
+            </div>
+            <p class="mt-1 line-clamp-2 text-sm text-muted-foreground">
+              {{ exercise.description }}
+            </p>
+            <p class="mt-1 font-mono text-xs text-muted-foreground">
+              {{ trackLabelForExercise(exercise as CatalogExercise) }}
+            </p>
           </NuxtLink>
-        </div>
-      </div>
+        </li>
+      </ol>
     </div>
   </div>
 </template>

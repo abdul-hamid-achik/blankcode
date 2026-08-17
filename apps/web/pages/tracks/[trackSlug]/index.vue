@@ -94,6 +94,12 @@ useSeoMeta({
         </NuxtLink>
         <h1 class="display text-2xl md:text-3xl mb-2">{{ track.name }}</h1>
         <p class="text-muted-foreground">{{ track.description }}</p>
+        <p class="mt-4 font-mono text-xs text-muted-foreground">
+          <NuxtLink to="/reading" class="underline decoration-signal/60 underline-offset-2">
+            Reading
+          </NuxtLink>
+          is a separate door: a whole small codebase, graded on what you can say about it.
+        </p>
       </div>
 
       <h2 class="display text-lg mb-4">Concepts</h2>

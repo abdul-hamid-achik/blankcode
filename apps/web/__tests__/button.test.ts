@@ -47,4 +47,17 @@ describe('Button', () => {
     expect(classes).toContain('bg-primary')
     expect(classes).toContain('h-10')
   })
+
+  it('renders a link instead of nesting a button when given to or href', () => {
+    const internal = mount(Button, { props: { to: '/login' }, slots: { default: 'Sign in' } })
+    expect(internal.find('button').exists()).toBe(false)
+    expect(internal.text()).toContain('Sign in')
+
+    const external = mount(Button, {
+      props: { href: '/api/oauth/github/start' },
+      slots: { default: 'GitHub' },
+    })
+    expect(external.element.tagName.toLowerCase()).toBe('a')
+    expect(external.attributes('href')).toBe('/api/oauth/github/start')
+  })
 })

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CHALLENGE_COUNT, LANDING_TRACKS } from '~/utils/landing-tracks'
+import { LANDING_TRACKS } from '~/utils/landing-tracks'
 
 // The list and every count come from `~/utils/landing-tracks`, which
 // `apps/web/__tests__/landing-tracks.test.ts` pins to `content/tracks/` —
@@ -15,10 +15,9 @@ import { CHALLENGE_COUNT, LANDING_TRACKS } from '~/utils/landing-tracks'
         first.
       </h2>
       <p class="text-muted-foreground max-w-xl mb-10">
-        Alongside the blanks, every track carries standalone challenges —
-        {{ CHALLENGE_COUNT }} across the site. TypeScript and Python add code-review, specification,
-        and build-the-tool exercises: reading code you did not write, pinning a request down, and
-        automating the check.
+        Alongside the blanks, every track carries standalone challenges, plus code-review,
+        specification, and build-the-tool work: reading code you did not write, pinning a request
+        down, and automating the check.
       </p>
 
       <ul class="grid gap-px bg-rule border border-rule sm:grid-cols-2 lg:grid-cols-3">

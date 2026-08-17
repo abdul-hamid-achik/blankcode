@@ -49,15 +49,12 @@ watch(
   }
 )
 
-/** Signed-out marketing nav — everything the "More" menu used to hide. */
+/** Signed-out marketing nav. Paths, challenges, and the blog live in the footer. */
 const marketingLinks = [
   { to: '/tracks', label: 'Tracks' },
-  { to: '/paths', label: 'Paths' },
-  { to: '/challenges', label: 'Challenges' },
   { to: '/reading', label: 'Reading' },
   { to: '/tutorials', label: 'Tutorials' },
   { to: '/connect', label: 'Connect' },
-  { to: '/blog', label: 'Blog' },
 ]
 
 function closeMobileMenu() {
@@ -244,12 +241,8 @@ function closeMobileMenu() {
             </svg>
           </button>
 
-          <NuxtLink to="/login">
-            <Button variant="ghost" size="sm">Sign in</Button>
-          </NuxtLink>
-          <NuxtLink to="/register">
-            <Button size="sm">Create account</Button>
-          </NuxtLink>
+          <Button to="/login" variant="ghost" size="sm">Sign in</Button>
+          <Button to="/register" size="sm">Create account</Button>
         </div>
 
         <button

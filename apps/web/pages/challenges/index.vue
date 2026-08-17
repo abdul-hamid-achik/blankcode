@@ -7,16 +7,48 @@ import DifficultyTag from '~/components/ui/difficulty-tag.vue'
 import { usePageSeo } from '~/composables/usePageSeo'
 import { useAuthStore } from '~/stores/auth'
 import {
+  catalogKind,
+  catalogKindLabel,
+  catalogKindMatches,
   challengeBelongsToTrack,
+  challengeCountLabel,
   trackLabelForExercise,
   type CatalogExercise,
+  type CatalogKind,
 } from '~/utils/challenge-catalog'
+import { exerciseHref } from '~/utils/exercise-href'
 
 definePageMeta({ requiresAuth: false })
 
-const selectedTrack = ref<string>('all')
-const selectedDifficulty = ref<string>('all')
+const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
+
+function queryValue(key: string, fallback: string): string {
+  const value = route.query[key]
+  return typeof value === 'string' && value.length > 0 ? value : fallback
+}
+
+const selectedTrack = computed({
+  get: () => queryValue('track', 'all'),
+  set: (value) => writeQuery({ track: value === 'all' ? undefined : value }),
+})
+const selectedDifficulty = computed({
+  get: () => queryValue('difficulty', 'all'),
+  set: (value) => writeQuery({ difficulty: value === 'all' ? undefined : value }),
+})
+const selectedKind = computed({
+  get: () => queryValue('kind', 'all'),
+  set: (value) => writeQuery({ kind: value === 'all' ? undefined : value }),
+})
+
+function writeQuery(patch: Record<string, string | undefined>) {
+  const next = { ...route.query, ...patch }
+  for (const key of Object.keys(next)) {
+    if (next[key] === undefined) delete next[key]
+  }
+  void router.replace({ query: next })
+}
 
 /*
  * Both lists are public, so they are fetched during the render.
@@ -40,8 +72,10 @@ const isLoading = computed(() => tracksLoading.value || exercisesLoading.value)
 // Filter exercises to only challenges
 const catalog = computed(() => (allExercises.value ?? []) as Array<Exercise & CatalogExercise>)
 
+const writeWhole = computed(() => catalog.value.filter((ex) => ex.type === 'challenge'))
+
 const challenges = computed(() => {
-  let filtered = catalog.value.filter((ex) => ex.type === 'challenge')
+  let filtered = writeWhole.value
 
   if (selectedTrack.value !== 'all') {
     filtered = filtered.filter((ex) => challengeBelongsToTrack(ex, selectedTrack.value))
@@ -51,7 +85,24 @@ const challenges = computed(() => {
     filtered = filtered.filter((ex) => ex.difficulty === selectedDifficulty.value)
   }
 
+  if (selectedKind.value !== 'all') {
+    filtered = filtered.filter((ex) => catalogKindMatches(ex, selectedKind.value))
+  }
+
   return filtered
+})
+
+const kindOptions = computed(() => {
+  const rows = writeWhole.value
+  const kinds: CatalogKind[] = ['challenge', 'tool', 'spec']
+  return [
+    { value: 'all', label: 'All kinds', count: rows.length },
+    ...kinds.map((kind) => ({
+      value: kind,
+      label: catalogKindLabel(kind),
+      count: rows.filter((ex) => catalogKind(ex) === kind).length,
+    })),
+  ]
 })
 
 const trackOptions = computed(() => {
@@ -100,7 +151,10 @@ usePageSeo({
             being hard.
           </p>
           <p v-if="!isLoading" class="mt-4 font-mono text-xs text-muted-foreground">
-            {{ challenges.length }} available
+            {{ challengeCountLabel(challenges.length) }}
+            <template v-if="selectedKind === 'all'">
+              · from scratch, build the tool, and pin it down
+            </template>
           </p>
         </div>
       </div>
@@ -127,6 +181,25 @@ usePageSeo({
               <span class="ml-2 opacity-60">
                 {{ option.count }}
               </span>
+            </button>
+          </div>
+        </div>
+        <div class="flex-1">
+          <label class="eyebrow mb-2 block">Kind</label>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="option in kindOptions"
+              :key="option.value"
+              :class="[
+                'border px-3 py-1.5 font-mono text-xs transition-colors',
+                selectedKind === option.value
+                  ? 'border-foreground bg-foreground text-background'
+                  : 'border-rule bg-background hover:bg-muted',
+              ]"
+              @click="selectedKind = option.value"
+            >
+              {{ option.label }}
+              <span class="ml-2 opacity-60">{{ option.count }}</span>
             </button>
           </div>
         </div>
@@ -160,7 +233,7 @@ usePageSeo({
       <ul v-else class="grid gap-px border border-rule bg-rule md:grid-cols-2 lg:grid-cols-3">
         <li v-for="exercise in challenges" :key="exercise.id" class="bg-background">
           <NuxtLink
-            :to="`/exercise/${exercise.id}`"
+            :to="exerciseHref(exercise)"
             class="flex h-full flex-col p-5 transition-colors hover:bg-muted/60"
           >
             <div class="mb-3 flex items-start justify-between gap-3">
@@ -173,8 +246,9 @@ usePageSeo({
             <p class="line-clamp-3 text-sm leading-relaxed text-muted-foreground">
               {{ exercise.description }}
             </p>
-            <p v-if="!auth.isAuthenticated" class="mt-3 font-mono text-xs text-muted-foreground">
-              Sign in to run the suite
+            <p class="mt-3 font-mono text-xs text-muted-foreground">
+              {{ catalogKindLabel(catalogKind(exercise)) }}
+              <template v-if="!auth.isAuthenticated"> · read it; sign in to run</template>
             </p>
           </NuxtLink>
         </li>

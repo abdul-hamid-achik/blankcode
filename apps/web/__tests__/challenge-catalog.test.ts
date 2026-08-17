@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  catalogKind,
+  catalogKindMatches,
   challengeBelongsToTrack,
+  challengeCountLabel,
   trackLabelForExercise,
   trackSlugForExercise,
   type CatalogExercise,
@@ -43,6 +46,29 @@ describe('challengeBelongsToTrack', () => {
 
   it('drops an exercise whose track is missing from a language filter', () => {
     expect(challengeBelongsToTrack(orphan, 'typescript')).toBe(false)
+  })
+})
+
+describe('catalogKind', () => {
+  it('splits tool, spec, and from-scratch work that share type=challenge', () => {
+    expect(catalogKind(ts)).toBe('spec')
+    expect(catalogKind(vue)).toBe('challenge')
+    expect(
+      catalogKind({
+        type: 'challenge',
+        conceptId: 'x',
+        concept: { slug: 'tooling', track: { slug: 'go' } },
+      })
+    ).toBe('tool')
+    expect(catalogKind(orphan)).toBe('other')
+  })
+
+  it('treats All as unfiltered and names a single challenge in the singular', () => {
+    expect(catalogKindMatches(ts, 'all')).toBe(true)
+    expect(catalogKindMatches(ts, 'spec')).toBe(true)
+    expect(catalogKindMatches(ts, 'tool')).toBe(false)
+    expect(challengeCountLabel(1)).toBe('1 challenge')
+    expect(challengeCountLabel(2)).toBe('2 challenges')
   })
 })
 

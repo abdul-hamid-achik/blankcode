@@ -30,13 +30,13 @@ describe('pricing section', () => {
   it('states the free limit that the server actually enforces', () => {
     // `entitlement.ts` caps free accounts at ten a day. A page promising a
     // different number is a support ticket.
-    expect(component).toContain('10 submissions a day')
+    expect(component).toContain('10 submissions, 20 runs, and 3 explanations a day')
   })
 
   it('sells the thing that costs money to serve', () => {
     // Submissions run a microVM each. Charging per seat with unlimited
     // execution puts the exposure on the wrong side.
-    expect(component).toContain('10 submissions a day')
+    expect(component).toContain('10 submissions, 20 runs, and 3 explanations a day')
     expect(component).toContain('No daily submission, run, or explanation cap')
     expect(component).toContain("name: 'Pro'")
     expect(component).not.toContain('The full review queue')

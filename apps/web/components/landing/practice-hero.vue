@@ -237,8 +237,9 @@ const { primary, secondary } = useLandingCta()
               and the next rep gets scheduled.
             </template>
             <template v-else>
-              Try it — the answers are 1 and 2, in either order.
-              <span class="hidden md:inline">⌘↵ runs the tests.</span>
+              Try it here in the page — the answers are 1 and 2, in either order. The rest of the
+              site runs the real suite in a sandbox.
+              <span class="hidden md:inline">⌘↵ runs these.</span>
             </template>
           </p>
         </div>

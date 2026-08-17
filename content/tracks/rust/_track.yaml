@@ -1,5 +1,5 @@
 slug: rust
 name: Rust
-description: Master Rust, a systems programming language focused on safety, speed, and concurrency. Learn memory management without garbage collection, fearless concurrency, and zero-cost abstractions that make Rust ideal for performance-critical applications.
+description: Ownership, Option, and the unwrap that only panics in production.
 order: 1
 isPublished: true

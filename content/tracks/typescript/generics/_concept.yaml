@@ -1,5 +1,5 @@
 slug: generics
 name: Generics
-description: Master TypeScript generics for creating reusable, type-safe components and functions.
+description: A type parameter is not any. The constraint is the promise; inference is usually enough.
 order: 2
 isPublished: true

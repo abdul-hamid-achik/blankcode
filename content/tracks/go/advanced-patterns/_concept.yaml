@@ -1,5 +1,5 @@
 slug: advanced-patterns
 name: Advanced Patterns
-description: Apply advanced Go patterns including context management, reflection, generics, and idiomatic design principles. Learn best practices for building production-ready, maintainable Go applications.
+description: Context that cancels, generics when a type actually varies, and the package that grew a second job.
 order: 6
 isPublished: true

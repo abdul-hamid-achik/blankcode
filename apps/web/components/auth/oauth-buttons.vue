@@ -22,12 +22,8 @@ function href(provider: 'github' | 'google'): string {
   <div>
     <p class="mb-3 text-center font-mono text-xs text-muted-foreground">or</p>
     <div class="grid grid-cols-2 gap-2">
-      <a :href="href('github')">
-        <Button variant="outline" type="button" class="w-full">GitHub</Button>
-      </a>
-      <a :href="href('google')">
-        <Button variant="outline" type="button" class="w-full">Google</Button>
-      </a>
+      <Button :href="href('github')" variant="outline" class="w-full">GitHub</Button>
+      <Button :href="href('google')" variant="outline" class="w-full">Google</Button>
     </div>
   </div>
 </template>

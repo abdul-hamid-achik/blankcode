@@ -2,8 +2,15 @@
 import Button from '~/components/ui/button.vue'
 import Card from '~/components/ui/card.vue'
 import Input from '~/components/ui/input.vue'
+import { usePageSeo } from '~/composables/usePageSeo'
 
 definePageMeta({ guestOnly: true, middleware: 'auth' })
+
+usePageSeo({
+  title: 'Choose a new password',
+  description: 'This link works once, for 30 minutes.',
+  path: '/reset',
+})
 
 const route = useRoute()
 const token = computed(() => (typeof route.query['token'] === 'string' ? route.query['token'] : ''))

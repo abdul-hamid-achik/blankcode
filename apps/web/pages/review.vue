@@ -15,6 +15,11 @@ import { speakNextBatch } from '~/utils/review-dates'
 
 definePageMeta({ requiresAuth: true, middleware: 'auth' })
 
+useSeoMeta({
+  title: 'Review',
+  description: 'The exercises the schedule is bringing back.',
+})
+
 const reviewStore = useReviewStore()
 
 interface ContinueTarget {

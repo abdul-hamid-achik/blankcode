@@ -6,6 +6,10 @@ interface Props {
   size?: 'sm' | 'md' | 'lg'
   disabled?: boolean
   loading?: boolean
+  /** In-app destination. Renders a NuxtLink so there is no button inside an `<a>`. */
+  to?: string
+  /** Full page navigation (OAuth start, etc.). Renders a plain `<a>`. */
+  href?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -38,7 +42,13 @@ const classes = computed(() => {
 </script>
 
 <template>
-  <button :class="classes" :disabled="disabled || loading">
+  <NuxtLink v-if="to && !disabled && !loading" :to="to" :class="classes">
+    <slot />
+  </NuxtLink>
+  <a v-else-if="href && !disabled && !loading" :href="href" :class="classes">
+    <slot />
+  </a>
+  <button v-else :class="classes" :disabled="disabled || loading">
     <svg
       v-if="loading"
       class="mr-2 h-4 w-4 animate-spin"

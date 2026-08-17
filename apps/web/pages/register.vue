@@ -6,12 +6,20 @@ import Input from '~/components/ui/input.vue'
 import { useAuthStore } from '~/stores/auth'
 import { REGISTER_BLURB, REGISTER_HEADING } from '~/utils/auth-copy'
 import { destinationHint, safeInternalRedirect } from '~/utils/auth-redirect'
+import { FIRST_SITTING_HREF } from '~/utils/exercise-href'
+import { usePageSeo } from '~/composables/usePageSeo'
 
 definePageMeta({ guestOnly: true, middleware: 'auth' })
 
 const route = useRoute()
 const authStore = useAuthStore()
-const redirectTo = computed(() => safeInternalRedirect(route.query['redirect'], '/tracks'))
+const redirectTo = computed(() => safeInternalRedirect(route.query['redirect'], FIRST_SITTING_HREF))
+
+usePageSeo({
+  title: 'Create an account',
+  description: 'Progress and the review schedule live with the account.',
+  path: '/register',
+})
 const hint = computed(() => destinationHint(redirectTo.value))
 
 const email = ref('')
@@ -39,10 +47,9 @@ async function handleSubmit() {
   try {
     await authStore.register(email.value, username.value, password.value)
     // Honor the same redirect login uses. A guest who picked an exercise
-    // and then created an account should land on that exercise, not the
-    // track index. The default stays /tracks: a brand-new account has
-    // nothing to review, so the dashboard's only answer is "pick something
-    // new" — with one more click in the way of the first exercise.
+    // and then created an account should land on that exercise. The default
+    // is the first TypeScript blank — a new account has nothing due, so
+    // sending them to /tracks adds a click before the first sitting.
     navigateTo(redirectTo.value)
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Registration failed'

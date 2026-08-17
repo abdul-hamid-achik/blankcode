@@ -1,5 +1,5 @@
 slug: async-patterns
 name: Async Patterns
-description: Learn async/await, Promises, and asynchronous programming patterns in TypeScript.
+description: Promises, await, and the request that keeps running after you stopped waiting.
 order: 1
 isPublished: true
