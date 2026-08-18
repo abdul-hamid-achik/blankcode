@@ -1,25 +1,64 @@
 # Origin + Buildkite. Default branch in the pipeline UI must be `preview`.
 # Enable Origin "Build tags". Pushing v* tags promotes the preview deploy.
 # UI steps should be: command: buildkite-agent pipeline upload
+agents:
+  queue: linux-medium
+
 steps:
-  - label: ":github: CI"
+  - label: ":bun: CI"
     key: ci
     if: build.tag == null
-    plugins:
-      - github-actions#latest:
-          workflow: .github/workflows/ci.yml
+    env:
+      JWT_SECRET: ci-only-secret-not-used-for-anything-real
+    command: |
+      set -euo pipefail
+      export BUN_INSTALL="$$HOME/.bun"
+      curl -fsSL https://bun.sh/install | bash
+      export PATH="$$BUN_INSTALL/bin:$$PATH"
+      bun install --frozen-lockfile
+      bun run verify
 
-  - label: ":postgres: Migrations"
-    key: migrate
+  - label: ":postgres: Migrate preview"
+    key: migrate-preview
     depends_on: ci
-    if: build.tag == null
-    plugins:
-      - github-actions#latest:
-          workflow: .github/workflows/migrations.yml
+    if: build.branch == "preview" && build.tag == null
+    agents:
+      queue: linux-small
+    secrets:
+      - BLANKCODE_DATABASE_URL_UNPOOLED_PREVIEW
+    command: |
+      set -euo pipefail
+      export BUN_INSTALL="$$HOME/.bun"
+      curl -fsSL https://bun.sh/install | bash
+      export PATH="$$BUN_INSTALL/bin:$$PATH"
+      bun install --frozen-lockfile --ignore-scripts
+      export DATABASE_URL="$${BLANKCODE_DATABASE_URL_UNPOOLED_PREVIEW:?}"
+      bun run db:migrate
+
+  - label: ":postgres: Migrate production"
+    key: migrate-production
+    depends_on: ci
+    if: build.branch == "main" && build.tag == null
+    agents:
+      queue: linux-small
+    secrets:
+      - BLANKCODE_DATABASE_URL_UNPOOLED_PRODUCTION
+    command: |
+      set -euo pipefail
+      export BUN_INSTALL="$$HOME/.bun"
+      curl -fsSL https://bun.sh/install | bash
+      export PATH="$$BUN_INSTALL/bin:$$PATH"
+      bun install --frozen-lockfile --ignore-scripts
+      export DATABASE_URL="$${BLANKCODE_DATABASE_URL_UNPOOLED_PRODUCTION:?}"
+      bun run db:migrate
 
   - label: ":rocket: Promote preview to production"
     key: promote
     if: build.tag =~ /^v/
+    agents:
+      queue: linux-small
+    secrets:
+      - VERCEL_TOKEN
     command: bash .buildkite/promote.sh
     env:
       VERCEL_PROJECT_ID: prj_hCOEP52IAeqCMcsUkxTIjwxwDbrr
