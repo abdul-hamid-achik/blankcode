@@ -13,6 +13,7 @@ steps:
     env:
       CI: "true"
       BUN_VERSION: "1.3.7"
+      NODE_VERSION: "24.19.0"
       JWT_SECRET: ci-only-secret-not-used-for-anything-real
       NUXT_TELEMETRY_DISABLED: "1"
     retry:
