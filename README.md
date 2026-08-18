@@ -137,5 +137,5 @@ five, which is why execution is not optional.
 ## Docs and notes
 
 `AGENTS.md` is the contract: architecture, design system, voice, authoring
-rules, pre-flight checklist. `CLAUDE.md` is the short version agents load
-first. Product thinking lives in Obsidian at `~/notes/projects/blankcode/`.
+rules, pre-flight checklist. Product thinking lives in Obsidian at
+`~/notes/projects/blankcode/`.

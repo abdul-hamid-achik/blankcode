@@ -1,7 +1,9 @@
 name: Migrations
 
-# Runs drizzle migrations against the matching Neon branch when the schema or
-# the migration files change.
+# Runs drizzle migrations against the matching Neon branch on every push
+# (Buildkite github-actions plugin after CI). Path filters were dropped so
+# Origin/Buildkite always apply pending migrations; drizzle-kit migrate is
+# a no-op when nothing is pending.
 #
 # Both run on push and go straight through. Production used to wait for a
 # required reviewer, but Vercel deploys main the moment it is pushed, so an
@@ -30,10 +32,6 @@ name: Migrations
 on:
   push:
     branches: [preview, main]
-    paths:
-      - "packages/db/drizzle/**"
-      - "packages/db/src/schema/**"
-      - "packages/db/drizzle.config.ts"
   workflow_dispatch:
     inputs:
       target:

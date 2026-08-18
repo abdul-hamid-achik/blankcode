@@ -3,13 +3,19 @@
 # UI steps should be: command: buildkite-agent pipeline upload
 steps:
   - label: ":github: CI"
-    key: github-actions
+    key: ci
     if: build.tag == null
     plugins:
       - github-actions#latest:
-          workflows:
-            - .github/workflows/ci.yml
-            - .github/workflows/migrations.yml
+          workflow: .github/workflows/ci.yml
+
+  - label: ":postgres: Migrations"
+    key: migrate
+    depends_on: ci
+    if: build.tag == null
+    plugins:
+      - github-actions#latest:
+          workflow: .github/workflows/migrations.yml
 
   - label: ":rocket: Promote preview to production"
     key: promote

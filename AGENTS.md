@@ -10,7 +10,7 @@ BlankCode is a monorepo coding exercise platform built with:
 - **Backend**: Effect.ts (`@effect/platform` HttpApiBuilder), PostgreSQL, Drizzle ORM
 - **Execution**: submissions run inline in the request that creates them — `POST /api/submissions` → `createAndExecute` → `runSubmission` (`apps/api/src/modules/submissions/run-submission.ts`, which also records completion, attempts, and the SM-2 review schedule). A run takes 2–12s, comfortably inside a request, so there is no queue, no worker process, and no lease reaper.
 - **Sandboxing**: two backends behind `EXECUTION_BACKEND` — Docker per-language runner images (`docker/runners/Dockerfile.{typescript,react,vue,python,go,rust}`) with hardened flags for local work; Vercel Sandbox microVMs in production, where a Function cannot start a container. Snapshots are built with `bun run sandbox:build` and **expire after 30 days unused**, which silently breaks all execution for that language — a weekly cron (`apps/web/server/routes/cron/warm-snapshots.ts`, wired in `apps/web/vercel.json`, guarded by `CRON_SECRET`) boots one sandbox per language to reset the clock.
-- **Deployment**: one Vercel project (`apps/web` is the Root Directory). `apps/api/src/app.ts` exports `ApiLive` — the whole API as a layer, no server attached — and `apps/web/server/routes/api/[...].ts` mounts it inside Nitro via `HttpApiBuilder.toWebHandler`, stripping the `/api` prefix. `apps/api/src/main.ts` is the standalone Node server for local development only. CI (`.github/workflows/ci.yml`) runs `bun run verify` and nothing else. Git auto-build is **`preview` only** (`apps/web/vercel.json`). Production is `vercel promote`, not a second Git build on `main`. See **Vercel Git and production releases** below.
+- **Deployment**: one Vercel project (`apps/web` is the Root Directory). `apps/api/src/app.ts` exports `ApiLive` — the whole API as a layer, no server attached — and `apps/web/server/routes/api/[...].ts` mounts it inside Nitro via `HttpApiBuilder.toWebHandler`, stripping the `/api` prefix. `apps/api/src/main.ts` is the standalone Node server for local development only. CI (`.github/workflows/ci.yml`) runs `bun run verify`. Buildkite then runs `.github/workflows/migrations.yml` on the same push. Git auto-build is **`preview` only** (`apps/web/vercel.json`). Production is `vercel promote`, not a second Git build on `main`. See **Vercel Git and production releases** below.
 - **Testing**: Vitest unit tests in every workspace. There is **no Playwright suite** — end-to-end coverage lives in the external `cairntrace` engine, so do not add one.
 - **Component workshop**: Histoire (`bun run story`), stories are `*.story.vue`
 - **Content & SEO**: blog posts on `@nuxt/content` (`content/blog/*.md`, rendered by `apps/web/pages/blog/`). The sitemap and robots.txt are plain Nitro routes (`apps/web/server/routes/sitemap.xml.ts`, `robots.txt.ts`) — robots disallows everything on preview deployments so a preview never competes with production for indexing. `apps/web/composables/useSiteUrl.ts` is the single source for the canonical origin. Quote frontmatter dates and any title containing a colon — unquoted, YAML mis-parses both, and a bare date reaches the page as `null`.
@@ -724,6 +724,10 @@ Git auto-build is **only the `preview` branch** (`apps/web/vercel.json`
 a Vercel deployment. Tag `v*` on that SHA to have Buildkite `vercel promote`.
 
 1. Land work on `preview` and push. Vercel builds `*-git-preview-*`.
+   Buildkite runs `ci.yml`, then `migrations.yml` against that branch's Neon
+   (TinyVault identity + `ci/migration*.sealed`). Pipeline secrets must include
+   those identity keys and `VERCEL_TOKEN`. Default branch in Buildkite is
+   `preview`; Origin **Build tags** must be on.
 2. Verify there (`tvault run -p blankcode-preview -- …` against that URL as needed).
 3. Promote the existing artifact, no rebuild:
 
@@ -738,7 +742,7 @@ a Vercel deployment. Tag `v*` on that SHA to have Buildkite `vercel promote`.
 `NUXT_PUBLIC_*` or other baked values would be wrong on blankcode.dev, do not
 promote — `vercel deploy --prod --scope the-lacanians` from that SHA. Vercel
 only picks up new environment variables on a **fresh** build; `vercel redeploy`
-reuses the old one. Changelog / `AGENTS.md` / `CLAUDE.md` / `.github` commits
+reuses the old one. Changelog / `AGENTS.md` / `.github` commits
 are ignored by `ignoreCommand` and should not deploy.
 
 ---
