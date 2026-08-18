@@ -10,7 +10,7 @@ BlankCode is a monorepo coding exercise platform built with:
 - **Backend**: Effect.ts (`@effect/platform` HttpApiBuilder), PostgreSQL, Drizzle ORM
 - **Execution**: submissions run inline in the request that creates them — `POST /api/submissions` → `createAndExecute` → `runSubmission` (`apps/api/src/modules/submissions/run-submission.ts`, which also records completion, attempts, and the SM-2 review schedule). A run takes 2–12s, comfortably inside a request, so there is no queue, no worker process, and no lease reaper.
 - **Sandboxing**: two backends behind `EXECUTION_BACKEND` — Docker per-language runner images (`docker/runners/Dockerfile.{typescript,react,vue,python,go,rust}`) with hardened flags for local work; Vercel Sandbox microVMs in production, where a Function cannot start a container. Snapshots are built with `bun run sandbox:build` and **expire after 30 days unused**, which silently breaks all execution for that language — a weekly cron (`apps/web/server/routes/cron/warm-snapshots.ts`, wired in `apps/web/vercel.json`, guarded by `CRON_SECRET`) boots one sandbox per language to reset the clock.
-- **Deployment**: one Vercel project (`apps/web` is the Root Directory). `apps/api/src/app.ts` exports `ApiLive` — the whole API as a layer, no server attached — and `apps/web/server/routes/api/[...].ts` mounts it inside Nitro via `HttpApiBuilder.toWebHandler`, stripping the `/api` prefix. `apps/api/src/main.ts` is the standalone Node server for local development only. CI is native Buildkite (`.buildkite/pipeline.yml`): `bun run verify`, then Neon migrate. Git auto-build is **`preview` only** (`apps/web/vercel.json`). Production is `vercel promote`, not a second Git build on `main`. See **Vercel Git and production releases** below.
+- **Deployment**: one Vercel project (`apps/web` is the Root Directory). `apps/api/src/app.ts` exports `ApiLive` — the whole API as a layer, no server attached — and `apps/web/server/routes/api/[...].ts` mounts it inside Nitro via `HttpApiBuilder.toWebHandler`, stripping the `/api` prefix. `apps/api/src/main.ts` is the standalone Node server for local development only. CI is native Buildkite (`.buildkite/pipeline.yml`): `bun run verify`, then Neon migrate. Git auto-build is **`main` → Preview** once Vercel Production Branch is a unused `production` sentinel (`apps/web/vercel.json`). Until then auto-build stays on the leftover `preview` git branch so a `main` push cannot become a Production Git deploy. Production is a `v*` tag plus `vercel promote`, not a Git build on `main`. See **Vercel Git and production releases** below.
 - **Testing**: Vitest unit tests in every workspace. There is **no Playwright suite** — end-to-end coverage lives in the external `cairntrace` engine, so do not add one.
 - **Component workshop**: Histoire (`bun run story`), stories are `*.story.vue`
 - **Content & SEO**: blog posts on `@nuxt/content` (`content/blog/*.md`, rendered by `apps/web/pages/blog/`). The sitemap and robots.txt are plain Nitro routes (`apps/web/server/routes/sitemap.xml.ts`, `robots.txt.ts`) — robots disallows everything on preview deployments so a preview never competes with production for indexing. `apps/web/composables/useSiteUrl.ts` is the single source for the canonical origin. Quote frontmatter dates and any title containing a colon — unquoted, YAML mis-parses both, and a bare date reaches the page as `null`.
@@ -728,27 +728,32 @@ If you're stuck:
 
 ## Vercel Git and production releases
 
-Git auto-build is **only the `preview` branch** (`apps/web/vercel.json`
-`git.deploymentEnabled`). Git remote `origin` is Cursor Origin. Vercel assigns
-`preview.blankcode.dev` to git branch `preview`. Pushes to `main` do not create
-a Vercel deployment. Tag `v*` on that SHA to have Buildkite `vercel promote`.
+Git auto-build should be **`main` → Preview** (`apps/web/vercel.json`
+`git.deploymentEnabled`). Git remote `origin` is Cursor Origin. Vercel
+assigns `preview.blankcode.dev` to git branch `main` after cutover.
+Production is never a Git build: tag `v*` so Buildkite `vercel promote`.
 
-1. Land work on `preview` and push. Vercel builds `*-git-preview-*`.
-   Buildkite runs `.buildkite/pipeline.yml`: `bun run verify`, then Neon
-   migrate. Cluster secrets: `VERCEL_TOKEN`,
-   `BLANKCODE_DATABASE_URL_UNPOOLED_PREVIEW`,
+Vercel Git **Production Branch** must be a unused sentinel (`production`),
+not `main`. If it stays `main`, enabling git deploys on `main` ships live
+keys. Until that dashboard field is the sentinel, keep auto-build on the
+leftover `preview` git branch.
+
+1. Land work on `main` and push. Buildkite runs `.buildkite/pipeline.yml`:
+   `bun run verify`, then preview Neon migrate. Cluster secrets:
+   `VERCEL_TOKEN`, `BLANKCODE_DATABASE_URL_UNPOOLED_PREVIEW`,
    `BLANKCODE_DATABASE_URL_UNPOOLED_PRODUCTION` (from `neonctl
    connection-string`, unpooled). Do not decrypt `.env.encrypted` or
    `ci/migration*.sealed` in CI — those stay owner backups. Default branch
-   in Buildkite is `preview`; Origin **Build tags** must be on.
+   in Buildkite is `main`; Origin **Build tags** must be on.
 2. Verify there (`tvault run -p blankcode-preview -- …` against that URL as needed).
-3. Promote the existing artifact, no rebuild:
+3. Tag the same SHA `v*` and push it. Buildkite migrates production Neon,
+   then promotes the existing artifact, no rebuild:
 
    ```bash
    vercel promote <preview-deployment-url> --scope the-lacanians --yes
    ```
 
-4. Merge `preview` → `main` so git matches production. That merge must not rebuild.
+`main` is git history. Do not merge to a second branch for that.
 
 `vercel promote` keeps Preview's **build-time** inlines. Preview uses
 `blankcode-preview` (test/sandbox); production uses `blankcode` (live). If

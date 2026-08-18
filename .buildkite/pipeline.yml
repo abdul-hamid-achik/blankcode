@@ -1,5 +1,6 @@
-# Origin + Buildkite. Default branch in the pipeline UI must be `preview`.
-# Enable Origin "Build tags". Pushing v* tags promotes the preview deploy.
+# Origin + Buildkite. Default branch in the pipeline UI must be `main`.
+# Enable Origin "Build tags". Pushing v* tags migrates production Neon
+# then promotes the Preview deploy. Do not git-deploy Production.
 # UI steps should be: command: buildkite-agent pipeline upload
 agents:
   queue: linux-medium
@@ -31,7 +32,7 @@ steps:
   - label: ":postgres: Migrate preview"
     key: migrate-preview
     depends_on: ci
-    if: build.branch == "preview" && build.tag == null
+    if: (build.branch == "main" || build.branch == "preview") && build.tag == null
     timeout_in_minutes: 10
     agents:
       queue: linux-small
@@ -48,8 +49,7 @@ steps:
 
   - label: ":postgres: Migrate production"
     key: migrate-production
-    depends_on: ci
-    if: build.branch == "main" && build.tag == null
+    if: build.tag =~ /^v/
     timeout_in_minutes: 10
     agents:
       queue: linux-small
@@ -66,6 +66,7 @@ steps:
 
   - label: ":rocket: Promote preview to production"
     key: promote
+    depends_on: migrate-production
     if: build.tag =~ /^v/
     timeout_in_minutes: 20
     agents:

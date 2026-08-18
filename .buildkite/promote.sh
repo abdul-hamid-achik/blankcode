@@ -62,7 +62,7 @@ if any(deploy_state(item) in building for item in matched):
 if matched:
     for item in deployments:
         meta = item.get("meta") or {}
-        if ref_name(meta) == "preview" and is_ready_preview(item):
+        if ref_name(meta) in ("main", "preview") and is_ready_preview(item):
             print(
                 "SHA %s has no READY preview (latest=%s); using newest READY preview %s"
                 % (sha[:7], deploy_state(matched[0]), commit_sha(meta)[:7]),
@@ -79,7 +79,7 @@ if matched:
 done
 
 if [ -z "$url" ]; then
-  echo "No READY preview deployment for ${SHA}. Push the same commit to preview first, wait for Vercel, then retag." >&2
+  echo "No READY preview deployment for ${SHA}. Push the same commit to main (or preview during cutover), wait for Vercel, then retag." >&2
   exit 1
 fi
 
