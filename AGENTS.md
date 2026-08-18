@@ -581,12 +581,13 @@ review had not.
 
 ### 8. `nuxt typecheck` under bun hangs CI
 
-`@nuxt/content` cannot load `node:sqlite` from bun, so it prompts to install
-`better-sqlite3`. Buildkite has a TTY, the prompt never times out on its own,
-and the agent sits there until cancelled. The web `typecheck` script must
-invoke Nuxt with `node`. Tests use `bun --bun vitest run` so Linux CI does not
-hit `ERR_REQUIRE_ESM` loading Vite. The CI step also has
-`timeout_in_minutes: 25`.
+`@nuxt/content` indexes markdown in sqlite. That is not our product database
+and we do **not** install `better-sqlite3`. Node 22.5+ already has
+`node:sqlite`; bun cannot load it, so the module prompts to install a native
+addon. Buildkite has a TTY, the prompt never times out, and the agent sits
+there until cancelled. The web `typecheck` script must invoke Nuxt with
+`node`. Tests use `bun --bun vitest run` so Linux CI does not hit
+`ERR_REQUIRE_ESM` loading Vite. The CI step has `timeout_in_minutes: 25`.
 
 ## Database Changes
 

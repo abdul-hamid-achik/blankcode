@@ -9,16 +9,21 @@ steps:
     key: ci
     if: build.tag == null
     timeout_in_minutes: 25
+    cancel_on_build_failing: true
     env:
       CI: "true"
+      BUN_VERSION: "1.3.7"
       JWT_SECRET: ci-only-secret-not-used-for-anything-real
       NUXT_TELEMETRY_DISABLED: "1"
+    retry:
+      automatic:
+        - exit_status: -1
+          limit: 2
+        - exit_status: 143
+          limit: 2
     command: |
       set -euo pipefail
-      export CI=true
-      export BUN_INSTALL="$$HOME/.bun"
-      curl -fsSL https://bun.sh/install | bash
-      export PATH="$$BUN_INSTALL/bin:$$PATH"
+      . .buildkite/install-bun.sh
       bun install --frozen-lockfile
       bun run verify
 
@@ -26,15 +31,16 @@ steps:
     key: migrate-preview
     depends_on: ci
     if: build.branch == "preview" && build.tag == null
+    timeout_in_minutes: 10
     agents:
       queue: linux-small
     secrets:
       - BLANKCODE_DATABASE_URL_UNPOOLED_PREVIEW
+    env:
+      BUN_VERSION: "1.3.7"
     command: |
       set -euo pipefail
-      export BUN_INSTALL="$$HOME/.bun"
-      curl -fsSL https://bun.sh/install | bash
-      export PATH="$$BUN_INSTALL/bin:$$PATH"
+      . .buildkite/install-bun.sh
       bun install --frozen-lockfile --ignore-scripts
       export DATABASE_URL="$${BLANKCODE_DATABASE_URL_UNPOOLED_PREVIEW:?}"
       bun run db:migrate
@@ -43,15 +49,16 @@ steps:
     key: migrate-production
     depends_on: ci
     if: build.branch == "main" && build.tag == null
+    timeout_in_minutes: 10
     agents:
       queue: linux-small
     secrets:
       - BLANKCODE_DATABASE_URL_UNPOOLED_PRODUCTION
+    env:
+      BUN_VERSION: "1.3.7"
     command: |
       set -euo pipefail
-      export BUN_INSTALL="$$HOME/.bun"
-      curl -fsSL https://bun.sh/install | bash
-      export PATH="$$BUN_INSTALL/bin:$$PATH"
+      . .buildkite/install-bun.sh
       bun install --frozen-lockfile --ignore-scripts
       export DATABASE_URL="$${BLANKCODE_DATABASE_URL_UNPOOLED_PRODUCTION:?}"
       bun run db:migrate
@@ -59,10 +66,23 @@ steps:
   - label: ":rocket: Promote preview to production"
     key: promote
     if: build.tag =~ /^v/
+    timeout_in_minutes: 20
     agents:
       queue: linux-small
     secrets:
       - VERCEL_TOKEN
+    concurrency: 1
+    concurrency_group: "blankcode/promote"
+    concurrency_method: eager
+    retry:
+      automatic:
+        - exit_status: -1
+          limit: 2
+        - exit_status: 143
+          limit: 2
+      manual:
+        allowed: true
+        reason: "Retry after the preview deploy is READY."
     command: bash .buildkite/promote.sh
     env:
       VERCEL_PROJECT_ID: prj_hCOEP52IAeqCMcsUkxTIjwxwDbrr
