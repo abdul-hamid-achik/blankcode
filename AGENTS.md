@@ -579,6 +579,15 @@ browser and grep the console for `hydrat|mismatch` — a Playwright sweep from
 the scratchpad reproduced and then cleared this in minutes, which static
 review had not.
 
+### 8. `nuxt typecheck` under bun hangs CI
+
+`@nuxt/content` cannot load `node:sqlite` from bun, so it prompts to install
+`better-sqlite3`. Buildkite has a TTY, the prompt never times out on its own,
+and the agent sits there until cancelled. The web `typecheck` script must
+invoke Nuxt with `node`. Tests use `bun --bun vitest run` so Linux CI does not
+hit `ERR_REQUIRE_ESM` loading Vite. The CI step also has
+`timeout_in_minutes: 25`.
+
 ## Database Changes
 
 When modifying the database schema:

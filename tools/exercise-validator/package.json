@@ -16,7 +16,7 @@
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "start": "bun src/cli.ts",
-    "test": "vitest run",
+    "test": "bun --bun vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {

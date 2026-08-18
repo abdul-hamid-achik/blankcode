@@ -22,7 +22,7 @@
     "dev": "bun --watch src/main.ts",
     "start": "bun src/main.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "bun --bun vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "clean": "rm -rf dist",

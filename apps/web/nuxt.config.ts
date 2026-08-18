@@ -38,6 +38,11 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   content: {
+    experimental: {
+      // Typecheck runs under Node so this uses node:sqlite. bun cannot load
+      // that module; @nuxt/content then prompts for better-sqlite3 and hangs CI.
+      sqliteConnector: 'native',
+    },
     build: {
       markdown: {
         highlight: {

@@ -29,7 +29,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "bun --bun vitest run",
     "test:watch": "vitest",
     "clean": "rm -rf dist"
   },
