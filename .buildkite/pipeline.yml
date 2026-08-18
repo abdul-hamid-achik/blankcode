@@ -1,10 +1,19 @@
-# Buildkite on Origin hosted agents. Triggers are set in the Buildkite pipeline
-# UI (branch pushes + pull requests). Reuses the existing GitHub Actions CI.
+# Origin + Buildkite. Default branch in the pipeline UI must be `preview`.
+# Enable Origin "Build tags". Pushing v* tags promotes the preview deploy.
+# UI steps should be: command: buildkite-agent pipeline upload
 steps:
   - label: ":github: CI"
     key: github-actions
+    if: build.tag == null
     plugins:
       - github-actions#latest:
           workflows:
             - .github/workflows/ci.yml
             - .github/workflows/migrations.yml
+
+  - label: ":rocket: Promote preview to production"
+    key: promote
+    if: build.tag =~ /^v/
+    command: bash .buildkite/promote.sh
+    env:
+      VERCEL_PROJECT_ID: prj_hCOEP52IAeqCMcsUkxTIjwxwDbrr

@@ -719,7 +719,9 @@ If you're stuck:
 ## Vercel Git and production releases
 
 Git auto-build is **only the `preview` branch** (`apps/web/vercel.json`
-`git.deploymentEnabled`). Pushes to `main` do not create a Vercel deployment.
+`git.deploymentEnabled`). Git remote `origin` is Cursor Origin. Vercel assigns
+`preview.blankcode.dev` to git branch `preview`. Pushes to `main` do not create
+a Vercel deployment. Tag `v*` on that SHA to have Buildkite `vercel promote`.
 
 1. Land work on `preview` and push. Vercel builds `*-git-preview-*`.
 2. Verify there (`tvault run -p blankcode-preview -- …` against that URL as needed).
