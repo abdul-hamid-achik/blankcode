@@ -1,0 +1,10 @@
+# Buildkite on Origin hosted agents. Triggers are set in the Buildkite pipeline
+# UI (branch pushes + pull requests). Reuses the existing GitHub Actions CI.
+steps:
+  - label: ":github: CI"
+    key: github-actions
+    plugins:
+      - github-actions#latest:
+          workflows:
+            - .github/workflows/ci.yml
+            - .github/workflows/migrations.yml
