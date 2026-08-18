@@ -90,11 +90,11 @@ every static check while failing execution.
 | production | `main` | `main` | blankcode.dev |
 | preview | `preview` | `preview` | preview.blankcode.dev |
 
-Pushes to `main` deploy production. Pushes to `preview` deploy and re-point
-preview.blankcode.dev (`.github/workflows/preview-domain.yml`). Migrations run
-in CI on push when `packages/db` changes — preview automatically, production
-behind a required reviewer (`.github/workflows/migrations.yml`), with secrets
-delivered via tvault identity mode and sealed artifacts in `ci/`.
+Pushes to `preview` auto-build on Vercel; `preview.blankcode.dev` follows
+that branch. Pushes to `main` do not create a Vercel deployment — production
+is `vercel promote` of a preview artifact. Buildkite (`.buildkite/pipeline.yml`)
+runs `bun run verify`, then applies committed migrations to the matching Neon
+branch (`preview` or `main`) using unpooled URLs stored as cluster secrets.
 
 Operator changes (plan, prices, keys) are one command:
 
@@ -137,5 +137,5 @@ five, which is why execution is not optional.
 ## Docs and notes
 
 `AGENTS.md` is the contract: architecture, design system, voice, authoring
-rules, pre-flight checklist. `CLAUDE.md` is the short version agents load
-first. Product thinking lives in Obsidian at `~/notes/projects/blankcode/`.
+rules, pre-flight checklist. Product thinking lives in Obsidian at
+`~/notes/projects/blankcode/`.
