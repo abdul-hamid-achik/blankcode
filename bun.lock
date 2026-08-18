@@ -73,7 +73,6 @@
         "@vercel/sandbox": "^2.9.2",
         "ai": "^7.0.55",
         "bcryptjs": "^3.0.3",
-        "better-sqlite3": "^13.0.3",
         "effect": "^3.22.1",
         "jose": "^6.2.8",
         "nuxt": "^4.5.2",
@@ -89,7 +88,6 @@
       },
       "devDependencies": {
         "@histoire/plugin-vue": "^1.0.0-beta.1",
-        "@types/better-sqlite3": "^9.6.0",
         "@vitejs/plugin-vue": "^6.0.8",
         "@vue/compiler-sfc": "^3.5.41",
         "@vue/test-utils": "^2.4.11",
