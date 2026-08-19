@@ -33,6 +33,8 @@ export interface ConceptProgress {
   conceptSlug: string
   conceptName: string
   mastery: DecayedMastery | null
+  /** Live count from userProgress, not the last mastery upsert. */
+  completedExercises: number
   totalExercises: number
 }
 
@@ -554,7 +556,17 @@ export const ProgressServiceLive = Layer.effect(
             catch: () => new NotFoundError({ resource: 'ConceptMastery', id: userId }),
           })
 
+          const completedProgress = yield* Effect.tryPromise({
+            try: () =>
+              db.query.userProgress.findMany({
+                where: and(eq(userProgress.userId, userId), eq(userProgress.isCompleted, true)),
+                columns: { exerciseId: true },
+              }),
+            catch: () => new NotFoundError({ resource: 'UserProgress', id: userId }),
+          })
+
           const masteryMap = new Map(masteryRecords.map((m) => [m.conceptId, m]))
+          const completedExerciseIds = new Set(completedProgress.map((row) => row.exerciseId))
 
           return trackConcepts.map((concept) => {
             const mastery = masteryMap.get(concept.id) ?? null
@@ -570,6 +582,9 @@ export const ProgressServiceLive = Layer.effect(
               conceptSlug: concept.slug,
               conceptName: concept.name,
               mastery: decayedMastery,
+              completedExercises: concept.exercises.filter((exercise) =>
+                completedExerciseIds.has(exercise.id)
+              ).length,
               totalExercises: concept.exercises.length,
             }
           })

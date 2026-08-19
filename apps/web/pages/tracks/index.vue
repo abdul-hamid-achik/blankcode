@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import type { Track } from '@blankcode/shared'
-import { computed, onMounted } from 'vue'
+import { computed } from 'vue'
 import EmptyState from '~/components/error/empty-state.vue'
-import { useApi } from '~/composables/useApi'
-import { useAsync } from '~/composables/useAsync'
-import { useAuthStore } from '~/stores/auth'
 import { usePageSeo } from '~/composables/usePageSeo'
+import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 import { LANDING_TRACKS } from '~/utils/landing-tracks'
 
 /**
@@ -14,25 +12,32 @@ import { LANDING_TRACKS } from '~/utils/landing-tracks'
  * you had finished a track or never opened it.
  */
 
-const api = useApi()
-const authStore = useAuthStore()
-
 /*
  * The track list is public, so it is fetched during the render — this page used
  * to load it on mount and served a crawler one heading and nothing else.
  *
- * The progress summary stays on mount on purpose: it needs the reader's token
- * and is different for every one of them, so there is nothing to render on the
- * server and nothing worth caching.
+ * Progress used to wait for onMounted + isAuthenticated. initialize() is
+ * async in the layout, so that check ran while `user` was still null and the
+ * summary never loaded. Fetch it here with the cookie, same as /progress.
  */
 const { data: tracks, pending: isLoading } = await useAsyncData('tracks', () =>
   $fetch<Track[]>('/api/tracks')
 )
 
-const { data: summary, execute: loadSummary } = useAsync(() => api.progress.getSummary())
+interface TrackSummaryRow {
+  trackSlug: string
+  trackName: string
+  totalExercises: number
+  completedExercises: number
+  masteryLevel: number
+}
 
-onMounted(() => {
-  if (authStore.isAuthenticated) loadSummary()
+const { data: summary } = await useAsyncData('tracks-summary', () => {
+  const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
+  if (!token) return Promise.resolve([] as TrackSummaryRow[])
+  return $fetch<TrackSummaryRow[]>('/api/progress/summary', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
 })
 
 /** Progress keyed by track slug, so a row can render its own state. */

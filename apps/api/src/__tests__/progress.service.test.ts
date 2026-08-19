@@ -232,6 +232,7 @@ describe('ProgressService', () => {
           exercisesTotal: 2,
         },
       ])
+      mockDb.query.userProgress.findMany.mockResolvedValue([])
 
       const result = await runService(
         Effect.gen(function* () {
@@ -256,6 +257,7 @@ describe('ProgressService', () => {
           exercisesCompleted: 1,
           exercisesTotal: 2,
         },
+        completedExercises: 0,
         totalExercises: 2,
       })
       expect(result[1]).toEqual({
@@ -263,8 +265,46 @@ describe('ProgressService', () => {
         conceptSlug: 'functions',
         conceptName: 'Functions',
         mastery: null,
+        completedExercises: 0,
         totalExercises: 1,
       })
+    })
+
+    it('counts live completions when no mastery row has been written', async () => {
+      mockDb.query.tracks.findFirst.mockResolvedValue({
+        id: 'track-1',
+        slug: 'python',
+        name: 'Python',
+      })
+      mockDb.query.concepts.findMany.mockResolvedValue([
+        {
+          id: 'concept-tooling',
+          slug: 'tooling',
+          name: 'Build the Tool',
+          exercises: [{ id: 'ex-1' }, { id: 'ex-2' }],
+        },
+      ])
+      mockDb.query.conceptMastery.findMany.mockResolvedValue([])
+      mockDb.query.userProgress.findMany.mockResolvedValue([{ exerciseId: 'ex-1' }])
+
+      const result = await runService(
+        Effect.gen(function* () {
+          const svc = yield* ProgressService
+          return yield* svc.getTrackProgress('user-1', 'python')
+        }),
+        testLayer
+      )
+
+      expect(result).toEqual([
+        {
+          conceptId: 'concept-tooling',
+          conceptSlug: 'tooling',
+          conceptName: 'Build the Tool',
+          mastery: null,
+          completedExercises: 1,
+          totalExercises: 2,
+        },
+      ])
     })
 
     it('returns empty array for unknown track', async () => {

@@ -38,13 +38,11 @@ const consumers = [
   .filter(({ source }) => source.includes('useAsync('))
 
 describe('useAsync consumers actually fetch', () => {
-  it('finds the files that use useAsync', () => {
-    expect(consumers.length).toBeGreaterThan(0)
-  })
-
-  it.each(consumers.map(({ file, source }) => [relative(webRoot, file), source]))(
-    '%s triggers its own fetch',
-    (_name, source) => {
+  it('every remaining useAsync call is executed', () => {
+    // Zero consumers is fine — the helper is unused. A new call still has to
+    // fetch, or the page ships looking empty the way challenges once did.
+    for (const { file, source } of consumers) {
+      const rel = relative(webRoot, file)
       // Every `useAsync` call in the file must be matched by either an
       // `immediate` flag or a renamed `execute` that is invoked somewhere.
       const callCount = (source.match(/useAsync\(/g) ?? []).length
@@ -53,9 +51,9 @@ describe('useAsync consumers actually fetch', () => {
 
       // `execute: loadThing` -> check `loadThing` is called.
       const renamed = [...source.matchAll(/execute:\s*(\w+)/g)].map((m) => m[1] as string)
-      const invokedRenames = renamed.filter((name) =>
-        new RegExp(`\\b${name}\\s*\\(|onMounted\\(\\s*${name}\\s*\\)`).test(
-          source.replace(new RegExp(`execute:\\s*${name}`, 'g'), '')
+      const invokedRenames = renamed.filter((fn) =>
+        new RegExp(`\\b${fn}\\s*\\(|onMounted\\(\\s*${fn}\\s*\\)`).test(
+          source.replace(new RegExp(`execute:\\s*${fn}`, 'g'), '')
         )
       )
 
@@ -65,8 +63,8 @@ describe('useAsync consumers actually fetch', () => {
 
       expect(
         wired,
-        'useAsync() never fetches on its own — pass `true` as the second argument or call execute()'
+        `${rel}: useAsync() never fetches on its own — pass true as the second argument or call execute()`
       ).toBeGreaterThanOrEqual(callCount)
     }
-  )
+  })
 })

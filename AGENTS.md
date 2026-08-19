@@ -579,7 +579,17 @@ browser and grep the console for `hydrat|mismatch` — a Playwright sweep from
 the scratchpad reproduced and then cleared this in minutes, which static
 review had not.
 
-### 8. `nuxt typecheck` under bun hangs CI
+### 8. `foo.vue` next to a `foo/` directory swallows the child routes
+
+Nuxt treats `pages/tracks/[trackSlug]/[conceptSlug].vue` as the parent of
+`[conceptSlug]/[exerciseSlug].vue`. Without `<NuxtPage>` in the parent, a
+URL like `/tracks/python/tooling/py-tool-001` renders the concept list and
+ignores the third segment — click does nothing, a new tab shows the same
+list. Put the concept page at `[conceptSlug]/index.vue` so the exercise
+page is a sibling, not a child. `apps/web/__tests__/track-routes.test.ts`
+fails if any page file sits next to a same-named directory.
+
+### 9. `nuxt typecheck` under bun hangs CI
 
 `@nuxt/content` indexes markdown in sqlite. That is not our product database
 and we do **not** install `better-sqlite3`. Node 22.5+ already has

@@ -2,9 +2,9 @@
 import { TRACK_SLUGS, type Concept, type Exercise, type Track } from '@blankcode/shared'
 import Card from '~/components/ui/card.vue'
 import DifficultyTag from '~/components/ui/difficulty-tag.vue'
-import { useAuthStore } from '~/stores/auth'
 import { exerciseHref } from '~/utils/exercise-href'
 import { exerciseTypeBadge } from '~/utils/exercise-type-badge'
+import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 const route = useRoute()
 const trackSlug = computed(() => route.params['trackSlug'] as string)
@@ -22,40 +22,38 @@ if (!TRACK_SLUGS.includes(trackSlug.value as (typeof TRACK_SLUGS)[number])) {
  * lets the heading say the concept's *name*. The h1 used to render the raw
  * slug, on the surface whose whole job is naming the thing you are studying.
  */
-const [{ data: exercises, pending: isLoading }, { data: track }] = await Promise.all([
-  useAsyncData(
-    () => `concept-exercises-${trackSlug.value}-${conceptSlug.value}`,
-    () =>
-      $fetch<Exercise[]>(`/api/tracks/${trackSlug.value}/concepts/${conceptSlug.value}/exercises`)
-  ),
-  useAsyncData(
-    () => `track-${trackSlug.value}`,
-    () => $fetch<Track & { concepts?: Concept[] }>(`/api/tracks/${trackSlug.value}`)
-  ),
-])
+const [{ data: exercises, pending: isLoading }, { data: track }, { data: completed }] =
+  await Promise.all([
+    useAsyncData(
+      () => `concept-exercises-${trackSlug.value}-${conceptSlug.value}`,
+      () =>
+        $fetch<Exercise[]>(`/api/tracks/${trackSlug.value}/concepts/${conceptSlug.value}/exercises`)
+    ),
+    useAsyncData(
+      () => `track-${trackSlug.value}`,
+      () => $fetch<Track & { concepts?: Concept[] }>(`/api/tracks/${trackSlug.value}`)
+    ),
+    useAsyncData(
+      () => `completed-exercises-${trackSlug.value}-${conceptSlug.value}`,
+      () => {
+        const token = useCookie<string | null>('token', AUTH_COOKIE_OPTIONS).value
+        if (!token) return Promise.resolve([] as string[])
+        return $fetch<string[]>('/api/progress/completed', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      }
+    ),
+  ])
 
 const concept = computed(() => track.value?.concepts?.find((c) => c.slug === conceptSlug.value))
+const completedIds = computed(() => new Set(completed.value ?? []))
 
 useSeoMeta({
   title: () => `${concept.value?.name ?? conceptSlug.value} — ${track.value?.name ?? 'BlankCode'}`,
   description: () => concept.value?.description ?? 'Practice exercises for this concept.',
 })
 
-/** Done-marks per exercise: the user's real completions, or nothing. */
-const auth = useAuthStore()
-const api = useApi()
-const completedIds = ref<Set<string> | null>(null)
-
-onMounted(async () => {
-  if (!auth.isAuthenticated) return
-  try {
-    completedIds.value = new Set(await api.progress.completed())
-  } catch {
-    // No marks over wrong marks.
-  }
-})
-
-const isDone = (id: string) => completedIds.value?.has(id) ?? false
+const isDone = (id: string) => completedIds.value.has(id)
 </script>
 
 <template>

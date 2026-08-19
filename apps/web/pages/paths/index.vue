@@ -37,6 +37,7 @@ const api = useApi()
 const progressBySlug = ref<Map<string, { completed: number; total: number }> | null>(null)
 
 onMounted(async () => {
+  await auth.initialize()
   if (!auth.isAuthenticated) return
   try {
     const [dbPaths, completed] = await Promise.all([api.paths.getAll(), api.progress.completed()])

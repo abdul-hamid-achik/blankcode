@@ -391,6 +391,7 @@ const MockProgressService = Layer.succeed(ProgressService, {
         conceptSlug: 'basics',
         conceptName: 'Basics',
         mastery: null,
+        completedExercises: 0,
         totalExercises: 5,
       },
     ]),

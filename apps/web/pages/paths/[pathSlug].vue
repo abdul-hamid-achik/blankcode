@@ -47,6 +47,7 @@ const api = useApi()
 const completedIds = ref<Set<string> | null>(null)
 
 onMounted(async () => {
+  await auth.initialize()
   if (!auth.isAuthenticated) return
   try {
     completedIds.value = new Set(await api.progress.completed())
