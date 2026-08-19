@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useAuthStore } from '~/stores/auth'
-import { useReviewStore } from '~/stores/review'
 import { AUTH_COOKIE_OPTIONS } from '~/utils/auth-cookie'
 
 /**
- * Signed-in navigation, in full.
+ * Signed-in navigation, in full — except Review, which lives in the header
+ * as the due-count shortcut so the badge is not painted twice.
  *
- * The header used to fold everything past two links into a "More" dropdown —
- * that dropdown is gone. This is where the rest of the product lives now:
- * persistent at lg+ (part of the page, not an overlay on it), a drawer below
- * that the header's hamburger opens.
+ * Persistent at lg+ (part of the page, not an overlay on it); a drawer
+ * below that the header's hamburger opens.
  */
 
 interface Props {
@@ -23,7 +21,6 @@ const props = defineProps<Props>()
 const emit = defineEmits<{ close: [] }>()
 
 const authStore = useAuthStore()
-const reviewStore = useReviewStore()
 const route = useRoute()
 const asideEl = ref<HTMLElement | null>(null)
 
@@ -69,7 +66,6 @@ const sections = computed<SidebarSection[]>(() => {
       label: 'practice',
       links: [
         { to: '/dashboard', label: 'Dashboard' },
-        { to: '/review', label: 'Review' },
         { to: '/tracks', label: 'Tracks' },
         { to: '/paths', label: 'Paths' },
         { to: '/challenges', label: 'Challenges' },
@@ -149,13 +145,7 @@ watch(
           :aria-current="isActive(link.to) ? 'page' : undefined"
           @click="emit('close')"
         >
-          <span>{{ link.label }}</span>
-          <span
-            v-if="link.to === '/review' && reviewStore.dueCount > 0"
-            class="ml-1.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-signal px-1 font-mono text-[10px] font-semibold text-signal-foreground"
-          >
-            {{ reviewStore.dueCount > 99 ? '99+' : reviewStore.dueCount }}
-          </span>
+          {{ link.label }}
         </NuxtLink>
       </template>
 
@@ -182,8 +172,6 @@ watch(
 .sidebar-link {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
   border-radius: 2px;
   border-left: 2px solid transparent;
   padding: 0.5rem 0.75rem;

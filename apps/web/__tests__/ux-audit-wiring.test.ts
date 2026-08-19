@@ -18,8 +18,15 @@ describe('catalog and chrome wiring', () => {
     const header = read('components/layout/app-header.vue')
     expect(header).toContain("{ to: '/reading', label: 'Reading' }")
     expect(header).toContain("{ to: '/connect', label: 'Connect' }")
+  })
+
+  it('keeps Review in the header and out of the sidebar', () => {
+    const header = read('components/layout/app-header.vue')
+    const sidebar = read('components/layout/app-sidebar.vue')
     expect(header).toContain('to="/review"')
     expect(header).toContain('reviewStore.dueCount')
+    expect(sidebar).not.toContain("{ to: '/review', label: 'Review' }")
+    expect(sidebar).not.toContain("link.to === '/review'")
   })
 
   it('signs out by leaving the protected page', () => {

@@ -6,11 +6,10 @@ import { usePreferencesStore } from '~/stores/preferences'
 import { useReviewStore } from '~/stores/review'
 
 /**
- * Signed in, this is a strip of controls, not a nav: wordmark, the sidebar
- * toggle (drawer below lg, collapse at lg+), theme, and two shortcuts —
- * settings and account. Navigation lives in the sidebar, whole; the header
- * used to duplicate Review here and that duplicate is gone, as is the
- * Sign out button, which now lives with the account section it belongs to.
+ * Signed in, this is a strip of controls: wordmark, the sidebar toggle
+ * (drawer below lg, collapse at lg+), Review with its due-count badge,
+ * theme, and two shortcuts — progress and settings. The rest of the
+ * product lives in the sidebar. Sign out lives with the account section.
  *
  * Signed out there is no sidebar, so the marketing nav stays here in full.
  */
